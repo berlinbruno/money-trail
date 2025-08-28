@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "check": "npm run lint && npm run type-check && npm run format:check && npx expo install --check",
     "android": "expo start --android",
     "test": "jest --watchAll",
     "lint": "expo lint",
@@ -30,7 +31,7 @@
     "expo-web-browser": "~14.2.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "react-native": "0.79.6",
+    "react-native": "0.79.5",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",

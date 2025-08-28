@@ -1,7 +1,10 @@
-name: CI Dev (Lint + Preview Build)
+name: CI (Lint + Preview Build)
 
 on:
   push:
+    branches:
+      - dev
+  pull_request:
     branches:
       - dev
 
@@ -19,6 +22,12 @@ jobs:
 
       - name: Install deps
         run: npm ci
+
+      - name: Check Expo dependencies
+        run: npx expo install --check
+
+      - name: Run Prettier check
+        run: npm run format:check
 
       - name: Run lint
         run: npm run lint
@@ -49,17 +58,21 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas build --profile preview --platform android --non-interactive --wait
 
-      # ✅ Download the built APK from EAS
+      # ✅ Dynamic file name: <app-name>-preview-<version>.apk
       - name: Download build artifact from EAS
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
+          APP_NAME=$(node -p "require('./app.json').expo.name")
+          APP_VERSION=$(node -p "require('./package.json').version")
           BUILD_URL=$(eas build:list --limit 1 --json | jq -r '.[0].artifacts.buildUrl')
-          echo "Downloading from $BUILD_URL"
-          curl -L -o preview.apk "$BUILD_URL"
+          FILENAME="${APP_NAME}-preview-${APP_VERSION}.apk"
+          echo "Downloading $FILENAME from $BUILD_URL"
+          curl -L -o "$FILENAME" "$BUILD_URL"
+          echo "APK_NAME=$FILENAME" >> $GITHUB_ENV
 
       - name: Upload Preview APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: preview-apk
-          path: preview.apk
+          name: ${{ env.APK_NAME }}
+          path: ${{ env.APK_NAME }}

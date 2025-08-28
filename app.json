@@ -8,9 +8,7 @@
     "scheme": "moneytrail",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "platforms": [
-      "android"
-    ],
+    "platforms": ["android"],
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -24,9 +22,7 @@
       "edgeToEdgeEnabled": true,
       "package": "com.berlinbruno.moneytrail"
     },
-    "plugins": [
-      "expo-router"
-    ],
+    "plugins": ["expo-router"],
     "experiments": {
       "typedRoutes": true
     },
@@ -36,12 +32,6 @@
         "projectId": "3db611de-fc9c-4391-b05e-385165d8dce4"
       }
     },
-    "owner": "berlinbruno",
-    "ios": {
-      "bundleIdentifier": "com.berlinbruno.moneytrail",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
-    }
+    "owner": "berlinbruno"
   }
 }
