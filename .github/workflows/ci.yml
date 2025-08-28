@@ -58,19 +58,30 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas build --profile preview --platform android --non-interactive --wait
 
-      # ✅ Dynamic file name: <app-name>-preview-<version>.apk
-      - name: Download build artifact from EAS
+      # ✅ Step 1: Get latest finished Android build URL
+      - name: Get latest finished Android build URL
+        id: get-url
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
+          BUILD_URL=$(eas build:list --platform android --status finished --limit 1 --json | jq -r '.[0].artifacts.buildUrl')
+          if [ -z "$BUILD_URL" ] || [ "$BUILD_URL" = "null" ]; then
+            echo "No finished builds found!"
+            exit 1
+          fi
+          echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
+
+      # ✅ Step 2: Download APK with dynamic name <app-name>-preview-<version>.apk
+      - name: Download APK
+        run: |
           APP_NAME=$(node -p "require('./app.json').expo.name")
           APP_VERSION=$(node -p "require('./package.json').version")
-          BUILD_URL=$(eas build:list --limit 1 --json | jq -r '.[0].artifacts.buildUrl')
-          FILENAME="${APP_NAME}-preview-${APP_VERSION}.apk"
-          echo "Downloading $FILENAME from $BUILD_URL"
-          curl -L -o "$FILENAME" "$BUILD_URL"
-          echo "APK_NAME=$FILENAME" >> $GITHUB_ENV
+          FILE_NAME="${APP_NAME}-preview-${APP_VERSION}.apk"
+          echo "Downloading $FILE_NAME from ${{ steps.get-url.outputs.build_url }}"
+          curl -L -o "$FILE_NAME" "${{ steps.get-url.outputs.build_url }}"
+          echo "APK_NAME=$FILE_NAME" >> $GITHUB_ENV
 
+      # ✅ Step 3: Upload artifact
       - name: Upload Preview APK Artifact
         uses: actions/upload-artifact@v4
         with:
