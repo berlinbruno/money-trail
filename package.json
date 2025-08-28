@@ -4,13 +4,13 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-    "check": "npm run lint && npm run type-check && npm run format:check && npx expo install --check",
     "android": "expo start --android",
-    "test": "jest --watchAll",
-    "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
+    "check": "npm run lint && npm run type-check && npm run format:check && npx expo install --check",
+    "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier --check \"**/*.{js,jsx,ts,tsx,json}\"",
     "type-check": "tsc --noEmit",
-    "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
+    "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier --write \"**/*.{js,jsx,ts,tsx,json}\"",
     "format:check": "prettier --check .",
+    "test": "jest --watchAll",
     "build:apk:local": "eas build --platform android --profile production --non-interactive --output-dir dist",
     "build:preview": "eas build --profile preview --platform all",
     "build:dev": "eas build --profile development --platform all"
