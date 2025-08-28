@@ -21,7 +21,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.berlinbruno.moneytrail"
     },
     "plugins": [
       "expo-router"
@@ -35,6 +36,12 @@
         "projectId": "3db611de-fc9c-4391-b05e-385165d8dce4"
       }
     },
-    "owner": "berlinbruno"
+    "owner": "berlinbruno",
+    "ios": {
+      "bundleIdentifier": "com.berlinbruno.moneytrail",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
   }
 }
