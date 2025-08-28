@@ -1,0 +1,57 @@
+name: CI Dev (Lint + Preview Build)
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  lint-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+  preview-build:
+    needs: lint-and-validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Expo CLI
+        run: npm install -g eas-cli
+
+      - name: Authenticate with Expo
+        run: eas whoami || eas login --token ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build preview (Android)
+        run: eas build --profile preview --platform android --non-interactive --output-dir dist
+
+      - name: Upload Preview APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-apk
+          path: dist/*.apk
