@@ -44,14 +44,22 @@ jobs:
       - name: Install Expo CLI
         run: npm install -g eas-cli
 
-      # ✅ No login step, just export EXPO_TOKEN
       - name: Build preview (Android)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas build --profile preview --platform android --non-interactive --output-dir dist
+        run: eas build --profile preview --platform android --non-interactive --wait
+
+      # ✅ Download the built APK from EAS
+      - name: Download build artifact from EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          BUILD_URL=$(eas build:list --limit 1 --json | jq -r '.[0].artifacts.buildUrl')
+          echo "Downloading from $BUILD_URL"
+          curl -L -o preview.apk "$BUILD_URL"
 
       - name: Upload Preview APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: preview-apk
-          path: dist/*.apk
+          path: preview.apk
