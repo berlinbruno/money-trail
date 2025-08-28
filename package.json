@@ -7,6 +7,7 @@
     "android": "expo start --android",
     "test": "jest --watchAll",
     "lint": "expo lint",
+    "type-check": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "build:apk:local": "eas build --platform android --profile production --non-interactive --output-dir dist",
