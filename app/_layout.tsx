@@ -13,7 +13,7 @@ import { verifyInstallation } from 'nativewind';
 import '../global.css';
 export {
   // Catch any errors thrown by the Layout component.
-  ErrorBoundary
+  ErrorBoundary,
 } from 'expo-router';
 
 const LIGHT_THEME: Theme = {
@@ -62,7 +62,7 @@ function RootLayoutNav() {
   verifyInstallation();
   return (
     <ThemeProvider value={isDarkColorScheme ? DARK_THEME : LIGHT_THEME}>
-        <StatusBar style={isDarkColorScheme ? 'light' : 'dark'} />
+      <StatusBar style={isDarkColorScheme ? 'light' : 'dark'} />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
