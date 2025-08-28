@@ -26,7 +26,9 @@ jobs:
         run: npm install -g eas-cli
 
       - name: Authenticate with Expo
-        run: eas whoami || eas login --token ${{ secrets.EXPO_TOKEN }}
+        run: eas whoami
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Semantic Release
         env:
@@ -35,6 +37,8 @@ jobs:
 
       - name: Build Production (Android)
         run: eas build --profile production --platform android --non-interactive --output-dir dist
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Upload Production APK to GitHub Release
         uses: softprops/action-gh-release@v2
