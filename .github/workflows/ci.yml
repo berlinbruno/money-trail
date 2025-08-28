@@ -51,7 +51,7 @@ jobs:
         run: npm ci
 
       - name: Install Expo CLI
-        run: npm install -g eas-cli
+        run: npm install -g eas-cli@latest
 
       - name: Build preview (Android)
         env:
