@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      HUSKY: 0   # 🚀 disable husky globally for CI
+      HUSKY: 0 # 🚀 disable husky globally for CI
 
     steps:
       - name: Checkout Code
