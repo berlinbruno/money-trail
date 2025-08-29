@@ -3,7 +3,7 @@ import { Text, TouchableOpacity, View } from 'react-native';
 
 export default function App() {
   return (
-    <View className="flex-1 items-center justify-center bg-gray-100">
+    <View className="flex-1 items-center justify-center bg-background">
       <StatusBar style="auto" />
       <Text className="mb-4 text-2xl font-bold text-blue-600">Welcome to Expo + Tailwind!</Text>
       <TouchableOpacity
