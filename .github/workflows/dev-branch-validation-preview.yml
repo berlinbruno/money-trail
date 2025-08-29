@@ -1,4 +1,4 @@
-name: Dev Branch CI & Preview Build
+name: Dev Branch Validation & Android Preview Build
 
 on:
   push:
@@ -9,91 +9,91 @@ on:
       - dev
 
 jobs:
-  dev-lint-and-validate:
+  dev-validation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js (Dev)
+      - name: Setup Node.js (Dev Validation)
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - name: Cache npm dependencies (Dev)
+      - name: Cache npm dependencies (Dev Validation)
         uses: actions/cache@v4
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-      - name: Install npm dependencies (Dev)
+      - name: Install npm dependencies (Dev Validation)
         run: npm ci
-      - name: Check Expo dependencies (Dev)
+      - name: Check Expo dependencies (Dev Validation)
         run: npx expo install --check
-      - name: Run ESLint (Dev)
+      - name: Run ESLint (Dev Validation)
         run: npm run lint
-      - name: Run TypeScript type-check (Dev)
+      - name: Run TypeScript type-check (Dev Validation)
         run: npm run type-check
 
-  dev-test:
+  dev-unit-test:
     runs-on: ubuntu-latest
-    needs: dev-lint-and-validate
+    needs: dev-validation
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js (Dev Test)
+      - name: Setup Node.js (Dev Unit Test)
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - name: Cache npm dependencies (Dev Test)
+      - name: Cache npm dependencies (Dev Unit Test)
         uses: actions/cache@v4
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-      - name: Install npm dependencies (Dev Test)
+      - name: Install npm dependencies (Dev Unit Test)
         run: npm ci
-      - name: Run Jest/Unit Tests (Dev)
+      - name: Run Jest/Unit Tests (Dev Unit Test)
         run: npm test
-      - name: Upload test logs (Dev)
+      - name: Upload test logs (Dev Unit Test)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: test-logs
           path: test-results/*
 
-  dev-preview-build:
+  dev-android-preview-build:
     runs-on: ubuntu-latest
-    needs: [dev-lint-and-validate, dev-test]
+    needs: [dev-validation, dev-unit-test]
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js (Dev Preview)
+      - name: Setup Node.js (Dev Android Preview)
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - name: Cache npm dependencies (Dev Preview)
+      - name: Cache npm dependencies (Dev Android Preview)
         uses: actions/cache@v4
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-      - name: Install npm dependencies (Dev Preview)
+      - name: Install npm dependencies (Dev Android Preview)
         run: npm ci
-      - name: Install Expo CLI (Dev Preview)
+      - name: Install Expo CLI (Dev Android Preview)
         run: npm install -g eas-cli@latest
-      - name: Build Android Preview APK (Dev)
+      - name: Build Android Preview APK (Dev Android Preview)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas build --profile preview --platform android --non-interactive --wait
-      - name: Upload build logs (Dev Preview)
+      - name: Upload build logs (Dev Android Preview)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
           path: ./**/eas-build/logs/*
-      - name: Get latest finished Android build URL (Dev Preview)
+      - name: Get latest finished Android build URL (Dev Android Preview)
         id: get-url
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -104,7 +104,7 @@ jobs:
             exit 1
           fi
           echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
-      - name: Download Android Preview APK (Dev)
+      - name: Download Android Preview APK (Dev Android Preview)
         id: download-apk
         run: |
           APP_NAME=$(node -p "require('./app.json').expo.name")
@@ -113,7 +113,7 @@ jobs:
           echo "Downloading $FILE_NAME from ${{ steps.get-url.outputs.build_url }}"
           curl -L -o "$FILE_NAME" "${{ steps.get-url.outputs.build_url }}"
           echo "apk_name=$FILE_NAME" >> $GITHUB_OUTPUT
-      - name: Upload Android Preview APK Artifact (Dev)
+      - name: Upload Android Preview APK Artifact (Dev Android Preview)
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.download-apk.outputs.apk_name }}
