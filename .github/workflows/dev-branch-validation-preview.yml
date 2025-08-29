@@ -1,0 +1,130 @@
+name: Dev Branch Validation & Android Preview Build
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  dev-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js (Dev Validation)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Cache npm dependencies (Dev Validation)
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: Install npm dependencies (Dev Validation)
+        run: npm ci
+      - name: Check Expo dependencies (Dev Validation)
+        run: npx expo install --check
+      - name: Run ESLint (Dev Validation)
+        run: npm run lint
+      - name: Run TypeScript type-check (Dev Validation)
+        run: npm run type-check
+
+  dev-unit-test:
+    runs-on: ubuntu-latest
+    needs: dev-validation
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js (Dev Unit Test)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Cache npm dependencies (Dev Unit Test)
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: Install npm dependencies (Dev Unit Test)
+        run: npm ci
+      - name: Check for Jest test files
+        id: check-tests
+        run: |
+          TEST_COUNT=$(find . -type f -regex ".*\.(test|spec)\.(js|jsx|ts|tsx)$" | wc -l)
+          echo "Found $TEST_COUNT test files."
+          echo "test_count=$TEST_COUNT" >> $GITHUB_OUTPUT
+      - name: Run Jest/Unit Tests (Dev Unit Test)
+        if: steps.check-tests.outputs.test_count != '0'
+        run: npm test
+      - name: Skip tests (no test files found)
+        if: steps.check-tests.outputs.test_count == '0'
+        run: echo "No test files found, skipping tests."
+      - name: Upload test logs (Dev Unit Test)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: test-results/*
+
+  dev-android-preview-build:
+    runs-on: ubuntu-latest
+    needs: [dev-validation, dev-unit-test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js (Dev Android Preview)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Cache npm dependencies (Dev Android Preview)
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: Install npm dependencies (Dev Android Preview)
+        run: npm ci
+      - name: Install Expo CLI (Dev Android Preview)
+        run: npm install -g eas-cli@latest
+      - name: Build Android Preview APK (Dev Android Preview)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --profile preview --platform android --non-interactive --wait
+      - name: Upload build logs (Dev Android Preview)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: ./**/eas-build/logs/*
+      - name: Get latest finished Android build URL (Dev Android Preview)
+        id: get-url
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          BUILD_URL=$(eas build:list --platform android --status finished --limit 1 --json  --non-interactive | jq -r '.[0].artifacts.buildUrl')
+          if [ -z "$BUILD_URL" ] || [ "$BUILD_URL" = "null" ]; then
+            echo "No finished builds found!"
+            exit 1
+          fi
+          echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
+      - name: Download Android Preview APK (Dev Android Preview)
+        id: download-apk
+        run: |
+          APP_NAME=$(node -p "require('./app.json').expo.name")
+          APP_VERSION=$(node -p "require('./package.json').version")
+          FILE_NAME="${APP_NAME}-preview-${APP_VERSION}.apk"
+          echo "Downloading $FILE_NAME from ${{ steps.get-url.outputs.build_url }}"
+          curl -L -o "$FILE_NAME" "${{ steps.get-url.outputs.build_url }}"
+          echo "apk_name=$FILE_NAME" >> $GITHUB_OUTPUT
+      - name: Upload Android Preview APK Artifact (Dev Android Preview)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.download-apk.outputs.apk_name }}
+          path: ${{ steps.download-apk.outputs.apk_name }}
