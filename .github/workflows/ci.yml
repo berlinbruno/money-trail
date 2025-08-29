@@ -64,7 +64,7 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          BUILD_URL=$(eas build:list --platform android --status finished --limit 1 --json | jq -r '.[0].artifacts.buildUrl')
+          BUILD_URL=$(eas build:list --platform android --status finished --limit 1 --json  --non-interactive | jq -r '.[0].artifacts.buildUrl')
           if [ -z "$BUILD_URL" ] || [ "$BUILD_URL" = "null" ]; then
             echo "No finished builds found!"
             exit 1
