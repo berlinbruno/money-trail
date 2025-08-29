@@ -25,18 +25,20 @@ jobs:
       - name: Install Expo CLI
         run: npm install -g eas-cli@latest
 
+      # ✅ Step 1: Semantic Release
       - name: Semantic Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx semantic-release
 
-      # ✅ Step 1: Build Production (Android)
+      # ✅ Step 2: Build Production APK
       - name: Build Production (Android)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas build --profile production --platform android --non-interactive --wait
 
-      # ✅ Step 2: Get latest finished Production build URL
+      # ✅ Step 3: Get latest finished Production build URL
       - name: Get latest finished Production build URL
         id: get-url
         env:
@@ -49,7 +51,7 @@ jobs:
           fi
           echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
 
-      # ✅ Step 3: Download Production APK with dynamic name
+      # ✅ Step 4: Download Production APK
       - name: Download Production APK
         run: |
           APP_NAME=$(node -p "require('./app.json').expo.name")
@@ -59,17 +61,9 @@ jobs:
           curl -L -o "$FILE_NAME" "${{ steps.get-url.outputs.build_url }}"
           echo "APK_NAME=$FILE_NAME" >> $GITHUB_ENV
 
-      # ✅ Step 4: Upload Production APK as artifact
+      # ✅ Step 5: Upload APK as GitHub Actions artifact
       - name: Upload Production APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: '${{ env.APK_NAME }}'
-          path: '${{ env.APK_NAME }}'
-
-      # ✅ Optional: Attach APK to GitHub Release
-      - name: Upload Production APK to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: '${{ env.APK_NAME }}'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: "${{ env.APK_NAME }}"
+          path: "${{ env.APK_NAME }}"
