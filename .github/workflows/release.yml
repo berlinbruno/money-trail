@@ -25,8 +25,9 @@ jobs:
       - name: Install Expo CLI
         run: npm install -g eas-cli@latest
 
-      # ✅ Step 1: Semantic Release
+      # ✅ Step 1: Semantic Release (creates GitHub Release + notes, but no assets)
       - name: Semantic Release
+        id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -56,14 +57,20 @@ jobs:
         run: |
           APP_NAME=$(node -p "require('./app.json').expo.name")
           APP_VERSION=$(node -p "require('./package.json').version")
-          FILE_NAME="${APP_NAME}-production-${APP_VERSION}.apk"
+          FILE_NAME="${APP_NAME}-${APP_VERSION}.apk"
           echo "Downloading $FILE_NAME from ${{ steps.get-url.outputs.build_url }}"
           curl -L -o "$FILE_NAME" "${{ steps.get-url.outputs.build_url }}"
           echo "APK_NAME=$FILE_NAME" >> $GITHUB_ENV
 
-      # ✅ Step 5: Upload APK as GitHub Actions artifact
-      - name: Upload Production APK Artifact
-        uses: actions/upload-artifact@v4
+      # ✅ Step 5: Upload APK to GitHub Release
+      - name: Get Latest Tag
+        id: get_tag
+        run: echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
+
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: '${{ env.APK_NAME }}'
-          path: '${{ env.APK_NAME }}'
+          files: ${{ env.APK_NAME }}
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
