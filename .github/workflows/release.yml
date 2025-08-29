@@ -57,7 +57,7 @@ jobs:
         run: |
           APP_NAME=$(node -p "require('./app.json').expo.name")
           APP_VERSION=$(node -p "require('./package.json').version")
-          FILE_NAME="${APP_NAME}-production-${APP_VERSION}.apk"
+          FILE_NAME="${APP_NAME}-${APP_VERSION}.apk"
           echo "Downloading $FILE_NAME from ${{ steps.get-url.outputs.build_url }}"
           curl -L -o "$FILE_NAME" "${{ steps.get-url.outputs.build_url }}"
           echo "APK_NAME=$FILE_NAME" >> $GITHUB_ENV
