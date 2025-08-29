@@ -53,8 +53,18 @@ jobs:
             ${{ runner.os }}-node-
       - name: Install npm dependencies (Dev Unit Test)
         run: npm ci
+      - name: Check for Jest test files
+        id: check-tests
+        run: |
+          TEST_COUNT=$(find . -type f -regex ".*\.(test|spec)\.(js|jsx|ts|tsx)$" | wc -l)
+          echo "Found $TEST_COUNT test files."
+          echo "test_count=$TEST_COUNT" >> $GITHUB_OUTPUT
       - name: Run Jest/Unit Tests (Dev Unit Test)
+        if: steps.check-tests.outputs.test_count != '0'
         run: npm test
+      - name: Skip tests (no test files found)
+        if: steps.check-tests.outputs.test_count == '0'
+        run: echo "No test files found, skipping tests."
       - name: Upload test logs (Dev Unit Test)
         if: failure()
         uses: actions/upload-artifact@v4
