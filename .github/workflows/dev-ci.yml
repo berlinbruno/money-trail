@@ -1,0 +1,120 @@
+name: Dev Branch CI & Preview Build
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  dev-lint-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js (Dev)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Cache npm dependencies (Dev)
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: Install npm dependencies (Dev)
+        run: npm ci
+      - name: Check Expo dependencies (Dev)
+        run: npx expo install --check
+      - name: Run ESLint (Dev)
+        run: npm run lint
+      - name: Run TypeScript type-check (Dev)
+        run: npm run type-check
+
+  dev-test:
+    runs-on: ubuntu-latest
+    needs: dev-lint-and-validate
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js (Dev Test)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Cache npm dependencies (Dev Test)
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: Install npm dependencies (Dev Test)
+        run: npm ci
+      - name: Run Jest/Unit Tests (Dev)
+        run: npm test
+      - name: Upload test logs (Dev)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: test-results/*
+
+  dev-preview-build:
+    runs-on: ubuntu-latest
+    needs: [dev-lint-and-validate, dev-test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js (Dev Preview)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Cache npm dependencies (Dev Preview)
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: Install npm dependencies (Dev Preview)
+        run: npm ci
+      - name: Install Expo CLI (Dev Preview)
+        run: npm install -g eas-cli@latest
+      - name: Build Android Preview APK (Dev)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --profile preview --platform android --non-interactive --wait
+      - name: Upload build logs (Dev Preview)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: ./**/eas-build/logs/*
+      - name: Get latest finished Android build URL (Dev Preview)
+        id: get-url
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          BUILD_URL=$(eas build:list --platform android --status finished --limit 1 --json  --non-interactive | jq -r '.[0].artifacts.buildUrl')
+          if [ -z "$BUILD_URL" ] || [ "$BUILD_URL" = "null" ]; then
+            echo "No finished builds found!"
+            exit 1
+          fi
+          echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
+      - name: Download Android Preview APK (Dev)
+        id: download-apk
+        run: |
+          APP_NAME=$(node -p "require('./app.json').expo.name")
+          APP_VERSION=$(node -p "require('./package.json').version")
+          FILE_NAME="${APP_NAME}-preview-${APP_VERSION}.apk"
+          echo "Downloading $FILE_NAME from ${{ steps.get-url.outputs.build_url }}"
+          curl -L -o "$FILE_NAME" "${{ steps.get-url.outputs.build_url }}"
+          echo "apk_name=$FILE_NAME" >> $GITHUB_OUTPUT
+      - name: Upload Android Preview APK Artifact (Dev)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.download-apk.outputs.apk_name }}
+          path: ${{ steps.download-apk.outputs.apk_name }}

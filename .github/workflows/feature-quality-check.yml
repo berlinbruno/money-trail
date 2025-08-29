@@ -1,4 +1,8 @@
-name: Feature Branch Checks
+# Feature Branch Quality Checks Workflow
+# Renamed from feature-check.yml for clarity and consistency
+# Place this file in .github/workflows/feature-quality-check.yml
+
+name: Feature Branch Quality Checks
 
 on:
   push:
@@ -9,41 +13,29 @@ on:
       - 'feature/**'
 
 jobs:
-  checks:
+  feature-quality-checks:
     runs-on: ubuntu-latest
-
     env:
       HUSKY: 0 # 🚀 disable husky globally for CI
-
     steps:
-      - name: Checkout Code
+      - name: Checkout Feature Branch Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup Node
+      - name: Setup Node.js (Feature)
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      - name: Install Dependencies
+      - name: Install npm dependencies (Feature)
         run: npm ci
-
-      # ✅ Lint
-      - name: Run ESLint
+      - name: Run ESLint (Feature)
         run: npm run lint
-
-      # ✅ Format Check
-      - name: Run Prettier Check
+      - name: Run Prettier Format Check (Feature)
         run: npm run format:check
-
-      # ✅ Type Check
-      - name: Run TypeScript Check
+      - name: Run TypeScript Type Check (Feature)
         run: npm run type-check
-
-      # ✅ Commit Message Lint
-      - name: Validate Commit Messages
+      - name: Validate Commit Messages (Feature)
         uses: wagoid/commitlint-github-action@v6
         with:
           configFile: .commitlintrc.json

@@ -1,46 +1,45 @@
-name: Release (Production Build)
+# Master Branch Release & Production Build Workflow
+# Renamed from release.yml for clarity and consistency
+# Place this file in .github/workflows/master-release-production.yml
+
+name: Master Branch Release & Production Build
 
 on:
   push:
     branches:
       - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
-  release:
+  master-release-production:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Master Branch Code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup Node
+      - name: Setup Node.js (Master Release)
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      - name: Install deps
+      - name: Install npm dependencies (Master Release)
         run: npm ci
-
-      - name: Install Expo CLI
+      - name: Install Expo CLI (Master Release)
         run: npm install -g eas-cli@latest
-
-      # ✅ Step 1: Semantic Release (creates GitHub Release + notes, but no assets)
-      - name: Semantic Release
+      - name: Run Semantic Release (Master)
         id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx semantic-release
-
-      # ✅ Step 2: Build Production APK
-      - name: Build Production (Android)
+      - name: Build Android Production APK (Master)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas build --profile production --platform android --non-interactive --wait
-
-      # ✅ Step 3: Get latest finished Production build URL
-      - name: Get latest finished Production build URL
+      - name: Get Latest Finished Android Production Build URL (Master)
         id: get-url
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -51,26 +50,22 @@ jobs:
             exit 1
           fi
           echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
-
-      # ✅ Step 4: Download Production APK
-      - name: Download Production APK
+      - name: Download Android Production APK (Master)
+        id: download-apk
         run: |
           APP_NAME=$(node -p "require('./app.json').expo.name")
           APP_VERSION=$(node -p "require('./package.json').version")
           FILE_NAME="${APP_NAME}-${APP_VERSION}.apk"
           echo "Downloading $FILE_NAME from ${{ steps.get-url.outputs.build_url }}"
           curl -L -o "$FILE_NAME" "${{ steps.get-url.outputs.build_url }}"
-          echo "APK_NAME=$FILE_NAME" >> $GITHUB_ENV
-
-      # ✅ Step 5: Upload APK to GitHub Release
-      - name: Get Latest Tag
+          echo "apk_name=$FILE_NAME" >> $GITHUB_OUTPUT
+      - name: Get Latest Tag (Master)
         id: get_tag
         run: echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
-
-      - name: Upload APK to GitHub Release
+      - name: Upload Android Production APK to GitHub Release (Master)
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.APK_NAME }}
+          files: ${{ steps.download-apk.outputs.apk_name }}
           tag_name: ${{ steps.get_tag.outputs.tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
