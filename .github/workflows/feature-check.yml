@@ -1,0 +1,49 @@
+name: Feature Branch Checks
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+  pull_request:
+    branches:
+      - 'feature/**'
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    env:
+      HUSKY: 0 # 🚀 disable husky globally for CI
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # ✅ Lint
+      - name: Run ESLint
+        run: npm run lint
+
+      # ✅ Format Check
+      - name: Run Prettier Check
+        run: npm run format:check
+
+      # ✅ Type Check
+      - name: Run TypeScript Check
+        run: npm run type-check
+
+      # ✅ Commit Message Lint
+      - name: Validate Commit Messages
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .commitlintrc.json
