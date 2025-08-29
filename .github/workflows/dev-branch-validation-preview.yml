@@ -1,15 +1,15 @@
 name: Dev Branch Validation & Android Preview Build
 
 on:
-  push:
-    branches:
-      - dev
   pull_request:
+    types:
+      - closed
     branches:
       - dev
 
 jobs:
   dev-validation:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +35,7 @@ jobs:
         run: npm run type-check
 
   dev-unit-test:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     needs: dev-validation
     steps:
@@ -73,6 +74,7 @@ jobs:
           path: test-results/*
 
   dev-android-preview-build:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     needs: [dev-validation, dev-unit-test]
     steps:

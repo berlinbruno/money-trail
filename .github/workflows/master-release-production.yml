@@ -5,15 +5,15 @@
 name: Master Branch Release & Production Build
 
 on:
-  push:
-    branches:
-      - master
   pull_request:
+    types:
+      - closed
     branches:
       - master
 
 jobs:
   master-release-production:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Master Branch Code
