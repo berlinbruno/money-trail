@@ -1,20 +1,24 @@
 // https://docs.expo.dev/guides/using-eslint/
 const { defineConfig } = require('eslint/config');
-const expoConfig = require("eslint-config-expo/flat");
+const expoConfig = require('eslint-config-expo/flat');
 
 module.exports = defineConfig([
   expoConfig,
   {
+    plugins: {
+      'react-native': require('eslint-plugin-react-native'),
+    },
     ignores: [
-      'dist/**',     // built APKs, bundles
-      '.expo/**',    // local expo build cache
+      'dist/**', // built APKs, bundles
+      '.expo/**', // local expo build cache
       'node_modules/**',
     ],
     rules: {
-      'no-console': 'warn',   // or 'error' if you want stricter builds
+      'no-console': 'warn', // or 'error' if you want stricter builds
       'react-native/no-unused-styles': 'warn',
       'react-native/split-platform-components': 'warn',
       'react-native/no-inline-styles': 'off',
+      'react/display-name': 'off',
     },
-  }
+  },
 ]);

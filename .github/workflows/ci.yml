@@ -1,0 +1,89 @@
+name: CI (Lint + Preview Build)
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  lint-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Check Expo dependencies
+        run: npx expo install --check
+
+      - name: Run Prettier check
+        run: npm run format:check
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+  preview-build:
+    needs: lint-and-validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Expo CLI
+        run: npm install -g eas-cli@latest
+
+      - name: Build preview (Android)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --profile preview --platform android --non-interactive --wait
+
+      # ✅ Step 1: Get latest finished Android build URL
+      - name: Get latest finished Android build URL
+        id: get-url
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          BUILD_URL=$(eas build:list --platform android --status finished --limit 1 --json  --non-interactive | jq -r '.[0].artifacts.buildUrl')
+          if [ -z "$BUILD_URL" ] || [ "$BUILD_URL" = "null" ]; then
+            echo "No finished builds found!"
+            exit 1
+          fi
+          echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
+
+      # ✅ Step 2: Download APK with dynamic name <app-name>-preview-<version>.apk
+      - name: Download APK
+        run: |
+          APP_NAME=$(node -p "require('./app.json').expo.name")
+          APP_VERSION=$(node -p "require('./package.json').version")
+          FILE_NAME="${APP_NAME}-preview-${APP_VERSION}.apk"
+          echo "Downloading $FILE_NAME from ${{ steps.get-url.outputs.build_url }}"
+          curl -L -o "$FILE_NAME" "${{ steps.get-url.outputs.build_url }}"
+          echo "APK_NAME=$FILE_NAME" >> $GITHUB_ENV
+
+      # ✅ Step 3: Upload artifact
+      - name: Upload Preview APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_NAME }}
+          path: ${{ env.APK_NAME }}

@@ -19,11 +19,19 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.berlinbruno.moneytrail"
     },
     "plugins": ["expo-router"],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3db611de-fc9c-4391-b05e-385165d8dce4"
+      }
+    },
+    "owner": "berlinbruno"
   }
 }
