@@ -12,9 +12,9 @@
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx}\"",
     "test": "jest --watchAll",
-    "build:apk:dev": "eas build --profile development --platform android --non-interactive",
-    "build:apk:preview": "eas build --profile preview --platform android --non-interactive",
-    "build:apk:production": "eas build --profile production --platform android --non-interactive",
+    "build:dev": "eas build --profile development --platform android --non-interactive",
+    "build:preview": "eas build --profile preview --platform android --non-interactive",
+    "build:production": "eas build --profile production --platform android --non-interactive",
     "prepare": "is-ci || husky install"
   },
   "jest": {
