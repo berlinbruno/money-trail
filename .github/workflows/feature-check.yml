@@ -12,6 +12,9 @@ jobs:
   checks:
     runs-on: ubuntu-latest
 
+    env:
+      HUSKY: 0   # 🚀 disable husky globally for CI
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -26,8 +29,6 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
-        env:
-          HUSKY: 0 # 🚀 Disable husky in CI
 
       # ✅ Lint
       - name: Run ESLint
