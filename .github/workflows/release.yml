@@ -63,9 +63,14 @@ jobs:
           echo "APK_NAME=$FILE_NAME" >> $GITHUB_ENV
 
       # ✅ Step 5: Upload APK to GitHub Release
+      - name: Get Latest Tag
+        id: get_tag
+        run: echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
+
       - name: Upload APK to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.APK_NAME }}
+          tag_name: ${{ steps.get_tag.outputs.tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
