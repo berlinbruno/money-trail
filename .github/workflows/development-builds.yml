@@ -42,7 +42,7 @@ jobs:
 
       - name: Install Project Dependencies and EAS CLI
         run: |
-          npm install --no-package-lock --prefer-offline --no-audit --progress=false
+          npm install --prefer-offline --no-audit --progress=false
           npm install -g eas-cli@latest
 
       - name: Cache EAS Build Artifacts

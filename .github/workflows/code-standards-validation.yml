@@ -38,7 +38,7 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Install Project Dependencies
-        run: npm install --no-package-lock --prefer-offline --no-audit --progress=false
+        run: npm install --prefer-offline --no-audit --progress=false
 
       - name: Run ESLint Linting
         run: npm run lint

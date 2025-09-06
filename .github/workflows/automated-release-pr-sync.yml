@@ -33,7 +33,7 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Install Project Dependencies
-        run: npm install --no-package-lock --prefer-offline --no-audit --progress=false
+        run: npm install --prefer-offline --no-audit --progress=false
 
       - name: Run Semantic Release
         run: npx semantic-release
