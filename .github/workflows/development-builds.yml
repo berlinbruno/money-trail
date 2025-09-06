@@ -1,12 +1,13 @@
 name: Development Builds
 
 on:
-  push:
-    branches: [develop]
-    paths-ignore:
-      - '**.md'
-      - 'LICENSE'
-      - 'docs/**'
+  # push:
+  #   branches: [develop]
+  #   paths-ignore:
+  #     - '**.md'
+  #     - 'LICENSE'
+  #     - 'docs/**'
+  workflow_dispatch:
 
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
