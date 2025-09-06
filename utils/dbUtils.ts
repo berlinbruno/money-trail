@@ -19,6 +19,8 @@ export function getDateFormat(frequency: AlertFrequency): string {
 
 export function getDateCondition(period: Period): string {
   switch (period) {
+    case 'Daily':
+      return `strftime('%Y-%m-%d', date) = strftime('%Y-%m-%d', 'now')`;
     case 'Weekly':
       return `strftime('%Y-%W', date) = strftime('%Y-%W', 'now')`;
     case 'Monthly':

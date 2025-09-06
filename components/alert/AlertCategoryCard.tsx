@@ -2,6 +2,7 @@ import { TRANSACTION_CATEGORIES } from '@/constants/transactionConstants';
 import { Alert } from '@/types/Alert';
 import { IAlertRow } from '@/types/Common';
 import { TransactionCategory } from '@/types/Transaction';
+import { formatAmount } from '@/utils/formatters';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
@@ -65,7 +66,7 @@ export default function AlertCategoryCard({
           <CardHeader className="p-0">
             <CardTitle>{label}</CardTitle>
             <CardDescription>
-              ₹{totalCurrentValue} / ₹{totalThreshold}
+              {formatAmount(totalCurrentValue)} / {formatAmount(totalThreshold)}
             </CardDescription>
             <View className="pb-3">
               <View style={{ height: 8, backgroundColor: '#eee', borderRadius: 4 }}>
@@ -107,8 +108,9 @@ export default function AlertCategoryCard({
             </View>
           )}
           renderHiddenItem={({ item }: { item: IAlertRow }) => (
-            <View style={{ flex: 1 }} className="mb-2 h-full flex-row items-start justify-end">
+            <View className="m-1 h-28 flex-row items-start justify-end">
               <Button
+                variant={'default'}
                 size={null}
                 className="h-full w-20 rounded-none"
                 onPress={() => onEditAlert(item as any, getAvailableCategories())}>

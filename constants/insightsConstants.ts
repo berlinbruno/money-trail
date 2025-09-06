@@ -5,26 +5,19 @@
 import { Dimensions } from 'react-native';
 
 // Range options for data aggregation
-export const RANGE_OPTIONS = ['Weekly', 'Monthly', 'Yearly'] as const;
+export const RANGE_OPTIONS = ['Daily', 'Weekly', 'Monthly', 'Yearly'] as const;
 
 // Data segments for visualizations
 export const SEGMENTS = ['Income', 'Expense', 'Saving'] as const;
 
-// Color scheme for bar charts
-export const BAR_COLORS = {
-  income: '#007AFF',
-  expense: '#FF3B30',
-  saving: '#34C759',
-};
-
-// Color scheme for trend lines
+// Color scheme for charts
 export const TREND_COLORS = {
-  income: '#007AFF',
+  income: '#34C759',
   expense: '#FF3B30',
-  saving: '#34C759',
-  prevIncome: '#8a56ce',
+  saving: '#007AFF',
+  prevIncome: '#FF9500',
   prevExpense: '#56acce',
-  prevSaving: '#FF9500',
+  prevSaving: '#8a56ce',
 };
 
 // Labels for trend legends

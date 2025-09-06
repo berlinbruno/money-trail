@@ -53,6 +53,7 @@ export default function InsightsScreen() {
         insightsSummary: summary,
         timeSeriesData: (() => {
           const updated: insightsDataset = {
+            Daily: prev.timeSeriesData?.Daily ?? transformTimeSeries([]),
             Weekly: prev.timeSeriesData?.Weekly ?? transformTimeSeries([]),
             Monthly: prev.timeSeriesData?.Monthly ?? transformTimeSeries([]),
             Yearly: prev.timeSeriesData?.Yearly ?? transformTimeSeries([]),
@@ -112,7 +113,7 @@ export default function InsightsScreen() {
         backgroundColor={theme.colors.background}
         fontStyle={{ color: theme.colors.text }}
         activeFontStyle={{
-          color: theme.dark ? '#000' : '#fff',
+          color: theme.dark ? theme.colors.background : theme.colors.primary,
           fontWeight: '600',
         }}
       />

@@ -8,6 +8,8 @@ import {
 } from '@/types/Alert';
 import { TransactionCategory } from '@/types/Transaction';
 import { capitalizeFirstLetter } from '@/utils/formatters';
+import { useTheme } from '@react-navigation/native';
+import { Loader2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { Button } from '../ui/button';
@@ -31,12 +33,17 @@ const AlertForm: React.FC<AlertFormProps> = ({
   onClose,
 }) => {
   const isEditMode = Boolean(alert);
+  const theme = useTheme();
 
   const [threshold, setThreshold] = useState('');
   const [category, setCategory] = useState<TransactionCategory>(availableCategories[0] || 'Other');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Sync defaults
   useEffect(() => {
+    // Reset loading state when alert changes
+    setIsLoading(false);
+
     if (alert) {
       setThreshold(String(alert.threshold));
       setCategory(alert.category as TransactionCategory);
@@ -52,20 +59,37 @@ const AlertForm: React.FC<AlertFormProps> = ({
 
   const handleSave = useCallback(() => {
     if (!isValid) return;
+
+    setIsLoading(true);
     const amt = parseFloat(threshold.trim());
     const timestamp = new Date().toISOString();
-    if (isEditMode && alert) {
-      onSubmit({ ...alert, threshold: amt, category, updated_at: timestamp });
-    } else {
-      onSubmit({
-        type: currentAlertTypeFrequency.type,
-        frequency: currentAlertTypeFrequency.frequency,
-        threshold: amt,
-        category,
-        created_at: timestamp,
-      });
+
+    try {
+      if (isEditMode && alert) {
+        onSubmit({ ...alert, threshold: amt, category, updated_at: timestamp });
+      } else {
+        onSubmit({
+          type: currentAlertTypeFrequency.type,
+          frequency: currentAlertTypeFrequency.frequency,
+          threshold: amt,
+          category,
+          created_at: timestamp,
+        });
+      }
+    } catch (error) {
+      console.error('Error saving alert:', error);
+      setIsLoading(false);
     }
-  }, [alert, category, threshold, isValid, onSubmit, currentAlertTypeFrequency, isEditMode]);
+  }, [
+    alert,
+    category,
+    threshold,
+    isValid,
+    onSubmit,
+    currentAlertTypeFrequency,
+    isEditMode,
+    setIsLoading,
+  ]);
 
   const renderOptions = <T extends string>(
     options: readonly T[],
@@ -112,10 +136,19 @@ const AlertForm: React.FC<AlertFormProps> = ({
       </View>
 
       <View className="mt-6 flex-row justify-around gap-2">
-        <Button className="flex-[2]" onPress={handleSave} disabled={!isValid}>
-          <Text>Save</Text>
+        <Button className="flex-[2]" onPress={handleSave} disabled={!isValid || isLoading}>
+          {isLoading ? (
+            <View className="flex-row items-center">
+              <View className="mr-2 animate-spin">
+                <Loader2 size={16} color={theme.colors.text} />
+              </View>
+              <Text className="text-primary-foreground">Saving...</Text>
+            </View>
+          ) : (
+            <Text>Save</Text>
+          )}
         </Button>
-        <Button variant="secondary" className="flex-1" onPress={onClose}>
+        <Button variant="secondary" className="flex-1" onPress={onClose} disabled={isLoading}>
           <Text>Cancel</Text>
         </Button>
       </View>

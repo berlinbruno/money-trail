@@ -13,6 +13,31 @@ export async function fetchIncomeExpenseTrend(
   let labels: string[];
 
   switch (period) {
+    case 'Daily':
+      query = `
+        SELECT 
+          strftime('%H', date) AS hour_of_day,
+          SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS income,
+          SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expense,
+          SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) - SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS savings
+        FROM transactions
+        WHERE ${getDateCondition('Daily')} AND pending_approval = 0
+        GROUP BY hour_of_day
+        ORDER BY hour_of_day;
+      `;
+      prevQuery = `
+        SELECT 
+          strftime('%H', date) AS hour_of_day,
+          SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS income,
+          SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expense,
+          SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) - SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS savings
+        FROM transactions
+        WHERE date >= date('now', '-1 day') AND date < date('now') AND pending_approval = 0
+        GROUP BY hour_of_day
+        ORDER BY hour_of_day;
+      `;
+      labels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+      break;
     case 'Weekly':
       query = `
         SELECT 
@@ -47,24 +72,22 @@ export async function fetchIncomeExpenseTrend(
           SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expense,
           SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) - SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS savings
         FROM transactions
-        WHERE date >= date('now', 'start of month', '-1 month') AND date <= date('now') AND pending_approval = 0
+        WHERE ${getDateCondition('Monthly')} AND pending_approval = 0
         GROUP BY week_of_month
-        ORDER BY week_of_month
-        LIMIT 6;
+        ORDER BY week_of_month;
       `;
       prevQuery = `
         SELECT 
-          (CAST(strftime('%W', date) AS INTEGER) - CAST(strftime('%W', date('now', 'start of month', '-2 month')) AS INTEGER) + 1) AS week_of_month,
+          (CAST(strftime('%W', date) AS INTEGER) - CAST(strftime('%W', date('now', 'start of month', '-1 month')) AS INTEGER) + 1) AS week_of_month,
           SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS income,
           SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expense,
           SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) - SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS savings
         FROM transactions
-        WHERE date >= date('now', 'start of month', '-2 month') AND date < date('now', 'start of month', '-1 month') AND pending_approval = 0
+        WHERE date >= date('now', 'start of month', '-1 month') AND date < date('now', 'start of month') AND pending_approval = 0
         GROUP BY week_of_month
-        ORDER BY week_of_month
-        LIMIT 6;
+        ORDER BY week_of_month;
       `;
-      labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'];
+      labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
       break;
 
     case 'Yearly':

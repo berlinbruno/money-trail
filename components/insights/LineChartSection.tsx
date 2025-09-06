@@ -91,7 +91,11 @@ export default function LineChartSection({ timeSeriesData, rangeLabel }: LineCha
   }, [axisValues]);
 
   // State for focused label
-  const [focusedLabel, setFocusedLabel] = useState<ChartDataPoint | null>(null);
+  const [focusedLabel, setFocusedLabel] = useState<ChartDataPoint>({
+    dataPointText: '',
+    value: 0,
+    label: '',
+  });
 
   // Memoize chart colors to prevent re-renders
   const chartColors = useMemo(() => {
@@ -168,7 +172,11 @@ export default function LineChartSection({ timeSeriesData, rangeLabel }: LineCha
   const handleSegmentChange = useCallback(
     (e: { nativeEvent: { selectedSegmentIndex: number } }) => {
       setSelectedSegmentIndex(e.nativeEvent.selectedSegmentIndex);
-      setFocusedLabel(null); // Reset focus when changing segments
+      setFocusedLabel({
+        dataPointText: '',
+        value: 0,
+        label: '',
+      }); // Reset focus when changing segments
     },
     []
   );
@@ -210,7 +218,7 @@ export default function LineChartSection({ timeSeriesData, rangeLabel }: LineCha
           backgroundColor={theme.colors.background}
           fontStyle={{ color: theme.colors.text }}
           activeFontStyle={{
-            color: theme.dark ? '#000' : '#fff',
+            color: theme.dark ? theme.colors.background : theme.colors.primary,
             fontWeight: '600',
           }}
         />

@@ -114,7 +114,7 @@ export default function PieChartSection({ categoryBreakdown }: PieChartSectionPr
           backgroundColor={theme.colors.background}
           fontStyle={{ color: theme.colors.text }}
           activeFontStyle={{
-            color: theme.dark ? '#000' : '#fff',
+            color: theme.dark ? theme.colors.background : theme.colors.primary,
             fontWeight: '600',
           }}
         />

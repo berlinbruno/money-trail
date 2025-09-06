@@ -1,8 +1,11 @@
 // components/card/AlertProgressCard.tsx
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { capitalizeFirstLetter } from '@/utils/formatters';
+import { Card, CardDescription, CardHeader } from '@/components/ui/card';
+import { CATEGORY_COLORS } from '@/constants/transactionConstants';
+import { TransactionCategory } from '@/types/Transaction';
+import { capitalizeFirstLetter, formatAmount } from '@/utils/formatters';
 import React from 'react';
 import { View } from 'react-native';
+import LegendItem from '../insights/LegendItem';
 
 interface AlertProgressCardProps {
   currentValue: number;
@@ -20,17 +23,20 @@ export default function AlertProgressCard({
   const progress = Math.min(currentValue / threshold, 1) * 100;
 
   return (
-    <Card className="mb-2">
-      <CardHeader className="flex-row items-start justify-between p-3">
-        <View className="flex-1 pr-2">
-          <CardTitle className="mb-1">{capitalizeFirstLetter(category)}</CardTitle>
+    <Card className="h-24">
+      <CardHeader className="flex-row items-start justify-between">
+        <View className="flex-1 flex-row justify-between">
+          <LegendItem
+            color={CATEGORY_COLORS[category as TransactionCategory]}
+            label={capitalizeFirstLetter(category)}
+          />
           <CardDescription>
-            ₹{currentValue ?? 0} / ₹{threshold}
+            {formatAmount(currentValue)} / {formatAmount(threshold)}
           </CardDescription>
         </View>
       </CardHeader>
 
-      <View className="px-3 pb-3">
+      <View className="px-3">
         <View style={{ height: 8, backgroundColor: '#eee', borderRadius: 4 }}>
           <View
             style={{

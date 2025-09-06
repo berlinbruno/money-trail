@@ -31,21 +31,21 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <HomeIcon size={28} color={color} />,
+          tabBarIcon: ({ color }: { color: string }) => <HomeIcon size={28} color={color} />,
         }}
       />
       <Tabs.Screen
         name="insights"
         options={{
           title: 'Insights',
-          tabBarIcon: ({ color }) => <ChartBar size={28} color={color} />,
+          tabBarIcon: ({ color }: { color: string }) => <ChartBar size={28} color={color} />,
         }}
       />
       <Tabs.Screen
         name="transactions"
         options={{
           title: 'Transactions',
-          tabBarIcon: ({ color }) => <ArrowUpDown size={28} color={color} />,
+          tabBarIcon: ({ color }: { color: string }) => <ArrowUpDown size={28} color={color} />,
         }}
       />
     </Tabs>

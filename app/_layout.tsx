@@ -36,8 +36,6 @@ export default function RootLayout() {
           const permissions = [
             PermissionsAndroid.PERMISSIONS.READ_SMS,
             PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
-            PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
           ];
 
           // Request permissions with rationale

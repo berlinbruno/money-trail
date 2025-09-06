@@ -19,9 +19,11 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ title, amount, date, 
         {date && <CardDescription>{formatDate(date)}</CardDescription>}
       </CardHeader>
       <CardFooter>
-        <Label className={type === 'credit' ? 'text-green-600' : 'text-red-600'}>
-          {formatAmount(amount)}
-        </Label>
+        {type === 'credit' ? (
+          <Label className="text-[#34C759]">{formatAmount(amount)}</Label>
+        ) : (
+          <Label className="text-[#FF3B30]">{formatAmount(amount)}</Label>
+        )}
       </CardFooter>
     </Card>
   );

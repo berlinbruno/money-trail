@@ -4,8 +4,8 @@ import { insertTransactions } from '@/lib/smsSync';
 import { useTheme } from '@react-navigation/native';
 import { Link } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { CheckCheck, MessageCircleMore, PlusCircle } from 'lucide-react-native';
-import { TouchableOpacity } from 'react-native';
+import { CheckCheck, Code, MessageCircleMore, PlusCircle } from 'lucide-react-native';
+import { TouchableOpacity, View } from 'react-native';
 
 export function DashboardQuickActionsSection() {
   const theme = useTheme();
@@ -16,31 +16,37 @@ export function DashboardQuickActionsSection() {
       <CardHeader>
         <CardTitle>Quick Actions</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-row justify-around gap-2">
-        <Link asChild href={'/(drawer)/(tabs)/transactions'}>
-          <TouchableOpacity className="flex h-24 w-24 flex-col items-center justify-center space-x-1 rounded-lg bg-secondary">
-            <PlusCircle color={theme.colors.text} />
-            <Text>Add Txn</Text>
+      <CardContent className="flex flex-col gap-2">
+        <View className="flex flex-row justify-between">
+          <Link asChild href={'/(drawer)/(tabs)/transactions'}>
+            <TouchableOpacity className="mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary">
+              <PlusCircle color={theme.colors.text} />
+              <Text>Add Txn</Text>
+            </TouchableOpacity>
+          </Link>
+          <TouchableOpacity
+            className="mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary"
+            onPress={async () => await insertTransactions(db)}>
+            <MessageCircleMore color={theme.colors.text} />
+            <Text>Scan SMS</Text>
           </TouchableOpacity>
-        </Link>
-        <TouchableOpacity
-          className="flex h-24 w-24 flex-col items-center justify-center space-x-1 rounded-lg bg-secondary"
-          onPress={async () => await insertTransactions(db)}>
-          <MessageCircleMore color={theme.colors.text} />
-          <Text>Scan SMS</Text>
-        </TouchableOpacity>
-        <Link asChild href={'/(drawer)/approveTransaction'}>
-          <TouchableOpacity className="flex h-24 w-24 flex-col items-center justify-center space-x-1 rounded-lg bg-secondary">
-            <CheckCheck color={theme.colors.text} />
-            <Text>Approve</Text>
-          </TouchableOpacity>
-        </Link>
-        <Link asChild href={'/debugScreen'}>
-          <TouchableOpacity className="flex h-24 w-24 flex-col items-center justify-center space-x-1 rounded-lg bg-secondary">
-            <CheckCheck color={theme.colors.text} />
-            <Text>Debug</Text>
-          </TouchableOpacity>
-        </Link>
+          <Link asChild href={'/(drawer)/approveTransaction'}>
+            <TouchableOpacity className="mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary">
+              <CheckCheck color={theme.colors.text} />
+              <Text>Approve</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
+        <View className="flex flex-row justify-between">
+          <Link asChild href={'/debugScreen'}>
+            <TouchableOpacity className="mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary">
+              <Code color={theme.colors.text} />
+              <Text>Debug</Text>
+            </TouchableOpacity>
+          </Link>
+          <View className="mx-1 flex-1" />
+          <View className="mx-1 flex-1" />
+        </View>
       </CardContent>
     </Card>
   );

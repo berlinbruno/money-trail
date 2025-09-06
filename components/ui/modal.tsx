@@ -9,7 +9,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { Label } from './label';
+import { Text } from './text';
 
 interface BaseModalProps {
   visible: boolean;
@@ -32,7 +32,9 @@ export default function BaseModal({ visible, title, children, onClose }: BaseMod
               <Pressable
                 className="rounded-t-2xl bg-background p-5"
                 onPress={() => Keyboard.dismiss()}>
-                <Label className="text-center">{title}</Label>
+                <Text variant={'h4'} className="text-center">
+                  {title}
+                </Text>
                 {children}
               </Pressable>
             </ScrollView>

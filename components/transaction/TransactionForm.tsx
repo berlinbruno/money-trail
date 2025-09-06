@@ -17,6 +17,8 @@ import {
 import { capitalizeFirstLetter } from '@/utils/formatters';
 import { getTransactionHash } from '@/utils/hash';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useTheme } from '@react-navigation/native';
+import { Loader2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Button } from '../ui/button';
@@ -32,6 +34,7 @@ interface Props {
 
 const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) => {
   const isEditMode = !!transaction;
+  const theme = useTheme();
 
   const [amount, setAmount] = useState('');
   const [title, setTitle] = useState('');
@@ -40,9 +43,13 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
   const [mode, setMode] = useState<TransactionMode>('other');
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Sync state on edit
   useEffect(() => {
+    // Reset loading state when transaction changes
+    setIsLoading(false);
+
     if (transaction) {
       setAmount(String(transaction.amount));
       setTitle(transaction.title);
@@ -53,7 +60,7 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
     } else {
       setCategory(type === 'credit' ? CREDIT_CATEGORIES[0] : DEBIT_CATEGORIES[0]);
     }
-  }, [transaction]);
+  }, [transaction, type]);
 
   const isValid = useMemo(() => {
     const amt = parseFloat(amount.trim());
@@ -76,38 +83,57 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
       return;
     }
 
+    setIsLoading(true);
     const timestamp = date.toISOString();
 
-    if (isEditMode) {
-      onSubmit({
-        ...(transaction as EditTransaction),
-        account: 'default',
-        type,
-        amount: parseFloat(amount),
-        category,
-        mode,
-        title: capitalizeFirstLetter(title),
-        date: timestamp,
-        source: 'manual',
-        updated_at: timestamp,
-        pending_approval: 0,
-      });
-    } else {
-      onSubmit({
-        account: 'default',
-        type,
-        amount: parseFloat(amount),
-        category,
-        mode,
-        title: capitalizeFirstLetter(title),
-        source: 'manual',
-        date: timestamp,
-        created_at: timestamp,
-        pending_approval: 0,
-        sms_hash: getTransactionHash(title, amount, date, 'default').toString(),
-      });
+    try {
+      if (isEditMode) {
+        onSubmit({
+          ...(transaction as EditTransaction),
+          account: 'default',
+          type,
+          amount: parseFloat(amount),
+          category,
+          mode,
+          title: capitalizeFirstLetter(title),
+          date: timestamp,
+          source: 'manual',
+          updated_at: timestamp,
+          pending_approval: 0,
+        });
+      } else {
+        onSubmit({
+          account: 'default',
+          type,
+          amount: parseFloat(amount),
+          category,
+          mode,
+          title: capitalizeFirstLetter(title),
+          source: 'manual',
+          date: timestamp,
+          created_at: timestamp,
+          pending_approval: 0,
+          sms_hash: getTransactionHash(title, amount, date, 'default').toString(),
+        });
+      }
+    } catch (error) {
+      console.error('Error saving transaction:', error);
+      Alert.alert('Error', 'An error occurred while saving the transaction.');
+      setIsLoading(false);
     }
-  }, [amount, title, category, mode, type, isValid, isEditMode, onSubmit, transaction, date]);
+  }, [
+    amount,
+    title,
+    category,
+    mode,
+    type,
+    isValid,
+    isEditMode,
+    onSubmit,
+    transaction,
+    date,
+    setIsLoading,
+  ]);
 
   const renderOptions = <T extends string>(
     options: readonly T[],
@@ -161,7 +187,7 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
         <View className="flex-1">
           <Label>Date *</Label>
           <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-            <Text className="py-2 text-sm text-blue-500">{date.toDateString()}</Text>
+            <Text className="py-2 text-sm">{date.toDateString()}</Text>
           </TouchableOpacity>
           {showDatePicker && (
             <DateTimePicker
@@ -192,10 +218,19 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
       </View>
 
       <View className="mt-6 flex-row justify-around gap-2">
-        <Button className="flex-[2]" onPress={handleSave} disabled={!isValid}>
-          <Text>Save</Text>
+        <Button className="flex-[2]" onPress={handleSave} disabled={!isValid || isLoading}>
+          {isLoading ? (
+            <View className="flex-row items-center">
+              <View className="mr-2 animate-spin">
+                <Loader2 size={16} color={theme.colors.text} />
+              </View>
+              <Text className="text-primary-foreground">Saving...</Text>
+            </View>
+          ) : (
+            <Text>Save</Text>
+          )}
         </Button>
-        <Button variant="secondary" className="flex-1" onPress={onCancel}>
+        <Button variant="secondary" className="flex-1" onPress={onCancel} disabled={isLoading}>
           <Text>Cancel</Text>
         </Button>
       </View>

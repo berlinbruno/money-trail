@@ -1,10 +1,10 @@
 import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ANIMATION_DURATION,
-  BAR_COLORS,
   BAR_SPACING,
   BAR_WIDTH,
   NO_OF_SECTIONS,
+  TREND_COLORS,
 } from '@/constants/insightsConstants';
 import { insightsDataset } from '@/types/Insight';
 import { formatAmount } from '@/utils/formatters';
@@ -41,7 +41,7 @@ export default function BarChartSection({ timeSeriesData, rangeLabel }: BarChart
 
     // Calculate chart configuration
     const totalBarValue = values.reduce((sum, v) => sum + v, 0);
-    const barChartData = getBarChartData(timeSeriesData, rangeLabel, BAR_COLORS);
+    const barChartData = getBarChartData(timeSeriesData, rangeLabel, TREND_COLORS);
     const stepValue = calculateStep(values, NO_OF_SECTIONS);
     const { labels, sectionsNeeded } = generateYAxisLabels(values, NO_OF_SECTIONS);
 

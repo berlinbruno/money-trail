@@ -142,8 +142,8 @@ export default function TransactionListScreen() {
             </Button>
           </View>
         )}
-        rightOpenValue={-160}
-        stopRightSwipe={-160}
+        rightOpenValue={-180}
+        stopRightSwipe={-180}
         disableRightSwipe
         refreshing={isRefreshing}
         onRefresh={fetchTransactions}
