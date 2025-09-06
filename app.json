@@ -20,7 +20,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.berlinbruno.moneytrail"
+      "package": "com.berlinbruno.moneytrail",
+      "versionCode": 0
     },
     "plugins": ["expo-router"],
     "experiments": {
