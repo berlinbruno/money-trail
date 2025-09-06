@@ -1,0 +1,97 @@
+name: App Build & Artifact Upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      buildType:
+        type: choice
+        description: 'Build type to run'
+        options:
+          - all
+          - dev
+          - pre
+          - prod
+
+env:
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+  NODE_OPTIONS: --openssl-legacy-provider
+
+jobs:
+  build-and-deploy:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Cache npm Modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Project Dependencies and EAS CLI
+        run: |
+          npm install --no-package-lock --prefer-offline --no-audit --progress=false
+          npm install -g eas-cli@latest
+
+      - name: Cache EAS Build Artifacts
+        uses: actions/cache@v4
+        with:
+          path: ~/.eas-build-local
+          key: ${{ runner.os }}-eas-build-local-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-eas-build-local-
+
+      - name: Verify EAS CLI Installation
+        run: |
+          echo "EAS CLI version:"
+          eas --version
+
+      - name: Read App Name and Version
+        id: app-info
+        run: |
+          APP_NAME=$(jq -r '.expo.name' app.json)
+          APP_VERSION=$(jq -r '.expo.version' app.json)
+          echo "app_name=${APP_NAME}" >> $GITHUB_OUTPUT
+          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated APK base name: ${APP_NAME}-${APP_VERSION}"
+
+      - name: Build Development APK
+        if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'dev' || github.event_name == 'push'
+        run: |
+          eas build --platform android --profile development --local --non-interactive --output=./${{ steps.app-info.outputs.app_name }}-${{ steps.app-info.outputs.app_version }}-dev.apk
+        env:
+          NODE_ENV: development
+
+      - name: Build Preview APK
+        if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'pre' || github.event_name == 'push'
+        run: |
+          eas build --platform android --profile preview --local --non-interactive --output=./${{ steps.app-info.outputs.app_name }}-${{ steps.app-info.outputs.app_version }}-pre.apk
+        env:
+          NODE_ENV: development
+
+      - name: Build Production APK
+        if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'prod' || github.event_name == 'push'
+        run: |
+          eas build --platform android --profile production --local --non-interactive --clear-cache --output=./${{ steps.app-info.outputs.app_name }}-${{ steps.app-info.outputs.app_version }}-prod.apk
+        env:
+          NODE_ENV: production
+
+      - name: Upload Build Artifacts to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-builds
+          path: |
+            ./${{ steps.app-info.outputs.app_name }}-${{ steps.app-info.outputs.app_version }}-dev.apk
+            ./${{ steps.app-info.outputs.app_name }}-${{ steps.app-info.outputs.app_version }}-pre.apk
+            ./${{ steps.app-info.outputs.app_name }}-${{ steps.app-info.outputs.app_version }}-prod.apk
+          retention-days: 7

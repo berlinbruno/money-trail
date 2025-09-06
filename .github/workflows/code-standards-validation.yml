@@ -1,0 +1,55 @@
+name: Code Standards Validation
+
+on:
+  push:
+    branches:
+      - release
+      - 'feat/**'
+      - 'feature/**'
+  pull_request:
+    types: [opened, reopened, synchronize] # ✅ only when PR is created, updated, or reopened
+    branches:
+      - master
+      - develop
+  workflow_dispatch: # ✅ allow manual trigger from Actions tab
+
+jobs:
+  quality-checks:
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: 0 # 🚀 disable husky globally for CI
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache npm Modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Project Dependencies
+        run: npm install --no-package-lock --prefer-offline --no-audit --progress=false
+
+      - name: Run ESLint Linting
+        run: npm run lint
+
+      - name: Run Prettier Format Validation
+        run: npm run format:check
+
+      - name: Run TypeScript Type Checking
+        run: npm run type-check
+
+      - name: Validate Commit Messages with Commitlint
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .commitlintrc

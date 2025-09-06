@@ -1,0 +1,60 @@
+name: Automated Release & PR Sync
+
+on:
+  push:
+    branches: [release]
+  workflow_dispatch: # ✅ allow manual trigger from Actions tab
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Cache npm Modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Project Dependencies
+        run: npm install --no-package-lock --prefer-offline --no-audit --progress=false
+
+      - name: Run Semantic Release
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  create-pr-to-master:
+    needs: release
+    runs-on: ubuntu-latest
+    if: success() # only run if release succeeds
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Pull Request Release to Master
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: release
+          destination_branch: master
+          pr_title: 'chore: merge release into master'
+          pr_body: 'This PR merges the latest changes from release into master.'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
