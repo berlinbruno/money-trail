@@ -1,9 +1,9 @@
 import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { InsightsSummary } from '@/types/Insight';
 import { capitalizeFirstLetter, formatAmount } from '@/utils/formatters';
 import { TREND_COLORS } from '../../constants/insightsConstants';
 import InsightItem from './InsightItem';
+import InsightSkeleton from './InsightSkeleton';
 
 export default function SmartInsightsSection({
   insightsSummary,
@@ -49,12 +49,7 @@ export default function SmartInsightsSection({
           )}
         </CardFooter>
       ) : (
-        <CardFooter className="flex-col items-start gap-2">
-          <Skeleton className="h-4 w-56 rounded-full" />
-          <Skeleton className="h-4 w-44 rounded-full" />
-          <Skeleton className="h-4 w-56 rounded-full" />
-          <Skeleton className="h-4 w-44 rounded-full" />
-        </CardFooter>
+        <InsightSkeleton />
       )}
     </Card>
   );

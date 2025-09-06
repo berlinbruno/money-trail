@@ -51,7 +51,13 @@ export function calculateTotals(
   };
 }
 
+/**
+ * Transforms time series records into structured dataset
+ * @param records Array of time series records
+ * @returns Structured object with separated data arrays
+ */
 export function transformTimeSeries(records: TimeSeriesRecord[]) {
+  // Simply use map functions for type safety
   return {
     labels: records.map((r) => r.label),
     incomes: records.map((r) => r.income ?? 0),
@@ -63,43 +69,50 @@ export function transformTimeSeries(records: TimeSeriesRecord[]) {
   };
 }
 
+/**
+ * Optimizes and creates data for bar chart visualization
+ * @param timeSeriesData Dataset containing time series data
+ * @param rangeKey Key identifying which time range to use
+ * @param BAR_COLORS Color configuration for different bar types
+ * @returns Array of bar chart data points ready for visualization
+ */
 export function getBarChartData(
   timeSeriesData: insightsDataset | null,
   rangeKey: keyof insightsDataset,
-  BAR_COLORS: any
+  BAR_COLORS: Record<string, string>
 ) {
   if (!timeSeriesData?.[rangeKey]) return [];
 
   const { labels, incomes, expenses, savings } = timeSeriesData[rangeKey];
-  const bars = [];
+  const barGroups = [];
 
+  // Build data points for all labels in a single pass
   for (let i = 0; i < labels.length; i++) {
-    const inc = incomes[i];
-    const exp = expenses[i];
-    const sav = savings[i];
-
-    // Group bars together for each label
-    bars.push(
+    // Create a group of bars for each time period
+    barGroups.push(
+      // Income bar
       {
-        value: inc,
+        value: incomes[i],
         label: labels[i],
         spacing: 2,
         labelWidth: 60,
         frontColor: BAR_COLORS.income,
         type: 'Income',
       },
+      // Expense bar
       {
-        value: exp,
+        value: expenses[i],
         label: '',
         spacing: 2,
         labelWidth: 40,
         frontColor: BAR_COLORS.expense,
         type: 'Expense',
       },
+      // Savings bar with extra spacing after group
       {
-        value: sav,
+        value: savings[i],
         label: '',
-        spacing: 20,
+        spacing: 20, // Extra spacing after this group
         labelWidth: 40,
         frontColor: BAR_COLORS.saving,
         type: 'Saving',
@@ -107,33 +120,55 @@ export function getBarChartData(
     );
   }
 
-  return bars;
+  return barGroups;
 }
 
+/**
+ * Transforms time series data for line chart visualization
+ * @param timeSeriesData Dataset containing time series records
+ * @param rangeKey Key identifying which time range to use
+ * @returns Processed data for trend line visualization or null if no data
+ */
 export function getTrendLineData(
   timeSeriesData: insightsDataset | null,
   rangeKey: keyof insightsDataset
 ) {
   if (!timeSeriesData?.[rangeKey]) return null;
-  const { labels, incomes, expenses, savings, previousIncomes, previousExpenses, previousSavings } =
-    timeSeriesData[rangeKey];
-  const mapValues = (arr: number[]) =>
-    arr.map((v, i) => ({ value: v, label: labels[i], dataPointText: String(v) }));
+
+  const data = timeSeriesData[rangeKey];
+
+  // Helper to map numeric arrays to point objects with labels
+  const createDataPoints = (values: number[]) =>
+    values.map((value, index) => ({
+      value,
+      label: data.labels[index],
+      dataPointText: String(value),
+    }));
+
+  // Create data points for all metrics in a single pass
   return {
-    incomes: mapValues(incomes),
-    expenses: mapValues(expenses),
-    savings: mapValues(savings),
-    previousIncomes: mapValues(previousIncomes),
-    previousExpenses: mapValues(previousExpenses),
-    previousSavings: mapValues(previousSavings),
+    incomes: createDataPoints(data.incomes),
+    expenses: createDataPoints(data.expenses),
+    savings: createDataPoints(data.savings),
+    previousIncomes: createDataPoints(data.previousIncomes),
+    previousExpenses: createDataPoints(data.previousExpenses),
+    previousSavings: createDataPoints(data.previousSavings),
   };
 }
 
+/**
+ * Creates optimized data for pie chart visualization
+ * @param categories Array of category breakdown data
+ * @param focused Currently focused category (if any)
+ * @returns Array of processed pie chart data points
+ */
 export function getPieChartData(
   categories: CategoryBreakdown[],
   focused: CategoryBreakdown | null
 ) {
   if (!categories.length) return [];
+
+  // Map categories to pie chart data points in a single pass
   return categories.map((cat) => ({
     value: cat.value,
     color: cat.color,
@@ -143,6 +178,13 @@ export function getPieChartData(
   }));
 }
 
+/**
+ * Calculates an optimal step size for chart axis divisions
+ * @param values Array of numeric values to be displayed on the chart
+ * @param noOfSections Number of sections to divide the axis into
+ * @param minStep Minimum step size
+ * @returns Optimized step value for chart axis
+ */
 export function calculateStep(
   values: number[],
   noOfSections: number = 5,
@@ -151,41 +193,110 @@ export function calculateStep(
   if (!values.length) return minStep;
   const maxValue = Math.max(...values);
   if (maxValue <= 0) return minStep;
-  // Use a slightly higher axis max for better chart centering
-  const axisMax = Math.max(Math.ceil(maxValue * 1.1), minStep * noOfSections);
-  const roughStep = axisMax / noOfSections;
-  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
-  const normalized = roughStep / magnitude;
-  let niceNormalized: number;
-  if (normalized < 1.5) niceNormalized = 1;
-  else if (normalized < 3) niceNormalized = 2;
-  else if (normalized < 7) niceNormalized = 5;
-  else niceNormalized = 10;
-  const step = Math.max(niceNormalized * magnitude, minStep);
-  return step;
+
+  // Calculate base magnitude for step values
+  let magnitude = Math.pow(10, Math.floor(Math.log10(maxValue / noOfSections)));
+
+  // Special magnitude adjustments for values around 1M
+  if (maxValue > 500000 && maxValue < 5000000) {
+    magnitude = maxValue < 1000000 ? 100000 : 250000;
+  } else if (maxValue >= 5000000 && maxValue < 10000000) {
+    magnitude = 500000;
+  }
+
+  // Generate step options based on magnitude and value range
+  const niceSteps =
+    maxValue > 500000
+      ? [1, 2, 2.5, 5, 10].map((m) => m * magnitude)
+      : [1, 2, 5, 10].map((m) => m * magnitude);
+
+  // Add 2.5M as a special case for values between 1M and 3M
+  if (maxValue > 1000000 && maxValue < 3000000) {
+    const twoPointFiveM = 2500000;
+    if (!niceSteps.includes(twoPointFiveM)) {
+      niceSteps.push(twoPointFiveM);
+      niceSteps.sort((a, b) => a - b);
+    }
+  }
+
+  // Find optimal step with appropriate headroom (10-30%)
+  let step = niceSteps[niceSteps.length - 1]; // Default to largest step
+
+  // Try to find a step with ideal headroom (10-30%)
+  for (const niceStep of niceSteps) {
+    const maxYAxisValue = niceStep * noOfSections;
+    const headroom = maxYAxisValue / maxValue;
+
+    if (headroom > 1.1 && headroom < 1.3) {
+      step = niceStep;
+      break;
+    }
+  }
+
+  // If no ideal step found, find first step giving at least 10% headroom
+  if (step === niceSteps[niceSteps.length - 1]) {
+    for (const niceStep of niceSteps) {
+      if (niceStep * noOfSections > maxValue * 1.1) {
+        step = niceStep;
+        break;
+      }
+    }
+  }
+
+  return Math.max(step, minStep);
 }
 
-export function generateYAxisLabels(values: number[], noOfSections: number = 5): string[] {
-  if (!values.length) return [];
+/**
+ * Generates well-formatted labels for Y-axis with proper value formatting
+ * @param values Array of numeric values to generate labels for
+ * @param noOfSections Number of sections to divide the axis into
+ * @returns Object with labels array and sections needed
+ */
+export function generateYAxisLabels(
+  values: number[],
+  noOfSections: number = 5
+): { labels: string[]; sectionsNeeded: number } {
+  if (!values.length) return { labels: [], sectionsNeeded: 0 };
+
   const maxValue = Math.max(...values);
   const step = calculateStep(values, noOfSections);
-  const labels: string[] = [];
-  for (let i = 0; i <= noOfSections; i++) {
+  const sectionsNeeded = Math.ceil(maxValue / step);
+
+  // Generate labels with proper formatting
+  const labels = Array.from({ length: sectionsNeeded + 1 }, (_, i) => {
     const value = i * step;
-    labels.push(formatAxisLabel(value));
-  }
-  // Optionally, add one more label above maxValue
-  labels.push(formatAxisLabel(maxValue + step));
-  return labels;
+    return formatLargeNumber(value);
+  });
+
+  return { labels, sectionsNeeded };
 }
 
-export function formatAxisLabel(value: number): string {
+/**
+ * Formats large numbers with appropriate suffixes (K, M, B)
+ * @param value Number to format
+ * @returns Formatted string with appropriate suffix
+ */
+function formatLargeNumber(value: number): string {
   if (value >= 1_000_000_000) {
-    return (value / 1_000_000_000).toFixed(value % 1_000_000_000 === 0 ? 0 : 1) + 'B';
-  } else if (value >= 1_000_000) {
-    return (value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1) + 'M';
-  } else if (value >= 1_000) {
-    return (value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1) + 'K';
+    return `${(value / 1_000_000_000).toFixed(1)}B`.replace('.0B', 'B');
   }
-  return value.toString();
+
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1)}M`.replace('.0M', 'M');
+  }
+
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(1)}K`.replace('.0K', 'K');
+  }
+
+  return Math.round(value).toString();
+}
+
+/**
+ * Formats axis labels for chart display
+ * @param value Number to format as axis label
+ * @returns Formatted string with appropriate suffix
+ */
+export function formatAxisLabel(value: number): string {
+  return formatLargeNumber(value);
 }

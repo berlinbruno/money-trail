@@ -1,12 +1,12 @@
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ANIMATION_DURATION, PIE_RADIUS, SEGMENTS } from '@/constants/insightsConstants';
 import { CategoryBreakdown } from '@/types/Insight';
 import { getPieChartData } from '@/utils/insightsUtils';
+import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { useTheme } from '@react-navigation/native';
-import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
 import { PieChart } from 'react-native-gifted-charts';
-import { ANIMATION_DURATION, PIE_RADIUS } from '../../constants/insightsConstants';
+import { PieChartSkeleton } from './InsightSkeleton';
 import LegendList from './LegendList';
 import PieCenterLabel from './PieCenterLabel';
 
@@ -17,10 +17,24 @@ type PieChartSectionProps = {
   };
 };
 
+/**
+ * PieChart section component for visualizing income and expense distribution
+ */
 export default function PieChartSection({ categoryBreakdown }: PieChartSectionProps) {
+  const theme = useTheme();
+
+  // Segment control state
+  const [selectedSegmentIndex, setSelectedSegmentIndex] = useState<number>(0);
+  const selectedSegment = useMemo(
+    () => SEGMENTS[selectedSegmentIndex].toLowerCase() as 'income' | 'expense',
+    [selectedSegmentIndex]
+  );
+
+  // Track focused items
   const [incomeFocused, setIncomeFocused] = useState<CategoryBreakdown | null>(null);
   const [expenseFocused, setExpenseFocused] = useState<CategoryBreakdown | null>(null);
-  const theme = useTheme();
+
+  // Prepare chart data
   const incomePieChartData = useMemo(
     () => getPieChartData(categoryBreakdown.income, incomeFocused),
     [categoryBreakdown.income, incomeFocused]
@@ -30,9 +44,16 @@ export default function PieChartSection({ categoryBreakdown }: PieChartSectionPr
     [categoryBreakdown.expense, expenseFocused]
   );
 
-  const hasIncome = incomePieChartData.length > 0;
-  const hasExpense = expensePieChartData.length > 0;
+  // Determine which data to use based on selected segment
+  const currentData = useMemo(
+    () => (selectedSegment === 'income' ? incomePieChartData : expensePieChartData),
+    [selectedSegment, incomePieChartData, expensePieChartData]
+  );
 
+  // Calculate if we have data to display
+  const hasData = currentData.length > 0;
+
+  // Calculate totals for percentage calculations
   const incomeTotal = useMemo(
     () => incomePieChartData.reduce((sum: number, c: any) => sum + c.value, 0),
     [incomePieChartData]
@@ -42,89 +63,87 @@ export default function PieChartSection({ categoryBreakdown }: PieChartSectionPr
     [expensePieChartData]
   );
 
+  // Determine which total to use based on selected segment
+  const currentTotal = useMemo(
+    () => (selectedSegment === 'income' ? incomeTotal : expenseTotal),
+    [selectedSegment, incomeTotal, expenseTotal]
+  );
+
+  // Handle segment change
+  const handleSegmentChange = useCallback(
+    (e: { nativeEvent: { selectedSegmentIndex: number } }) => {
+      setSelectedSegmentIndex(e.nativeEvent.selectedSegmentIndex);
+      // Reset any focused items when switching segments
+      if (e.nativeEvent.selectedSegmentIndex === 0) {
+        setExpenseFocused(null);
+      } else {
+        setIncomeFocused(null);
+      }
+    },
+    []
+  );
+
+  // Handle pie chart focus
+  const handlePiePress = useCallback(
+    (item: CategoryBreakdown) => {
+      if (selectedSegment === 'income') {
+        setIncomeFocused(item);
+      } else {
+        setExpenseFocused(item);
+      }
+    },
+    [selectedSegment]
+  );
+
+  // Get the current focused item
+  const currentFocused = useMemo(
+    () => (selectedSegment === 'income' ? incomeFocused : expenseFocused),
+    [selectedSegment, incomeFocused, expenseFocused]
+  );
+
   return (
     <Card className="mb-2">
       <CardHeader>
-        <CardTitle>Breakdown by Category</CardTitle>
+        <CardTitle>Distribution Analysis</CardTitle>
+        <SegmentedControl
+          values={['Income', 'Expense']}
+          selectedIndex={selectedSegmentIndex}
+          onChange={handleSegmentChange}
+          style={{ margin: 8, borderRadius: 8 }}
+          tintColor={theme.colors.primary}
+          backgroundColor={theme.colors.background}
+          fontStyle={{ color: theme.colors.text }}
+          activeFontStyle={{
+            color: theme.dark ? '#000' : '#fff',
+            fontWeight: '600',
+          }}
+        />
       </CardHeader>
-      <CardFooter
-        className={
-          hasIncome && hasExpense
-            ? 'flex w-full flex-row items-start justify-between gap-8'
-            : 'flex flex-col items-center justify-center'
-        }>
-        {hasIncome && (
-          <CardContent
-            className={
-              hasIncome && hasExpense
-                ? 'flex flex-col items-center px-2'
-                : 'col-span-2 flex flex-col items-center'
-            }>
-            <PieChart
-              data={incomePieChartData}
-              donut
-              focusOnPress
-              showGradient
-              innerRadius={PIE_RADIUS - 15}
-              innerCircleColor={theme.colors.background}
-              radius={PIE_RADIUS}
-              isAnimated
-              animationDuration={ANIMATION_DURATION}
-              onPress={(item: CategoryBreakdown) => setIncomeFocused(item)}
-              centerLabelComponent={() => (
-                <PieCenterLabel focused={incomeFocused} fallbackLabel="Income" />
-              )}
-            />
-            <View className="mt-2 flex flex-row flex-wrap justify-center">
-              <LegendList data={incomePieChartData} total={incomeTotal} prefix="income" />
-            </View>
-          </CardContent>
-        )}
-        {hasExpense && (
-          <CardContent
-            className={
-              hasIncome && hasExpense
-                ? 'flex flex-col items-center px-2'
-                : 'col-span-2 flex flex-col items-center'
-            }>
-            <PieChart
-              data={expensePieChartData}
-              donut
-              showGradient
-              focusOnPress
-              innerRadius={PIE_RADIUS - 15}
-              innerCircleColor={theme.colors.background}
-              radius={PIE_RADIUS}
-              isAnimated
-              animationDuration={ANIMATION_DURATION}
-              onPress={(item: CategoryBreakdown) => setExpenseFocused(item)}
-              centerLabelComponent={() => (
-                <PieCenterLabel focused={expenseFocused} fallbackLabel="Expense" />
-              )}
-            />
-            <View className="mt-2 flex flex-row flex-wrap justify-center">
-              <LegendList data={expensePieChartData} total={expenseTotal} prefix="expense" />
-            </View>
-          </CardContent>
-        )}
-      </CardFooter>
-      {!hasIncome && !hasExpense && (
-        <CardFooter className="grid grid-cols-2 items-center justify-between gap-2">
-          <View
-            style={{ width: PIE_RADIUS * 2, height: PIE_RADIUS * 2 }}
-            className="my-2 flex flex-col items-center justify-center gap-2">
-            <Skeleton className="h-full w-full rounded-full" />
-            <Skeleton className="h-4 w-44 rounded-full" />
-            <Skeleton className="h-4 w-44 rounded-full" />
-          </View>
-          <View
-            style={{ width: PIE_RADIUS * 2, height: PIE_RADIUS * 2 }}
-            className="my-2 flex flex-col items-center justify-center gap-2">
-            <Skeleton className="h-full w-full rounded-full" />
-            <Skeleton className="h-4 w-44 rounded-full" />
-            <Skeleton className="h-4 w-44 rounded-full" />
-          </View>
-        </CardFooter>
+
+      {hasData ? (
+        <CardContent className="items-center justify-center">
+          <PieChart
+            data={currentData}
+            donut
+            focusOnPress
+            showGradient
+            innerRadius={PIE_RADIUS - 35}
+            innerCircleColor={theme.colors.background}
+            radius={PIE_RADIUS}
+            isAnimated
+            animationDuration={ANIMATION_DURATION}
+            onPress={handlePiePress}
+            centerLabelComponent={() => (
+              <PieCenterLabel
+                focused={currentFocused}
+                fallbackLabel={selectedSegment === 'income' ? 'Income' : 'Expense'}
+              />
+            )}
+          />
+          <LegendList data={currentData} total={currentTotal} prefix={selectedSegment} />
+        </CardContent>
+      ) : (
+        <PieChartSkeleton />
       )}
     </Card>
   );

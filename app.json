@@ -20,7 +20,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.berlinbruno.moneytrail"
+      "package": "com.berlinbruno.moneytrail",
+      "permissions": ["READ_SMS", "RECEIVE_SMS", "VIBRATE", "WAKE_LOCK", "FOREGROUND_SERVICE"]
     },
     "plugins": ["expo-router", "expo-sqlite", "expo-background-task"],
     "experiments": {
