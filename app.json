@@ -22,7 +22,7 @@
       },
       "package": "com.berlinbruno.moneytrail"
     },
-    "plugins": ["expo-router"],
+    "plugins": ["expo-router", "expo-sqlite", "expo-background-task"],
     "experiments": {
       "typedRoutes": true
     },
