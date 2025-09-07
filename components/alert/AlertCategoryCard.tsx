@@ -8,7 +8,8 @@ import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
 import { SwipeListView } from 'react-native-swipe-list-view';
 import { Button } from '../ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
+import { Progress } from '../ui/progress';
 import { Text } from '../ui/text';
 import AlertProgressCard from './AlertProgressCard';
 
@@ -57,32 +58,17 @@ export default function AlertCategoryCard({
   const canAddMore = getAvailableCategories().length > 0;
 
   return (
-    <Card className="mb-4 px-4 pt-4">
-      <View className="mb-3 flex-row items-start">
+    <Card className="mb-2 gap-2 p-0">
+      <CardHeader className="flex-row items-start justify-between p-2">
         <TouchableOpacity
           onPress={() => onToggleExpand(categoryKey)}
           className="flex-1 pr-2"
           activeOpacity={0.7}>
-          <CardHeader className="p-0">
-            <CardTitle>{label}</CardTitle>
-            <CardDescription>
-              {formatAmount(totalCurrentValue)} / {formatAmount(totalThreshold)}
-            </CardDescription>
-            <View className="pb-3">
-              <View style={{ height: 8, backgroundColor: '#eee', borderRadius: 4 }}>
-                <View
-                  style={{
-                    width: `${Math.min(progressRatio, 100)}%`, // ✅ clamp at 100
-                    height: 8,
-                    backgroundColor: isSpendingCategory ? '#FF3B30' : '#007AFF',
-                    borderRadius: 4,
-                  }}
-                />
-              </View>
-            </View>
-          </CardHeader>
+          <CardTitle>{label}</CardTitle>
+          <CardDescription>
+            {formatAmount(totalCurrentValue)} / {formatAmount(totalThreshold)}
+          </CardDescription>
         </TouchableOpacity>
-
         <TouchableOpacity
           onPress={() => canAddMore && onAddAlert(categoryKey, getAvailableCategories())}
           disabled={!canAddMore}
@@ -90,45 +76,51 @@ export default function AlertCategoryCard({
           activeOpacity={canAddMore ? 0.7 : 1}>
           <Ionicons name="add-circle-outline" size={28} color={canAddMore ? '#007AFF' : '#ccc'} />
         </TouchableOpacity>
-      </View>
-
-      {expanded && (
-        <SwipeListView
-          data={alerts}
-          keyExtractor={(alert: IAlertRow, index) => alert.id ?? `alert-${index}`}
-          contentContainerStyle={{ paddingBottom: 4 }}
-          renderItem={({ item }: { item: IAlertRow }) => (
-            <View key={item.id} className="flex-1 bg-background">
+      </CardHeader>
+      <CardContent className="p-2 py-0">
+        <Progress
+          value={progressRatio}
+          indicatorClassName={isSpendingCategory ? 'bg-[#FF3B30]' : 'bg-[#007AFF]'}
+        />
+      </CardContent>
+      <CardFooter className="p-2">
+        {expanded && (
+          <SwipeListView
+            data={alerts}
+            keyExtractor={(alert: IAlertRow, index) => alert.id ?? `alert-${index}`}
+            contentContainerStyle={{ paddingBottom: 4 }}
+            renderItem={({ item }: { item: IAlertRow }) => (
               <AlertProgressCard
                 currentValue={'current_value' in item ? (item as any).current_value : 0}
                 threshold={item.threshold}
                 category={item.category}
-                progressColor={isSpendingCategory ? '#FF3B30' : '#007AFF'}
+                progressColor={isSpendingCategory ? 'bg-[#FF3B30]' : 'bg-[#007AFF]'}
               />
-            </View>
-          )}
-          renderHiddenItem={({ item }: { item: IAlertRow }) => (
-            <View className="m-1 h-28 flex-row items-start justify-end">
-              <Button
-                variant={'default'}
-                size={null}
-                className="h-full w-20 rounded-none"
-                onPress={() => onEditAlert(item as any, getAvailableCategories())}>
-                <Text>Edit</Text>
-              </Button>
-              <Button
-                size={null}
-                variant="destructive"
-                className="h-full w-20 rounded-none rounded-r-lg"
-                onPress={() => onDeleteAlert(item.id)}>
-                <Text>Delete</Text>
-              </Button>
-            </View>
-          )}
-          rightOpenValue={-135}
-          disableRightSwipe
-        />
-      )}
+            )}
+            renderHiddenItem={({ item }: { item: IAlertRow }) => (
+              <View className="m-1 h-20 flex-row items-start justify-end">
+                <Button
+                  variant={'default'}
+                  size={null}
+                  className="h-full w-20 rounded-none"
+                  onPress={() => onEditAlert(item as any, getAvailableCategories())}>
+                  <Text>Edit</Text>
+                </Button>
+                <Button
+                  size={null}
+                  variant="destructive"
+                  className="h-full w-20 rounded-none rounded-r-xl"
+                  onPress={() => onDeleteAlert(item.id)}>
+                  <Text>Delete</Text>
+                </Button>
+              </View>
+            )}
+            rightOpenValue={-160}
+            stopRightSwipe={-160}
+            disableRightSwipe
+          />
+        )}
+      </CardFooter>
     </Card>
   );
 }

@@ -161,33 +161,37 @@ export default function TransactionApprovalScreen() {
           />
         )}
         renderHiddenItem={({ item }) => (
-          <View className="m-1 h-20 flex-row items-start justify-end">
-            <Button
-              variant="default"
-              size={null}
-              onPress={() => handleEditTransaction(item.id)}
-              className="h-full w-24 rounded-none">
-              <Text>Edit</Text>
-            </Button>
-            <Button
-              size={null}
-              variant="secondary"
-              onPress={() => handleApproveTransaction(item.id)}
-              className="h-full w-24 rounded-none">
-              <Text>Approve</Text>
-            </Button>
+          <View className="m-1 h-20 flex-row items-start justify-between">
             <Button
               size={null}
               variant="destructive"
               onPress={() => handleDeleteTransaction(item.id)}
-              className="mr-1 h-full w-24 rounded-none rounded-r-lg">
+              className="ml-1 h-full w-24 rounded-none rounded-l-lg">
               <Text>Delete</Text>
             </Button>
+            <View className="h-20 flex-1 flex-row justify-end">
+              <Button
+                variant="default"
+                size={null}
+                onPress={() => handleEditTransaction(item.id)}
+                className="h-full w-24 rounded-none">
+                <Text>Edit</Text>
+              </Button>
+              <Button
+                size={null}
+                variant="secondary"
+                onPress={() => handleApproveTransaction(item.id)}
+                className="h-full w-24 rounded-none rounded-r-lg">
+                <Text>Approve</Text>
+              </Button>
+            </View>
           </View>
         )}
-        rightOpenValue={-240}
-        stopRightSwipe={-240}
-        disableRightSwipe
+        leftOpenValue={80}
+        stopLeftSwipe={80}
+        rightOpenValue={-160}
+        stopRightSwipe={-160}
+        disableRightSwipe={false}
         refreshing={isRefreshing}
         onRefresh={fetchTransactions}
       />

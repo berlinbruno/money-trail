@@ -51,35 +51,39 @@ export default function AlertDashboardScreen() {
 
     setIsRefreshing(true);
 
-    const incomeWeeklyAlerts = await fetchAlertsByTypeAndFrequency(db, 'income', 'weekly');
-    const incomeMonthlyAlerts = await fetchAlertsByTypeAndFrequency(db, 'income', 'monthly');
-    const spendingWeeklyAlerts = await fetchAlertsByTypeAndFrequency(db, 'spending', 'weekly');
-    const spendingMonthlyAlerts = await fetchAlertsByTypeAndFrequency(db, 'spending', 'monthly');
+    try {
+      const incomeWeeklyAlerts = await fetchAlertsByTypeAndFrequency(db, 'income', 'weekly');
+      const incomeMonthlyAlerts = await fetchAlertsByTypeAndFrequency(db, 'income', 'monthly');
+      const spendingWeeklyAlerts = await fetchAlertsByTypeAndFrequency(db, 'spending', 'weekly');
+      const spendingMonthlyAlerts = await fetchAlertsByTypeAndFrequency(db, 'spending', 'monthly');
 
-    const incomeWeeklyCurrent = await fetchTotalTransactionAmount(db, 'credit', 'weekly');
-    const incomeMonthlyCurrent = await fetchTotalTransactionAmount(db, 'credit', 'monthly');
-    const spendingWeeklyCurrent = await fetchTotalTransactionAmount(db, 'debit', 'weekly');
-    const spendingMonthlyCurrent = await fetchTotalTransactionAmount(db, 'debit', 'monthly');
+      const incomeWeeklyCurrent = await fetchTotalTransactionAmount(db, 'credit', 'weekly');
+      const incomeMonthlyCurrent = await fetchTotalTransactionAmount(db, 'credit', 'monthly');
+      const spendingWeeklyCurrent = await fetchTotalTransactionAmount(db, 'debit', 'weekly');
+      const spendingMonthlyCurrent = await fetchTotalTransactionAmount(db, 'debit', 'monthly');
 
-    incomeWeeklyAlerts.forEach((alert) => (alert.current_value = incomeWeeklyCurrent));
-    incomeMonthlyAlerts.forEach((alert) => (alert.current_value = incomeMonthlyCurrent));
-    spendingWeeklyAlerts.forEach((alert) => (alert.current_value = spendingWeeklyCurrent));
-    spendingMonthlyAlerts.forEach((alert) => (alert.current_value = spendingMonthlyCurrent));
+      incomeWeeklyAlerts.forEach((alert) => (alert.current_value = incomeWeeklyCurrent));
+      incomeMonthlyAlerts.forEach((alert) => (alert.current_value = incomeMonthlyCurrent));
+      spendingWeeklyAlerts.forEach((alert) => (alert.current_value = spendingWeeklyCurrent));
+      spendingMonthlyAlerts.forEach((alert) => (alert.current_value = spendingMonthlyCurrent));
 
-    // Attach current_value to each alert
-    incomeWeeklyAlerts.forEach((alert) => (alert.current_value = incomeWeeklyCurrent));
-    incomeMonthlyAlerts.forEach((alert) => (alert.current_value = incomeMonthlyCurrent));
-    spendingWeeklyAlerts.forEach((alert) => (alert.current_value = spendingWeeklyCurrent));
-    spendingMonthlyAlerts.forEach((alert) => (alert.current_value = spendingMonthlyCurrent));
+      // Attach current_value to each alert
+      incomeWeeklyAlerts.forEach((alert) => (alert.current_value = incomeWeeklyCurrent));
+      incomeMonthlyAlerts.forEach((alert) => (alert.current_value = incomeMonthlyCurrent));
+      spendingWeeklyAlerts.forEach((alert) => (alert.current_value = spendingWeeklyCurrent));
+      spendingMonthlyAlerts.forEach((alert) => (alert.current_value = spendingMonthlyCurrent));
 
-    setAlertsGroupedByCategory({
-      'income-weekly': incomeWeeklyAlerts,
-      'income-monthly': incomeMonthlyAlerts,
-      'spending-weekly': spendingWeeklyAlerts,
-      'spending-monthly': spendingMonthlyAlerts,
-    });
-
-    setIsLoading(false);
+      setAlertsGroupedByCategory({
+        'income-weekly': incomeWeeklyAlerts,
+        'income-monthly': incomeMonthlyAlerts,
+        'spending-weekly': spendingWeeklyAlerts,
+        'spending-monthly': spendingMonthlyAlerts,
+      });
+    } catch (error) {
+      console.error('Error loading alerts:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, [db]);
 
   useEffect(() => {
@@ -118,6 +122,7 @@ export default function AlertDashboardScreen() {
 
   const handleSubmitAlert = async (alert: NewAlert | EditAlert) => {
     try {
+      setIsRefreshing(true);
       if ('id' in alert) {
         await updateAlert(db, {
           id: alert.id,
@@ -134,18 +139,20 @@ export default function AlertDashboardScreen() {
           created_at: alert.created_at,
         });
       }
-      loadAlerts();
+      await loadAlerts();
       setModalVisible(false);
     } catch (error) {
       console.error('Failed to save alert:', error);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
   // Pull-to-refresh handler
   const handleRefresh = async () => {
-    setIsLoading(true);
+    setIsRefreshing(true);
     await loadAlerts();
-    setIsLoading(false);
+    setIsRefreshing(false);
   };
 
   // Derived data: calculate usage for spending and income alerts
@@ -255,13 +262,10 @@ export default function AlertDashboardScreen() {
             currentAlertTypeFrequency={currentAlertTypeFrequency}
             onSubmit={handleSubmitAlert}
             onClose={() => setModalVisible(false)}
+            isLoading={isRefreshing}
           />
         )}
       </BaseModal>
     </View>
   );
-}
-
-function setIsLoading(arg0: boolean) {
-  throw new Error('Function not implemented.');
 }

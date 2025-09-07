@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundTask from 'expo-background-task';
 import { openDatabaseAsync } from 'expo-sqlite';
 import * as TaskManager from 'expo-task-manager';
@@ -11,8 +10,6 @@ import {
 
 const BACKGROUND_TASK_IDENTIFIER = 'fetch-sms-task';
 const MINIMUM_INTERVAL = 120; // in minutes
-const SMS_HISTORY_KEY = '@sms_history';
-const MAX_HISTORY_ITEMS = 50; // keep more SMS than quotes
 
 export type FinanceSms = {
   _id: string;
@@ -20,42 +17,6 @@ export type FinanceSms = {
   body: string;
   date: number;
   timestamp?: number; // extra field for history
-};
-
-export type SmsHistory = (FinanceSms & { timestamp: number })[];
-
-// Store SMS in history
-export const storeSmsInHistory = async (sms: FinanceSms) => {
-  try {
-    const historyJson = await AsyncStorage.getItem(SMS_HISTORY_KEY);
-    const history: SmsHistory = historyJson ? JSON.parse(historyJson) : [];
-
-    // add new SMS with timestamp
-    const newSms = {
-      ...sms,
-      timestamp: Date.now(),
-    };
-
-    const updatedHistory = [newSms, ...history].slice(0, MAX_HISTORY_ITEMS);
-
-    await AsyncStorage.setItem(SMS_HISTORY_KEY, JSON.stringify(updatedHistory));
-
-    return updatedHistory;
-  } catch (error) {
-    console.error('Error storing SMS:', error);
-    return null;
-  }
-};
-
-// Get SMS history
-export const getSmsHistory = async (): Promise<SmsHistory | null> => {
-  try {
-    const historyJson = await AsyncStorage.getItem(SMS_HISTORY_KEY);
-    return historyJson ? JSON.parse(historyJson) : null;
-  } catch (error) {
-    console.error('Error getting SMS history:', error);
-    return null;
-  }
 };
 
 // Background task
@@ -85,9 +46,8 @@ export const initializeBackgroundTask = async (innerAppMountedPromise: Promise<v
         await setConfig(db, 'lastSmsSync', now.toISOString());
       }
       if (messages && messages.length > 0) {
-        // just take first new message for now
-        await storeSmsInHistory(messages[0]);
-        console.log('Stored SMS:', messages[0]);
+        // SMS data is now stored directly in the database via insertSmsBatch
+        console.log('New SMS received:', messages[0]);
       }
     } catch (error) {
       console.error('Error in background SMS task:', error);

@@ -23,6 +23,7 @@ export interface AlertFormProps {
   currentAlertTypeFrequency: { type: AlertType; frequency: AlertFrequency };
   onSubmit: (alert: NewAlert | EditAlert) => void;
   onClose: () => void;
+  isLoading?: boolean;
 }
 
 const AlertForm: React.FC<AlertFormProps> = ({
@@ -31,18 +32,22 @@ const AlertForm: React.FC<AlertFormProps> = ({
   currentAlertTypeFrequency,
   onSubmit,
   onClose,
+  isLoading: externalLoading,
 }) => {
   const isEditMode = Boolean(alert);
   const theme = useTheme();
 
   const [threshold, setThreshold] = useState('');
   const [category, setCategory] = useState<TransactionCategory>(availableCategories[0] || 'Other');
-  const [isLoading, setIsLoading] = useState(false);
+  const [internalLoading, setInternalLoading] = useState(false);
+
+  // Use external loading state if provided, otherwise use internal
+  const isLoading = externalLoading !== undefined ? externalLoading : internalLoading;
 
   // Sync defaults
   useEffect(() => {
     // Reset loading state when alert changes
-    setIsLoading(false);
+    setInternalLoading(false);
 
     if (alert) {
       setThreshold(String(alert.threshold));
@@ -60,7 +65,7 @@ const AlertForm: React.FC<AlertFormProps> = ({
   const handleSave = useCallback(() => {
     if (!isValid) return;
 
-    setIsLoading(true);
+    setInternalLoading(true);
     const amt = parseFloat(threshold.trim());
     const timestamp = new Date().toISOString();
 
@@ -78,18 +83,9 @@ const AlertForm: React.FC<AlertFormProps> = ({
       }
     } catch (error) {
       console.error('Error saving alert:', error);
-      setIsLoading(false);
+      setInternalLoading(false);
     }
-  }, [
-    alert,
-    category,
-    threshold,
-    isValid,
-    onSubmit,
-    currentAlertTypeFrequency,
-    isEditMode,
-    setIsLoading,
-  ]);
+  }, [alert, category, threshold, isValid, onSubmit, currentAlertTypeFrequency, isEditMode]);
 
   const renderOptions = <T extends string>(
     options: readonly T[],

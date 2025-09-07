@@ -1,11 +1,12 @@
 // components/card/AlertProgressCard.tsx
-import { Card, CardDescription, CardHeader } from '@/components/ui/card';
+import { Card, CardDescription, CardFooter, CardHeader } from '@/components/ui/card';
 import { CATEGORY_COLORS } from '@/constants/transactionConstants';
 import { TransactionCategory } from '@/types/Transaction';
 import { capitalizeFirstLetter, formatAmount } from '@/utils/formatters';
 import React from 'react';
 import { View } from 'react-native';
 import LegendItem from '../insights/LegendItem';
+import { Progress } from '../ui/progress';
 
 interface AlertProgressCardProps {
   currentValue: number;
@@ -23,8 +24,8 @@ export default function AlertProgressCard({
   const progress = Math.min(currentValue / threshold, 1) * 100;
 
   return (
-    <Card className="h-24">
-      <CardHeader className="flex-row items-start justify-between">
+    <Card className="m-1 h-20 gap-1">
+      <CardHeader className="flex-row items-start justify-between px-2">
         <View className="flex-1 flex-row justify-between">
           <LegendItem
             color={CATEGORY_COLORS[category as TransactionCategory]}
@@ -35,19 +36,9 @@ export default function AlertProgressCard({
           </CardDescription>
         </View>
       </CardHeader>
-
-      <View className="px-3">
-        <View style={{ height: 8, backgroundColor: '#eee', borderRadius: 4 }}>
-          <View
-            style={{
-              width: `${Math.min(progress, 100)}%`, // ✅ clamp at 100
-              height: 8,
-              backgroundColor: progressColor,
-              borderRadius: 4,
-            }}
-          />
-        </View>
-      </View>
+      <CardFooter className="px-2">
+        <Progress value={progress} indicatorClassName={progressColor} />
+      </CardFooter>
     </Card>
   );
 }

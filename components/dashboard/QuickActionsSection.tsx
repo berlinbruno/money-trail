@@ -4,7 +4,13 @@ import { insertTransactions } from '@/lib/smsSync';
 import { useTheme } from '@react-navigation/native';
 import { Link } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { CheckCheck, Code, MessageCircleMore, PlusCircle } from 'lucide-react-native';
+import {
+  CheckCheck,
+  Code,
+  MessageCircleMore,
+  MessageSquareCode,
+  PlusCircle,
+} from 'lucide-react-native';
 import { TouchableOpacity, View } from 'react-native';
 
 export function DashboardQuickActionsSection() {
@@ -44,7 +50,12 @@ export function DashboardQuickActionsSection() {
               <Text>Debug</Text>
             </TouchableOpacity>
           </Link>
-          <View className="mx-1 flex-1" />
+          <Link asChild href={'/backgroundScreen'}>
+            <TouchableOpacity className="mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary">
+              <MessageSquareCode color={theme.colors.text} />
+              <Text>BackGround</Text>
+            </TouchableOpacity>
+          </Link>
           <View className="mx-1 flex-1" />
         </View>
       </CardContent>
