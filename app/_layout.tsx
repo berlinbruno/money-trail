@@ -1,5 +1,6 @@
 import '@/global.css';
 
+import { BACKGROUND_TASK_IDENTIFIER, BACKGROUND_TASK_OPTIONS } from '@/lib/smsBackgroundTask';
 import { NAV_THEME } from '@/lib/theme';
 import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
@@ -7,89 +8,61 @@ import * as BackgroundTask from 'expo-background-task';
 import { Stack } from 'expo-router';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
+import * as TaskManager from 'expo-task-manager';
 import { useColorScheme } from 'nativewind';
 import { useEffect, useRef } from 'react';
-import { Alert, PermissionsAndroid, Platform } from 'react-native';
+import { Alert } from 'react-native';
 
 export { ErrorBoundary } from 'expo-router';
-
-const BACKGROUND_TASK_NAME = 'smsSyncTask';
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
 
   const hasMounted = useRef(false);
 
+  // We don't need to register the task here - it's done in smsBackgroundTask.ts
+  // This will help ensure we don't have multiple task registrations
   useEffect(() => {
-    BackgroundTask.registerTaskAsync(BACKGROUND_TASK_NAME, {
-      minimumInterval: 240, // minutes
-    });
+    // Just verify the task is registered at app start
+    const checkBackgroundTask = async () => {
+      try {
+        const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_TASK_IDENTIFIER);
+        if (!isRegistered) {
+          console.log('Background task not registered in app start, registering now');
+          await BackgroundTask.registerTaskAsync(
+            BACKGROUND_TASK_IDENTIFIER,
+            BACKGROUND_TASK_OPTIONS
+          );
+        } else {
+          console.log('Background task already registered');
+        }
+      } catch (error) {
+        console.error('Error checking background task status:', error);
+      }
+    };
+
+    checkBackgroundTask();
   }, []);
 
   useEffect(() => {
     if (hasMounted.current) return;
 
     const requestPermissions = async () => {
-      if (Platform.OS === 'android') {
-        try {
-          // Define all permissions needed for the app
-          const permissions = [
-            PermissionsAndroid.PERMISSIONS.READ_SMS,
-            PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
-          ];
+      try {
+        // Dynamic import for permission utilities
+        const permissionUtils = await import('@/utils/permissionUtils');
 
-          // Request permissions with rationale
-          const results = await PermissionsAndroid.requestMultiple(permissions);
+        // Request all required app permissions
+        const results = await permissionUtils.requestAppPermissions();
 
-          // Check permission results and handle accordingly
-          const deniedPermissions = Object.entries(results)
-            .filter(([_, result]) => result !== PermissionsAndroid.RESULTS.GRANTED)
-            .map(([permission]) => permission.split('.').pop());
-
-          if (deniedPermissions.length > 0) {
-            // SMS permissions are critical for app functionality
-            if (
-              deniedPermissions.includes('READ_SMS') ||
-              deniedPermissions.includes('RECEIVE_SMS')
-            ) {
-              Alert.alert(
-                'Critical Permissions Denied',
-                'SMS access is required for transaction detection. Please enable these permissions in your device settings to use all features.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Open Settings',
-                    onPress: () => {
-                      // This would typically open app settings
-                      // Using alert for demonstration since direct settings navigation
-                      // requires additional native modules
-                      Alert.alert(
-                        'Action Required',
-                        'Please open your device settings and enable the required permissions for Money Trail.'
-                      );
-                    },
-                  },
-                ]
-              );
-            } else {
-              // Non-critical permissions
-              Alert.alert(
-                'Some Permissions Denied',
-                'Some features may be limited. You can enable these permissions later in settings if needed.',
-                [{ text: 'OK', style: 'default' }]
-              );
-            }
-          }
-        } catch (err) {
-          console.warn('Permission request error:', err);
-          Alert.alert(
-            'Permission Error',
-            'There was an error requesting permissions. Some features may not work properly.'
-          );
-        }
-      } else if (Platform.OS === 'ios') {
-        // iOS doesn't have SMS permissions but would handle other permissions here
-        // This is a placeholder for other iOS-specific permissions
+        // Handle any denied permissions with appropriate UI feedback
+        permissionUtils.handlePermissionResults(results);
+      } catch (err) {
+        console.warn('Permission request error:', err);
+        Alert.alert(
+          'Permission Error',
+          'There was an error requesting permissions. Some features may not work properly.'
+        );
       }
     };
 
@@ -110,6 +83,7 @@ export default function RootLayout() {
           <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
           <Stack.Screen name="backgroundScreen" />
           <Stack.Screen name="debugScreen" />
+          <Stack.Screen name="debug" />
           <Stack.Screen name="+not-found" />
         </Stack>
         <PortalHost />
