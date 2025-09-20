@@ -131,8 +131,16 @@ export default function BackgroundTaskScreen() {
   }, [db]);
 
   // Save task configuration
+  interface TaskConfig {
+    enabled: boolean;
+    intervalMinutes: number;
+    requiresWifi: boolean;
+    runOnAppLaunch: boolean;
+    [key: string]: any;
+  }
+
   const saveTaskSettings = useCallback(
-    async (newConfig) => {
+    async (newConfig: TaskConfig) => {
       setIsLoading(true);
       try {
         await saveTaskConfig(db, newConfig);
