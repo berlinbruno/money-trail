@@ -83,7 +83,6 @@ export default function RootLayout() {
           <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
           <Stack.Screen name="backgroundScreen" />
           <Stack.Screen name="debugScreen" />
-          <Stack.Screen name="debug" />
           <Stack.Screen name="+not-found" />
         </Stack>
         <PortalHost />
