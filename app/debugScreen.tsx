@@ -209,8 +209,6 @@ export default function DebugScreen() {
         memoryInfo.osName = Device.osName || Platform.OS;
         memoryInfo.osVersion = Device.osVersion || Platform.Version.toString();
 
-        // Add memory information (not directly available in expo-device)
-        memoryInfo.totalMemory = 'Not available through expo-device';
         memoryInfo.isDevice = Device.isDevice ? 'Physical Device' : 'Emulator/Simulator';
 
         // Get memory if available through the OS
@@ -365,28 +363,6 @@ export default function DebugScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <Button
-              className="mt-2"
-              onPress={async () => {
-                try {
-                  const timestamp = new Date().toISOString();
-                  const configKey = `test_config_${Date.now() % 10000}`;
-                  const configValue = `Test value created at ${timestamp}`;
-
-                  // Insert the new config record
-                  const query = 'INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)';
-                  const params = [configKey, configValue];
-                  await db.runAsync(query, params);
-
-                  fetchDbInfo();
-                  showMessage('Test config added');
-                } catch (error) {
-                  console.error('Error adding test config:', error);
-                  Alert.alert('Error', 'Failed to add test configuration');
-                }
-              }}>
-              <Text>Add Test Config</Text>
-            </Button>
           </View>
         )}
 
@@ -407,81 +383,69 @@ export default function DebugScreen() {
           </View>
         </View>
 
-        <Button className="mb-4" variant="secondary" onPress={() => setShowAdvanced(!showAdvanced)}>
-          <Text>{showAdvanced ? 'Hide Advanced Options' : 'Show Advanced Options'}</Text>
-        </Button>
+        <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
+          <Text className="mb-3 text-lg font-semibold">System Information</Text>
+          <Text className="mb-1">App Version: {appVersion}</Text>
 
-        {showAdvanced && (
-          <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
-            <Text className="mb-3 text-lg font-semibold">System Information</Text>
-            <Text className="mb-1">App Version: {appVersion}</Text>
+          <Button
+            className="my-2"
+            onPress={() => {
+              setIsLoading(true);
+              checkMemoryUsage().finally(() => setIsLoading(false));
+            }}>
+            <Text>Check Memory Usage</Text>
+          </Button>
 
-            <Button
-              className="my-2"
-              onPress={() => {
-                setIsLoading(true);
-                checkMemoryUsage().finally(() => setIsLoading(false));
-              }}>
-              <Text>Check Memory Usage</Text>
-            </Button>
+          {memoryUsage && (
+            <View className="mt-2 rounded-md bg-muted p-3">
+              <Text className="mb-3 font-medium">Timestamp: {memoryUsage.timestamp}</Text>
 
-            {memoryUsage && (
-              <View className="mt-2 rounded-md bg-muted p-3">
-                <Text className="mb-3 font-medium">Timestamp: {memoryUsage.timestamp}</Text>
+              <Text className="mb-2 font-semibold">Device Information</Text>
+              {memoryUsage.deviceInfo && <Text className="mb-1">OS: {memoryUsage.deviceInfo}</Text>}
+              {memoryUsage.deviceName && (
+                <Text className="mb-1">Device Name: {memoryUsage.deviceName}</Text>
+              )}
+              {memoryUsage.deviceModel && (
+                <Text className="mb-1">Model: {memoryUsage.deviceModel}</Text>
+              )}
+              {memoryUsage.brand && <Text className="mb-1">Brand: {memoryUsage.brand}</Text>}
+              {memoryUsage.deviceType && (
+                <Text className="mb-1">Device Type: {memoryUsage.deviceType}</Text>
+              )}
+              {memoryUsage.isDevice && (
+                <Text className="mb-1">Environment: {memoryUsage.isDevice}</Text>
+              )}
 
-                <Text className="mb-2 font-semibold">Device Information</Text>
-                {memoryUsage.deviceInfo && (
-                  <Text className="mb-1">OS: {memoryUsage.deviceInfo}</Text>
-                )}
-                {memoryUsage.deviceName && (
-                  <Text className="mb-1">Device Name: {memoryUsage.deviceName}</Text>
-                )}
-                {memoryUsage.deviceModel && (
-                  <Text className="mb-1">Model: {memoryUsage.deviceModel}</Text>
-                )}
-                {memoryUsage.brand && <Text className="mb-1">Brand: {memoryUsage.brand}</Text>}
-                {memoryUsage.deviceType && (
-                  <Text className="mb-1">Device Type: {memoryUsage.deviceType}</Text>
-                )}
-                {memoryUsage.isDevice && (
-                  <Text className="mb-1">Environment: {memoryUsage.isDevice}</Text>
-                )}
+              <Text className="mb-2 mt-3 font-semibold">System Information</Text>
+              {memoryUsage.osName && <Text className="mb-1">OS Name: {memoryUsage.osName}</Text>}
+              {memoryUsage.osVersion && (
+                <Text className="mb-1">OS Version: {memoryUsage.osVersion}</Text>
+              )}
+              {memoryUsage.androidRelease && (
+                <Text className="mb-1">Android Release: {memoryUsage.androidRelease}</Text>
+              )}
+              {memoryUsage.deviceError && (
+                <Text className="mt-2 text-xs italic text-amber-500">
+                  Note: {memoryUsage.deviceError}
+                </Text>
+              )}
 
-                <Text className="mb-2 mt-3 font-semibold">System Information</Text>
-                {memoryUsage.osName && <Text className="mb-1">OS Name: {memoryUsage.osName}</Text>}
-                {memoryUsage.osVersion && (
-                  <Text className="mb-1">OS Version: {memoryUsage.osVersion}</Text>
-                )}
-                {memoryUsage.androidRelease && (
-                  <Text className="mb-1">Android Release: {memoryUsage.androidRelease}</Text>
-                )}
-                {memoryUsage.totalMemory && (
-                  <Text className="mb-1">Memory: {memoryUsage.totalMemory}</Text>
-                )}
+              {memoryUsage.note && (
+                <Text className="mt-2 text-xs italic text-muted-foreground">
+                  {memoryUsage.note}
+                </Text>
+              )}
 
-                {memoryUsage.deviceError && (
-                  <Text className="mt-2 text-xs italic text-amber-500">
-                    Note: {memoryUsage.deviceError}
-                  </Text>
-                )}
+              {memoryUsage.error && (
+                <Text className="mt-2 text-xs text-destructive">Error: {memoryUsage.error}</Text>
+              )}
 
-                {memoryUsage.note && (
-                  <Text className="mt-2 text-xs italic text-muted-foreground">
-                    {memoryUsage.note}
-                  </Text>
-                )}
-
-                {memoryUsage.error && (
-                  <Text className="mt-2 text-xs text-destructive">Error: {memoryUsage.error}</Text>
-                )}
-
-                {memoryUsage.errorDetails && (
-                  <Text className="text-xs text-destructive">{memoryUsage.errorDetails}</Text>
-                )}
-              </View>
-            )}
-          </View>
-        )}
+              {memoryUsage.errorDetails && (
+                <Text className="text-xs text-destructive">{memoryUsage.errorDetails}</Text>
+              )}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </View>
   );
