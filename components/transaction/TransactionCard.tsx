@@ -1,5 +1,6 @@
+import { useSettings } from '@/contexts/SettingsContext';
 import { TransactionType } from '@/types/Transaction';
-import { formatAmount, formatDate } from '@/utils/formatters';
+import { formatAmountWithCurrency, formatDate } from '@/utils/formatters';
 import React from 'react';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import { Label } from '../ui/label';
@@ -12,6 +13,8 @@ export interface TransactionCardProps {
 }
 
 const TransactionCard: React.FC<TransactionCardProps> = ({ title, amount, date, type }) => {
+  const { selectedCurrency } = useSettings();
+
   return (
     <Card className="m-1 h-20 flex-row items-center justify-between">
       <CardHeader>
@@ -20,9 +23,13 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ title, amount, date, 
       </CardHeader>
       <CardFooter>
         {type === 'credit' ? (
-          <Label className="text-[#34C759]">{formatAmount(amount)}</Label>
+          <Label className="text-[#34C759]">
+            {formatAmountWithCurrency(amount, selectedCurrency)}
+          </Label>
         ) : (
-          <Label className="text-[#FF3B30]">{formatAmount(amount)}</Label>
+          <Label className="text-[#FF3B30]">
+            {formatAmountWithCurrency(amount, selectedCurrency)}
+          </Label>
         )}
       </CardFooter>
     </Card>

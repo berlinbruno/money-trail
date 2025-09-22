@@ -60,8 +60,8 @@ export async function getTransactions(
 export async function insertTransaction(db: SQLiteDatabase, newTransaction: NewTransaction) {
   await db.runAsync(
     `INSERT INTO transactions 
-      (title, amount, category, type, date, account, mode, created_at, pending_approval, sms_hash)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (title, amount, category, type, date, account, mode, source, created_at, pending_approval, sms_hash)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       newTransaction.title,
       newTransaction.amount,
@@ -70,9 +70,10 @@ export async function insertTransaction(db: SQLiteDatabase, newTransaction: NewT
       newTransaction.date,
       newTransaction.account,
       newTransaction.mode,
+      newTransaction.source,
       newTransaction.created_at,
       newTransaction.pending_approval,
-      newTransaction.sms_hash, // now matches the column
+      newTransaction.sms_hash,
     ]
   );
 }

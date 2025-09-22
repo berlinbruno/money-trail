@@ -1,23 +1,62 @@
+import { SettingsProvider, useSettings } from '@/contexts/SettingsContext';
 import '@/global.css';
 
+import { initializeAppConfig } from '@/lib/db/settingsQueries';
 import { BACKGROUND_TASK_IDENTIFIER, BACKGROUND_TASK_OPTIONS } from '@/lib/smsBackgroundTask';
 import { NAV_THEME } from '@/lib/theme';
 import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import * as BackgroundTask from 'expo-background-task';
 import { Stack } from 'expo-router';
-import { SQLiteProvider } from 'expo-sqlite';
+import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import * as TaskManager from 'expo-task-manager';
-import { useColorScheme } from 'nativewind';
-import { useEffect, useRef } from 'react';
-import { Alert } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Alert, Appearance } from 'react-native';
 
 export { ErrorBoundary } from 'expo-router';
 
-export default function RootLayout() {
-  const { colorScheme } = useColorScheme();
+// Themed content component that responds to settings
+function ThemedAppContent() {
+  const { theme } = useSettings();
 
+  // Calculate effective color scheme based on theme setting
+  const effectiveColorScheme = React.useMemo(() => {
+    if (theme === 'system') {
+      return Appearance.getColorScheme() || 'light';
+    }
+    return theme === 'dark' ? 'dark' : 'light';
+  }, [theme]);
+
+  return (
+    <ThemeProvider value={NAV_THEME[effectiveColorScheme as keyof typeof NAV_THEME]}>
+      <StatusBar style={effectiveColorScheme === 'dark' ? 'light' : 'dark'} />
+      <Stack>
+        <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="backgroundScreen"
+          options={{ headerShown: true, title: 'Background Tasks' }}
+        />
+        <Stack.Screen name="debugScreen" options={{ headerShown: true, title: 'Debug' }} />
+        <Stack.Screen name="+not-found" options={{ headerShown: true, title: 'Not Found' }} />
+      </Stack>
+      <PortalHost />
+    </ThemeProvider>
+  );
+}
+
+// App component that has access to the database context
+function AppWithSettings() {
+  const db = useSQLiteContext();
+
+  return (
+    <SettingsProvider database={db}>
+      <ThemedAppContent />
+    </SettingsProvider>
+  );
+}
+
+export default function RootLayout() {
   const hasMounted = useRef(false);
 
   // We don't need to register the task here - it's done in smsBackgroundTask.ts
@@ -51,7 +90,6 @@ export default function RootLayout() {
       try {
         // Dynamic import for permission utilities
         const permissionUtils = await import('@/utils/permissionUtils');
-
         // Request all required app permissions
         const results = await permissionUtils.requestAppPermissions();
 
@@ -75,21 +113,20 @@ export default function RootLayout() {
       databaseName="app.db"
       assetSource={{ assetId: require('@/assets//database/app.db') }}
       onInit={async (db) => {
-        await db.execAsync('PRAGMA journal_mode = WAL;');
+        try {
+          // Enable WAL mode for better concurrency
+          await db.execAsync('PRAGMA journal_mode = WAL;');
+
+          // Initialize default configuration values
+          await initializeAppConfig(db);
+
+          console.log('Database initialization completed successfully');
+        } catch (error) {
+          console.error('Database initialization error:', error);
+          // Don't throw here to prevent app crash - let it continue with default behavior
+        }
       }}>
-      <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        <Stack>
-          <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="backgroundScreen"
-            options={{ headerShown: true, title: 'Background Tasks' }}
-          />
-          <Stack.Screen name="debugScreen" options={{ headerShown: true, title: 'Debug' }} />
-          <Stack.Screen name="+not-found" options={{ headerShown: true, title: 'Not Found' }} />
-        </Stack>
-        <PortalHost />
-      </ThemeProvider>
+      <AppWithSettings />
     </SQLiteProvider>
   );
 }

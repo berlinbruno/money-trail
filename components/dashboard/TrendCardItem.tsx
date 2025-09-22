@@ -1,5 +1,6 @@
 import { Card } from '@/components/ui/card';
-import { capitalizeFirstLetter, formatAmount } from '@/utils/formatters';
+import { useSettings } from '@/contexts/SettingsContext';
+import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatters';
 import { Activity, TrendingDown, TrendingUp } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
@@ -14,6 +15,7 @@ type TrendCardItemProps = {
 };
 
 export function TrendCardItem({ id, label, value, color, direction }: TrendCardItemProps) {
+  const { selectedCurrency } = useSettings();
   const TrendIcon =
     direction === 'up' ? TrendingUp : direction === 'down' ? TrendingDown : Activity;
 
@@ -27,7 +29,7 @@ export function TrendCardItem({ id, label, value, color, direction }: TrendCardI
 
       {/* Right side */}
       <View className="flex flex-row items-center gap-2">
-        <Label>{formatAmount(value)}</Label>
+        <Label>{formatAmountWithCurrency(value, selectedCurrency)}</Label>
         <TrendIcon
           size={20}
           color={direction === 'up' ? '#FF3B30' : direction === 'down' ? '#007AFF' : '#28A745'}

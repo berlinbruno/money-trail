@@ -53,7 +53,6 @@ export default function InsightsScreen() {
         insightsSummary: summary,
         timeSeriesData: (() => {
           const updated: insightsDataset = {
-            Daily: prev.timeSeriesData?.Daily ?? transformTimeSeries([]),
             Weekly: prev.timeSeriesData?.Weekly ?? transformTimeSeries([]),
             Monthly: prev.timeSeriesData?.Monthly ?? transformTimeSeries([]),
             Yearly: prev.timeSeriesData?.Yearly ?? transformTimeSeries([]),

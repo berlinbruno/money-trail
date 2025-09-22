@@ -34,7 +34,7 @@ export default function DashboardScreen() {
         getRecentTransactions(db),
         getMonthlyKPI(db),
         getTopDeviations(db),
-        getUnreadNotifications(db, 5),
+        getUnreadNotifications(db, 3),
       ]);
       setRecentTransactions(transactions);
       setMonthlyKPIData(kpiData);
@@ -68,11 +68,15 @@ export default function DashboardScreen() {
   const handleMarkedRead = useCallback(
     async (id: number) => {
       setNotifications((prev) => prev.filter((n) => n.id !== String(id)));
-      const unread = await getUnreadNotifications(db, 5);
+      const unread = await getUnreadNotifications(db, 3);
       setNotifications(unread);
     },
     [db]
   );
+
+  const handleClearAll = useCallback(async () => {
+    setNotifications([]);
+  }, []);
   return (
     <ScrollView
       className="p-2"
@@ -93,6 +97,7 @@ export default function DashboardScreen() {
       <DashboardNotificationsSection
         notifications={notifications}
         onMarkedRead={handleMarkedRead}
+        onClearAll={handleClearAll}
       />
 
       <DashboardTrendsSection monthlyTrends={monthlyTrends} />

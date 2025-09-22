@@ -1,6 +1,7 @@
 import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useSettings } from '@/contexts/SettingsContext';
 import { InsightsSummary } from '@/types/Insight';
-import { capitalizeFirstLetter, formatAmount } from '@/utils/formatters';
+import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatters';
 import { useMemo } from 'react';
 import { TREND_COLORS } from '../../constants/insightsConstants';
 import InsightItem from './InsightItem';
@@ -21,6 +22,8 @@ export default function SmartInsightsSection({
 }: {
   insightsSummary: InsightsSummary | null;
 }) {
+  const { selectedCurrency } = useSettings();
+
   // Check if we have any meaningful data to display
   const hasData = useMemo(() => {
     if (!insightsSummary) return false;
@@ -40,28 +43,28 @@ export default function SmartInsightsSection({
     const items: InsightItemConfig[] = [
       {
         color: TREND_COLORS.prevSaving,
-        text: `Highest spend: ${formatAmount(insightsSummary.highestExpenseAmount)} on ${capitalizeFirstLetter(insightsSummary.highestExpenseCategory)}`,
+        text: `Highest spend: ${formatAmountWithCurrency(insightsSummary.highestExpenseAmount, selectedCurrency)} on ${capitalizeFirstLetter(insightsSummary.highestExpenseCategory)}`,
         condition: insightsSummary.highestExpenseAmount > 0,
       },
       {
         color: TREND_COLORS.income,
-        text: `Average spend: ${formatAmount(insightsSummary.averageExpense)}`,
+        text: `Average spend: ${formatAmountWithCurrency(insightsSummary.averageExpense, selectedCurrency)}`,
         condition: insightsSummary.averageExpense > 0,
       },
       {
         color: TREND_COLORS.income,
-        text: `Total income: ${formatAmount(insightsSummary.totalIncome)}`,
+        text: `Total income: ${formatAmountWithCurrency(insightsSummary.totalIncome, selectedCurrency)}`,
         condition: insightsSummary.totalIncome > 0,
       },
       {
         color: TREND_COLORS.expense,
-        text: `Total expense: ${formatAmount(insightsSummary.totalExpense)}`,
+        text: `Total expense: ${formatAmountWithCurrency(insightsSummary.totalExpense, selectedCurrency)}`,
         condition: insightsSummary.totalExpense > 0,
       },
     ];
 
     return items.filter((item) => item.condition);
-  }, [insightsSummary]);
+  }, [insightsSummary, selectedCurrency]);
 
   return (
     <Card className="mb-2">

@@ -2,7 +2,7 @@ import * as BackgroundTask from 'expo-background-task';
 import { openDatabaseAsync } from 'expo-sqlite';
 import * as TaskManager from 'expo-task-manager';
 import { getConfig, setConfig } from './db/configQueries';
-import { getFinanceInboxMessagesByDateRange, insertSmsBatch } from './smsSync';
+import { syncTransactions } from './smsSync';
 
 export const BACKGROUND_TASK_IDENTIFIER = 'fetch-sms-task';
 export const BACKGROUND_TASK_OPTIONS = {
@@ -67,7 +67,7 @@ export type TaskExecutionLog = {
 };
 
 /**
- * Execute the SMS processing task
+ * Execute the SMS processing task with enhanced error handling
  * @param db The SQLite database instance
  * @returns Promise<TaskExecutionLog> Execution results
  */
@@ -81,62 +81,42 @@ export const executeTask = async (db: any): Promise<TaskExecutionLog> => {
   };
 
   try {
-    // Get last sync time from config
-    const lastSyncStr = await getConfig(db, 'lastSmsSync');
-    const lastSync = lastSyncStr ? new Date(lastSyncStr) : null;
-
-    // Fetch new messages since last sync
-    const inbox = await getFinanceInboxMessagesByDateRange(
-      lastSync ? lastSync.getTime() : undefined,
-      now.getTime(),
-      200
-    );
-
-    // Log the total number of messages found
-    executionLog.messageCount = inbox.length;
-
-    if (inbox.length === 0) {
-      executionLog.status = 'Completed';
-      executionLog.details = 'No new messages found';
-      const endTime = Date.now();
-      executionLog.executionTimeMs = endTime - startTime;
+    // Get task configuration
+    const config = await getTaskConfig(db);
+    if (!config.enabled) {
+      executionLog.status = 'Skipped';
+      executionLog.details = 'Background sync is disabled';
+      executionLog.executionTimeMs = Date.now() - startTime;
       return executionLog;
     }
 
-    // Process messages and insert into database
-    const inserted = await insertSmsBatch(db, inbox, 'default', 1, 'sms');
+    // Use the enhanced sync function
+    const result = await syncTransactions(db, {
+      maxMessages: 200,
+      defaultAccount: 'default',
+      requireApproval: true,
+    });
 
-    // Update last sync time if messages were processed
-    if (inserted.length > 0) {
-      await setConfig(db, 'lastSmsSync', now.toISOString());
+    // Update execution log with sync results
+    executionLog.messageCount = result.processed;
+    executionLog.status = result.success ? 'Completed' : 'Failed';
+    executionLog.details = result.success
+      ? `Processed ${result.processed} messages, inserted ${result.inserted} transactions`
+      : `Sync failed: ${result.errorMessages.join(', ')}`;
+    executionLog.executionTimeMs = result.executionTime;
+    executionLog.processingRate =
+      result.processed > 0 ? result.processed / (result.executionTime / 1000) : 0;
 
-      // Calculate performance metrics
-      const endTime = Date.now();
-      const executionTimeMs = endTime - startTime;
-      const processingRate = inserted.length > 0 ? inserted.length / (executionTimeMs / 1000) : 0;
-
-      // Log execution in config table
-      const executionKey = `task_execution_${Date.now()}`;
-      executionLog.status = 'Completed';
-      executionLog.details = `Processed ${inserted.length} new SMS messages`;
-      executionLog.executionTimeMs = executionTimeMs;
-      executionLog.processingRate = processingRate;
-
-      await db.runAsync('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)', [
-        executionKey,
-        JSON.stringify(executionLog),
-      ]);
-    } else {
-      executionLog.status = 'Completed';
-      executionLog.details = 'No new transactions found in messages';
-      const endTime = Date.now();
-      executionLog.executionTimeMs = endTime - startTime;
+    if (!result.success) {
+      executionLog.error = result.errorMessages.join(', ');
     }
 
-    // For debugging - log the first message if available
-    if (inbox.length > 0) {
-      console.log('Sample message processed:', inbox[0].body.substring(0, 50) + '...');
-    }
+    // Log execution in config table for debugging
+    const executionKey = `task_execution_${Date.now()}`;
+    await db.runAsync('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)', [
+      executionKey,
+      JSON.stringify(executionLog),
+    ]);
 
     return executionLog;
   } catch (error) {
@@ -163,10 +143,121 @@ export const executeTask = async (db: any): Promise<TaskExecutionLog> => {
 };
 
 /**
- * Define and register the background task
+ * Register background task with current settings
+ */
+export const registerBackgroundTask = async (db: any): Promise<boolean> => {
+  try {
+    // Check if task is already registered
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_TASK_IDENTIFIER);
+
+    if (isRegistered) {
+      console.log('Background SMS task already registered');
+      return true;
+    }
+
+    // Get current configuration
+    const config = await getTaskConfig(db);
+
+    // Update background task options based on config
+    const taskOptions = {
+      ...BACKGROUND_TASK_OPTIONS,
+      minimumInterval: config.intervalMinutes || BACKGROUND_TASK_OPTIONS.minimumInterval,
+    };
+
+    await BackgroundTask.registerTaskAsync(BACKGROUND_TASK_IDENTIFIER, taskOptions);
+    console.log(
+      `Background SMS task registered with interval: ${taskOptions.minimumInterval} minutes`
+    );
+
+    return true;
+  } catch (error) {
+    console.error('Failed to register background task:', error);
+    return false;
+  }
+};
+
+/**
+ * Unregister background task
+ */
+export const unregisterBackgroundTask = async (): Promise<boolean> => {
+  try {
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_TASK_IDENTIFIER);
+
+    if (isRegistered) {
+      await TaskManager.unregisterTaskAsync(BACKGROUND_TASK_IDENTIFIER);
+      console.log('Background SMS task unregistered');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Failed to unregister background task:', error);
+    return false;
+  }
+};
+
+/**
+ * Update task configuration and re-register if needed
+ */
+export const updateTaskConfiguration = async (
+  db: any,
+  newConfig: Partial<typeof DEFAULT_TASK_CONFIG>
+): Promise<boolean> => {
+  try {
+    // Get current config
+    const currentConfig = await getTaskConfig(db);
+    const updatedConfig = { ...currentConfig, ...newConfig };
+
+    // Save updated config
+    const saved = await saveTaskConfig(db, updatedConfig);
+    if (!saved) {
+      console.error('Failed to save task configuration');
+      return false;
+    }
+
+    // If background sync is disabled, unregister the task
+    if (!updatedConfig.enabled) {
+      return await unregisterBackgroundTask();
+    }
+
+    // If enabled, register/re-register with new settings
+    return await registerBackgroundTask(db);
+  } catch (error) {
+    console.error('Failed to update task configuration:', error);
+    return false;
+  }
+};
+
+/**
+ * Get task execution history for debugging
+ */
+export const getTaskExecutionHistory = async (db: any, limit = 10): Promise<TaskExecutionLog[]> => {
+  try {
+    const result = await db.getAllAsync(
+      'SELECT key, value FROM config WHERE key LIKE ? ORDER BY key DESC LIMIT ?',
+      ['task_execution_%', limit]
+    );
+
+    return result
+      .map((row: any) => {
+        try {
+          return JSON.parse(row.value) as TaskExecutionLog;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+  } catch (error) {
+    console.error('Failed to get task execution history:', error);
+    return [];
+  }
+};
+/**
+ * Define and register the background task with enhanced integration
  * @param innerAppMountedPromise Promise that resolves when the app is mounted
  */
-export const initializeBackgroundTask = async (innerAppMountedPromise: Promise<void>) => {
+export const initializeBackgroundTask = async (
+  innerAppMountedPromise: Promise<void>
+): Promise<void> => {
   // Define the task handler
   TaskManager.defineTask(BACKGROUND_TASK_IDENTIFIER, async () => {
     console.log('Background SMS task started');
@@ -192,19 +283,7 @@ export const initializeBackgroundTask = async (innerAppMountedPromise: Promise<v
     return BackgroundTask.BackgroundTaskResult.Success;
   });
 
-  // Check if task is already registered before attempting to register again
-  const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_TASK_IDENTIFIER);
-
-  if (!isRegistered) {
-    try {
-      await BackgroundTask.registerTaskAsync(BACKGROUND_TASK_IDENTIFIER, BACKGROUND_TASK_OPTIONS);
-      console.log(
-        `Background SMS task registered successfully with interval: ${BACKGROUND_TASK_OPTIONS.minimumInterval} minutes`
-      );
-    } catch (error) {
-      console.error('Failed to register background task:', error);
-    }
-  } else {
-    console.log(`Background SMS task already registered`);
-  }
+  // Note: Task registration will be handled by the settings context
+  // when background sync is enabled by the user
+  console.log('Background SMS task handler defined');
 };

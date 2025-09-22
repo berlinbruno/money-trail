@@ -1,7 +1,8 @@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { useSettings } from '@/contexts/SettingsContext';
 import { RecentTx } from '@/types/Insight';
-import { capitalizeFirstLetter, formatAmount } from '@/utils/formatters';
+import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatters';
 import { Link } from 'expo-router';
 
 interface RecentTransactionsSectionProps {
@@ -11,6 +12,13 @@ interface RecentTransactionsSectionProps {
 export function DashboardRecentTransactionsSection({
   recentTransactions,
 }: RecentTransactionsSectionProps) {
+  const { selectedCurrency } = useSettings();
+
+  // Don't render the card if there are no recent transactions
+  if (!recentTransactions || recentTransactions.length === 0) {
+    return null;
+  }
+
   return (
     <Card className="mb-2">
       <CardHeader>
@@ -20,7 +28,8 @@ export function DashboardRecentTransactionsSection({
         {recentTransactions.map((transaction) => (
           <Text key={transaction.id} className="mb-1">
             {transaction.type === 'debit' ? 'Paid' : 'Received'} {transaction.title} -{' '}
-            {formatAmount(transaction.amount)} ({capitalizeFirstLetter(transaction.category)})
+            {formatAmountWithCurrency(transaction.amount, selectedCurrency)} (
+            {capitalizeFirstLetter(transaction.category)})
           </Text>
         ))}
       </CardContent>

@@ -3,8 +3,19 @@ import { parseTransactionFromSms } from '@/utils/transactionParser';
 import { MD5 } from 'crypto-js';
 import { SQLiteDatabase } from 'expo-sqlite';
 import SmsAndroid from 'react-native-get-sms-android';
-import { getConfig, setConfig } from './db/configQueries';
+import { getLastSyncTime, setLastSyncTime } from './db/settingsQueries';
 import { insertTransaction } from './db/transactionQueries';
+
+// Enhanced types for better SMS processing
+export interface SyncResult {
+  success: boolean;
+  processed: number;
+  inserted: number;
+  duplicates: number;
+  errors: number;
+  errorMessages: string[];
+  executionTime: number;
+}
 
 /**
  * Comprehensive finance regex
@@ -149,26 +160,99 @@ export async function insertSmsBatch(
 }
 
 /**
- * Main sync function
+ * Main sync function with comprehensive error handling and reporting
  */
-export async function insertTransactions(db: SQLiteDatabase) {
+export async function syncTransactions(
+  db: SQLiteDatabase,
+  options: {
+    maxMessages?: number;
+    defaultAccount?: string;
+    requireApproval?: boolean;
+  } = {}
+): Promise<SyncResult> {
+  const startTime = Date.now();
+  const { maxMessages = 200, defaultAccount = 'default', requireApproval = true } = options;
+
   try {
-    const lastSyncStr = await getConfig(db, 'lastSmsSync');
-    const lastSync = lastSyncStr ? new Date(lastSyncStr) : null;
+    // Get last sync time
+    const lastSync = await getLastSyncTime(db);
     const now = new Date();
 
-    const inbox = await getFinanceInboxMessagesByDateRange(
+    console.log('Starting SMS sync...', {
+      lastSync: lastSync?.toISOString(),
+      maxMessages,
+    });
+
+    // Fetch messages
+    const messages = await getFinanceInboxMessagesByDateRange(
       lastSync ? lastSync.getTime() : undefined,
       now.getTime(),
-      200
+      maxMessages
     );
 
-    const inserted = await insertSmsBatch(db, inbox, 'default', 1, 'sms');
-
-    if (inserted.length > 0) {
-      await setConfig(db, 'lastSmsSync', now.toISOString());
+    if (messages.length === 0) {
+      console.log('No new SMS messages to process');
+      return {
+        success: true,
+        processed: 0,
+        inserted: 0,
+        duplicates: 0,
+        errors: 0,
+        errorMessages: [],
+        executionTime: Date.now() - startTime,
+      };
     }
-  } catch (err) {
-    console.error('Failed to insert SMS transactions:', err);
+
+    // Process messages with improved error tracking
+    const results = await insertSmsBatch(
+      db,
+      messages,
+      defaultAccount,
+      requireApproval ? 1 : 0,
+      'sms'
+    );
+
+    // Update last sync time if any messages were processed successfully
+    if (results.length > 0) {
+      await setLastSyncTime(db, now);
+      console.log('Updated last sync time:', now.toISOString());
+    }
+
+    // Calculate sync statistics
+    const duplicates = messages.length - results.length;
+
+    return {
+      success: true,
+      processed: messages.length,
+      inserted: results.length,
+      duplicates,
+      errors: 0,
+      errorMessages: [],
+      executionTime: Date.now() - startTime,
+    };
+  } catch (error) {
+    console.error('Failed to sync SMS transactions:', error);
+    return {
+      success: false,
+      processed: 0,
+      inserted: 0,
+      duplicates: 0,
+      errors: 1,
+      errorMessages: [error instanceof Error ? error.message : String(error)],
+      executionTime: Date.now() - startTime,
+    };
+  }
+}
+
+/**
+ * Legacy function for backward compatibility
+ */
+export async function insertTransactions(db: SQLiteDatabase): Promise<void> {
+  try {
+    const result = await syncTransactions(db);
+    console.log('Legacy insertTransactions completed:', result);
+  } catch (error) {
+    console.error('Failed to insert SMS transactions:', error);
+    throw error;
   }
 }

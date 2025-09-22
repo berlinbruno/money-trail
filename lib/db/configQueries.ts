@@ -9,5 +9,8 @@ export async function setConfig(db: SQLiteDatabase, key: string, value: string) 
 }
 
 export async function getConfig(db: SQLiteDatabase, key: string): Promise<string | null> {
-  return db.getFirstAsync(`SELECT value FROM config WHERE key=?`, [key]);
+  const result = await db.getFirstAsync<{ value: string }>(`SELECT value FROM config WHERE key=?`, [
+    key,
+  ]);
+  return result?.value || null;
 }

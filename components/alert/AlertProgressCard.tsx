@@ -1,8 +1,9 @@
 // components/card/AlertProgressCard.tsx
 import { Card, CardDescription, CardFooter, CardHeader } from '@/components/ui/card';
 import { CATEGORY_COLORS } from '@/constants/transactionConstants';
+import { useSettings } from '@/contexts/SettingsContext';
 import { TransactionCategory } from '@/types/Transaction';
-import { capitalizeFirstLetter, formatAmount } from '@/utils/formatters';
+import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatters';
 import React from 'react';
 import { View } from 'react-native';
 import LegendItem from '../insights/LegendItem';
@@ -21,6 +22,7 @@ export default function AlertProgressCard({
   category,
   progressColor,
 }: AlertProgressCardProps) {
+  const { selectedCurrency } = useSettings();
   const progress = Math.min(currentValue / threshold, 1) * 100;
 
   return (
@@ -32,7 +34,8 @@ export default function AlertProgressCard({
             label={capitalizeFirstLetter(category)}
           />
           <CardDescription>
-            {formatAmount(currentValue)} / {formatAmount(threshold)}
+            {formatAmountWithCurrency(currentValue, selectedCurrency)} /{' '}
+            {formatAmountWithCurrency(threshold, selectedCurrency)}
           </CardDescription>
         </View>
       </CardHeader>

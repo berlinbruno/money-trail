@@ -6,8 +6,9 @@ import {
   NO_OF_SECTIONS,
   TREND_COLORS,
 } from '@/constants/insightsConstants';
+import { useSettings } from '@/contexts/SettingsContext';
 import { insightsDataset } from '@/types/Insight';
-import { formatAmount } from '@/utils/formatters';
+import { formatAmountWithCurrency } from '@/utils/formatters';
 import {
   calculateStep,
   calculateTotals,
@@ -31,6 +32,7 @@ interface BarChartSectionProps {
  */
 export default function BarChartSection({ timeSeriesData, rangeLabel }: BarChartSectionProps) {
   const theme = useTheme();
+  const { selectedCurrency } = useSettings();
 
   // Memoize calculations to optimize performance
   const chartData = useMemo(() => {
@@ -61,7 +63,7 @@ export default function BarChartSection({ timeSeriesData, rangeLabel }: BarChart
     <View className="flex flex-row items-center justify-center gap-2 rounded-lg bg-background p-2 shadow-lg">
       <View className="mr-1 h-3 w-3 rounded-full" style={{ backgroundColor: frontColor }} />
       <Text className="font-medium">{type}</Text>
-      <Text className="font-medium">{formatAmount(value)}</Text>
+      <Text className="font-medium">{formatAmountWithCurrency(value, selectedCurrency)}</Text>
     </View>
   );
 

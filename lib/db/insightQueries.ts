@@ -13,31 +13,6 @@ export async function fetchIncomeExpenseTrend(
   let labels: string[];
 
   switch (period) {
-    case 'Daily':
-      query = `
-        SELECT 
-          strftime('%H', date) AS hour_of_day,
-          SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS income,
-          SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expense,
-          SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) - SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS savings
-        FROM transactions
-        WHERE ${getDateCondition('Daily')} AND pending_approval = 0
-        GROUP BY hour_of_day
-        ORDER BY hour_of_day;
-      `;
-      prevQuery = `
-        SELECT 
-          strftime('%H', date) AS hour_of_day,
-          SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS income,
-          SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expense,
-          SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) - SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS savings
-        FROM transactions
-        WHERE date >= date('now', '-1 day') AND date < date('now') AND pending_approval = 0
-        GROUP BY hour_of_day
-        ORDER BY hour_of_day;
-      `;
-      labels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
-      break;
     case 'Weekly':
       query = `
         SELECT 

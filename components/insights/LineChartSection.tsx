@@ -5,7 +5,8 @@ import {
   SEGMENTS,
   TREND_COLORS,
 } from '@/constants/insightsConstants';
-import { formatAmount } from '@/utils/formatters';
+import { useSettings } from '@/contexts/SettingsContext';
+import { formatAmountWithCurrency } from '@/utils/formatters';
 import {
   calculateStep,
   calculateTotals,
@@ -40,6 +41,7 @@ interface ChartDataPoint {
  */
 export default function LineChartSection({ timeSeriesData, rangeLabel }: LineChartSectionProps) {
   const theme = useTheme();
+  const { selectedCurrency } = useSettings();
 
   // Segment control state
   const [selectedSegmentIndex, setSelectedSegmentIndex] = useState<number>(0);
@@ -124,7 +126,10 @@ export default function LineChartSection({ timeSeriesData, rangeLabel }: LineCha
 
     const labelValue = focusedLabel.label;
     const findValue = (dataArray: any[]) =>
-      formatAmount(dataArray?.find((item) => item.label === labelValue)?.value ?? 0);
+      formatAmountWithCurrency(
+        dataArray?.find((item) => item.label === labelValue)?.value ?? 0,
+        selectedCurrency
+      );
 
     if (selectedSegment === 'income') {
       return [
@@ -166,7 +171,7 @@ export default function LineChartSection({ timeSeriesData, rangeLabel }: LineCha
         },
       ];
     }
-  }, [focusedLabel, selectedSegment, trendLineData]);
+  }, [focusedLabel, selectedSegment, trendLineData, selectedCurrency]);
 
   // Handle segment change
   const handleSegmentChange = useCallback(

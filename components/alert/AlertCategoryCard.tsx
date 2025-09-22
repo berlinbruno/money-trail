@@ -1,8 +1,9 @@
 import { TRANSACTION_CATEGORIES } from '@/constants/transactionConstants';
+import { useSettings } from '@/contexts/SettingsContext';
 import { Alert } from '@/types/Alert';
 import { IAlertRow } from '@/types/Common';
 import { TransactionCategory } from '@/types/Transaction';
-import { formatAmount } from '@/utils/formatters';
+import { formatAmountWithCurrency } from '@/utils/formatters';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
@@ -34,6 +35,7 @@ export default function AlertCategoryCard({
   onDeleteAlert,
   label,
 }: Props) {
+  const { selectedCurrency } = useSettings();
   const totalCurrentValue = alerts.reduce((sum, alert) => sum + (alert.current_value ?? 0), 0);
   const totalThreshold = alerts.reduce((sum, alert) => sum + alert.threshold, 0);
   const progressRatio = totalThreshold ? (totalCurrentValue / totalThreshold) * 100 : 0;
@@ -66,7 +68,8 @@ export default function AlertCategoryCard({
           activeOpacity={0.7}>
           <CardTitle>{label}</CardTitle>
           <CardDescription>
-            {formatAmount(totalCurrentValue)} / {formatAmount(totalThreshold)}
+            {formatAmountWithCurrency(totalCurrentValue, selectedCurrency)} /{' '}
+            {formatAmountWithCurrency(totalThreshold, selectedCurrency)}
           </CardDescription>
         </TouchableOpacity>
         <TouchableOpacity

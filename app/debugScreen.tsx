@@ -1,10 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { createAlert } from '@/lib/db/alertQueries';
-import { insertTransaction } from '@/lib/db/transactionQueries';
-import { AlertFrequency, AlertType } from '@/types/Alert';
-import { TransactionCategory, TransactionMode, TransactionType } from '@/types/Transaction';
+import { APP_VERSION } from '@/constants/settingsConstants';
+import {
+  clearAllData,
+  generateTestData,
+  getConfigRecords,
+  getDbInfo,
+} from '@/lib/db/settingsQueries';
 import * as Device from 'expo-device';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -17,31 +20,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-// Constants for better performance and maintainability
-const TRANSACTION_TYPES: TransactionType[] = ['debit', 'credit'];
-const DEBIT_CATEGORIES: TransactionCategory[] = [
-  'food',
-  'grocery',
-  'bills',
-  'shopping',
-  'travel',
-  'other',
-];
-const CREDIT_CATEGORIES: TransactionCategory[] = ['salary', 'investments', 'refund', 'other'];
-const SAMPLE_AMOUNTS = [10.99, 25.5, 100, 500, 1000, 1500, 2000];
-const SAMPLE_DESCRIPTIONS = [
-  'Lunch',
-  'Uber ride',
-  'Electric bill',
-  'Movie tickets',
-  'Monthly salary',
-  'Birthday gift',
-];
-const TRANSACTION_MODES: TransactionMode[] = ['cash', 'card', 'upi', 'neft', 'other'];
-const ALERT_TYPES: AlertType[] = ['income', 'spending'];
-const ALERT_FREQUENCIES: AlertFrequency[] = ['weekly', 'monthly'];
-const SAMPLE_THRESHOLDS = [500, 1000, 2000, 5000];
 
 // Platform-specific message helper
 const showMessage = (message: string) => {
@@ -59,7 +37,7 @@ export default function DebugScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [memoryUsage, setMemoryUsage] = useState<any>(null);
 
-  const appVersion = useMemo(() => '1.0.0', []);
+  const appVersion = useMemo(() => APP_VERSION, []);
 
   // Memoize device info to avoid recalculation
   const deviceInfo = useMemo(() => {
@@ -73,30 +51,12 @@ export default function DebugScreen() {
   const fetchDbInfo = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Get list of tables
-      const tableResults = await db.getAllAsync<{ name: string }>(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_migrations%'"
-      );
-
-      const tables = tableResults.map((r) => r.name);
-      const counts = await Promise.all(
-        tables.map(async (table) => {
-          const countResult = await db.getAllAsync<{ count: number }>(
-            `SELECT COUNT(*) as count FROM ${table}`
-          );
-          return { table, count: countResult[0]?.count || 0 };
-        })
-      );
-
+      const counts = await getDbInfo(db);
       setDbInfo(counts);
 
       // Fetch config table records
-      if (tables.includes('config')) {
-        const configResult = await db.getAllAsync<{ key: string; value: string }>(
-          'SELECT key, value FROM config'
-        );
-        setConfigRecords(configResult);
-      }
+      const configResult = await getConfigRecords(db);
+      setConfigRecords(configResult);
 
       showMessage('Database info updated');
     } catch (error) {
@@ -113,58 +73,10 @@ export default function DebugScreen() {
   }, []);
 
   // Generate test data with optimized random selection
-  const generateTestData = useCallback(async () => {
+  const handleGenerateTestData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const now = new Date();
-
-      // Generate transactions using constants
-      for (let i = 0; i < 20; i++) {
-        const type = TRANSACTION_TYPES[Math.floor(Math.random() * TRANSACTION_TYPES.length)];
-        const categoryOptions = type === 'debit' ? DEBIT_CATEGORIES : CREDIT_CATEGORIES;
-        const category = categoryOptions[Math.floor(Math.random() * categoryOptions.length)];
-        const amount = SAMPLE_AMOUNTS[Math.floor(Math.random() * SAMPLE_AMOUNTS.length)];
-        const description =
-          SAMPLE_DESCRIPTIONS[Math.floor(Math.random() * SAMPLE_DESCRIPTIONS.length)];
-        const mode = TRANSACTION_MODES[Math.floor(Math.random() * TRANSACTION_MODES.length)];
-
-        const date = new Date(now);
-        date.setDate(date.getDate() - Math.floor(Math.random() * 30));
-
-        const uniqueHash = `test_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 10)}`;
-
-        await insertTransaction(db, {
-          type,
-          category,
-          amount,
-          title: description,
-          date: date.toISOString(),
-          created_at: new Date().toISOString(),
-          account: 'Main Account',
-          mode,
-          source: 'manual',
-          pending_approval: 0,
-          sms_hash: uniqueHash,
-        });
-      }
-
-      // Generate alerts using constants
-      for (let i = 0; i < 8; i++) {
-        const type = ALERT_TYPES[Math.floor(Math.random() * ALERT_TYPES.length)];
-        const frequency = ALERT_FREQUENCIES[Math.floor(Math.random() * ALERT_FREQUENCIES.length)];
-        const categoryOptions = type === 'income' ? CREDIT_CATEGORIES : DEBIT_CATEGORIES;
-        const category = categoryOptions[Math.floor(Math.random() * categoryOptions.length)];
-        const threshold = SAMPLE_THRESHOLDS[Math.floor(Math.random() * SAMPLE_THRESHOLDS.length)];
-
-        await createAlert(db, {
-          type,
-          frequency,
-          category,
-          threshold,
-          created_at: new Date().toISOString(),
-        });
-      }
-
+      await generateTestData(db);
       showMessage('Test data generated successfully');
       fetchDbInfo();
     } catch (error) {
@@ -228,7 +140,7 @@ export default function DebugScreen() {
   }, [deviceInfo]);
 
   // Clear all data
-  const clearAllData = async () => {
+  const handleClearAllData = async () => {
     Alert.alert(
       'Confirm Data Reset',
       'This will delete ALL data from the database tables, but keep the table structure. This action cannot be undone.',
@@ -240,46 +152,8 @@ export default function DebugScreen() {
           onPress: async () => {
             setIsLoading(true);
             try {
-              // Get list of tables
-              const tableResults = await db.getAllAsync<{ name: string }>(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_migrations%'"
-              );
-
-              // Start a transaction for better performance and atomicity
-              await db.runAsync('BEGIN TRANSACTION');
-
-              try {
-                // First disable foreign keys to avoid constraint issues
-                await db.runAsync('PRAGMA foreign_keys = OFF');
-
-                // Delete all records from each table
-                for (const { name } of tableResults) {
-                  await db.runAsync(`DELETE FROM ${name}`);
-
-                  // Reset SQLite sequences (for auto-increment PKs)
-                  try {
-                    await db.runAsync(`DELETE FROM sqlite_sequence WHERE name='${name}'`);
-                  } catch {
-                    // sqlite_sequence might not exist or be accessible
-                    console.log(`Note: Could not reset sequence for ${name}`);
-                  }
-                }
-
-                // Re-enable foreign keys
-                await db.runAsync('PRAGMA foreign_keys = ON');
-
-                // Commit the transaction
-                await db.runAsync('COMMIT');
-
-                // Run VACUUM to reclaim storage space (must be outside transaction)
-                await db.runAsync('VACUUM');
-
-                showMessage('Database records cleared successfully');
-              } catch (error) {
-                // If any error occurs, rollback the transaction
-                await db.runAsync('ROLLBACK');
-                throw error;
-              }
+              await clearAllData(db);
+              showMessage('Database records cleared successfully');
               fetchDbInfo();
             } catch (error) {
               console.error('Reset error:', error);
@@ -375,10 +249,10 @@ export default function DebugScreen() {
           <CardTitle>Data Management</CardTitle>
         </CardHeader>
         <CardContent>
-          <Button className="mb-2" onPress={generateTestData}>
+          <Button className="mb-2" onPress={handleGenerateTestData}>
             <Text>Generate Test Data</Text>
           </Button>
-          <Button variant="destructive" onPress={clearAllData}>
+          <Button variant="destructive" onPress={handleClearAllData}>
             <Text>Clear All Records</Text>
           </Button>
           <Text className="mt-1 text-center text-xs italic text-destructive">

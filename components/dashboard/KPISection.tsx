@@ -1,10 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TREND_COLORS } from '@/constants/insightsConstants';
+import { useSettings } from '@/contexts/SettingsContext';
 import { KPIData } from '@/types/Insight';
-import { formatAmount } from '@/utils/formatters';
+import { formatAmountWithCurrency } from '@/utils/formatters';
 import { KPIItem } from './KPIItem';
 
 export function DashboardKPISection({ kpiData }: { kpiData: KPIData }) {
+  const { selectedCurrency } = useSettings();
+
   return (
     <Card className="mb-2">
       <CardHeader>
@@ -13,17 +16,17 @@ export function DashboardKPISection({ kpiData }: { kpiData: KPIData }) {
       <CardContent className="flex-row justify-around">
         <KPIItem
           title="Income"
-          value={formatAmount(kpiData.totalIncome)}
+          value={formatAmountWithCurrency(kpiData.totalIncome, selectedCurrency)}
           color={TREND_COLORS.income}
         />
         <KPIItem
           title="Expense"
-          value={formatAmount(kpiData.totalExpense)}
+          value={formatAmountWithCurrency(kpiData.totalExpense, selectedCurrency)}
           color={TREND_COLORS.expense}
         />
         <KPIItem
           title="Savings"
-          value={formatAmount(kpiData.totalSavings)}
+          value={formatAmountWithCurrency(kpiData.totalSavings, selectedCurrency)}
           color={TREND_COLORS.saving}
         />
       </CardContent>

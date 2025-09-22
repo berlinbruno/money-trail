@@ -12,7 +12,6 @@ type periodData = {
 };
 
 export type insightsDataset = {
-  Daily: periodData;
   Weekly: periodData;
   Monthly: periodData;
   Yearly: periodData;
@@ -74,4 +73,4 @@ export interface CategoryBreakdown {
   focused: boolean;
 }
 
-export type Period = 'Daily' | 'Weekly' | 'Monthly' | 'Yearly';
+export type Period = 'Weekly' | 'Monthly' | 'Yearly';

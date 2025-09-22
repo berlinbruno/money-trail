@@ -7,6 +7,11 @@ interface TrendsSectionProps {
 }
 
 export function DashboardTrendsSection({ monthlyTrends }: TrendsSectionProps) {
+  // Don't render the card if there are no trends
+  if (!monthlyTrends || monthlyTrends.length === 0) {
+    return null;
+  }
+
   return (
     <Card className="mb-4">
       <CardHeader>

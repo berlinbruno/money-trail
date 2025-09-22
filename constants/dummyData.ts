@@ -27,8 +27,8 @@ export async function insertDummyData(db: SQLiteDatabase) {
   await db.execAsync(`
     INSERT INTO notifications (type, title, message, severity, is_read)
     VALUES
-      ('transaction', 'New Transaction', '₹1200 spent on Grocery Shopping.', 'medium', 0),
-      ('transaction', 'New Transaction', '₹50000 received as Salary.', 'success', 0),
+      ('transaction', 'New Transaction', '1200 spent on Grocery Shopping.', 'medium', 0),
+      ('transaction', 'New Transaction', '50000 received as Salary.', 'success', 0),
       ('alert', 'Income Alert', 'You have reached 100% of your salary goal.', 'high', 0),
       ('alert', 'Spending Alert', 'You have used 85% of your grocery weekly budget.', 'high', 0),
       ('system', 'Welcome', 'Welcome to your finance tracker app!', 'info', 1);

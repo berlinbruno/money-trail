@@ -5,7 +5,7 @@
 import { Dimensions } from 'react-native';
 
 // Range options for data aggregation
-export const RANGE_OPTIONS = ['Daily', 'Weekly', 'Monthly', 'Yearly'] as const;
+export const RANGE_OPTIONS = ['Weekly', 'Monthly', 'Yearly'] as const;
 
 // Data segments for visualizations
 export const SEGMENTS = ['Income', 'Expense', 'Saving'] as const;
