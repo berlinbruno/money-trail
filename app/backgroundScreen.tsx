@@ -1,33 +1,15 @@
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import {
   BACKGROUND_TASK_OPTIONS,
   DEFAULT_TASK_CONFIG,
-  FinanceSms,
-  executeTask,
   getTaskConfig,
   initializeBackgroundTask,
-  saveTaskConfig,
 } from '@/lib/smsBackgroundTask';
-import * as BackgroundTask from 'expo-background-task';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as TaskManager from 'expo-task-manager';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  AppState,
-  AppStateStatus,
-  ScrollView,
-  Switch,
-  TextInput,
-  View,
-} from 'react-native';
-
-// Extended type to include transaction details that might be joined with SMS data
-type SmsWithTransaction = FinanceSms & {
-  amount?: number;
-  type?: 'credit' | 'debit';
-};
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, AppStateStatus, RefreshControl, ScrollView, View } from 'react-native';
 
 // Promise resolver for background task init
 let resolver: (() => void) | null = null;
@@ -38,13 +20,10 @@ initializeBackgroundTask(promise);
 
 export default function BackgroundTaskScreen() {
   const db = useSQLiteContext();
-  const [smsHistory, setSmsHistory] = useState<SmsWithTransaction[]>([]);
   const [registeredTasks, setRegisteredTasks] = useState<TaskManager.TaskManagerTask[]>([]);
   const [taskHistory, setTaskHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastExecutionTime, setLastExecutionTime] = useState<string | null>(null);
-  const [isCurrentlyRunning, setIsCurrentlyRunning] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [taskConfig, setTaskConfig] = useState({ ...DEFAULT_TASK_CONFIG });
   const [performanceMetrics, setPerformanceMetrics] = useState({
     avgExecutionTime: 0,
@@ -130,319 +109,63 @@ export default function BackgroundTaskScreen() {
     }
   }, [db]);
 
-  // Save task configuration
-  interface TaskConfig {
-    enabled: boolean;
-    intervalMinutes: number;
-    requiresWifi: boolean;
-    runOnAppLaunch: boolean;
-    [key: string]: any;
-  }
-
-  const saveTaskSettings = useCallback(
-    async (newConfig: TaskConfig) => {
-      setIsLoading(true);
-      try {
-        await saveTaskConfig(db, newConfig);
-        setTaskConfig(newConfig);
-        await loadRegisteredTasks();
-      } catch (error) {
-        console.error('Error saving task config:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [db, loadRegisteredTasks]
-  );
-
-  const loadSmsHistory = useCallback(async () => {
-    try {
-      // Get the latest processed SMS from the database
-      const result = await db.getAllAsync<SmsWithTransaction>(
-        `SELECT t.*, tr.amount, tr.type 
-         FROM transactions t
-         LEFT JOIN transactions tr ON t.sms_hash = tr.sms_hash
-         WHERE t.source = 'sms' 
-         ORDER BY t.date DESC 
-         LIMIT 50`
-      );
-
-      if (result && result.length > 0) {
-        setSmsHistory(result);
-      }
-    } catch (error) {
-      console.error('Error loading SMS history:', error);
-    }
-  }, [db]);
-
   const refreshAllData = useCallback(async () => {
     setIsLoading(true);
     try {
-      await Promise.all([
-        loadSmsHistory(),
-        loadRegisteredTasks(),
-        loadTaskHistory(),
-        loadTaskConfig(),
-      ]);
+      await Promise.all([loadRegisteredTasks(), loadTaskHistory(), loadTaskConfig()]);
     } finally {
       setIsLoading(false);
     }
-  }, [loadSmsHistory, loadRegisteredTasks, loadTaskHistory, loadTaskConfig]);
+  }, [loadRegisteredTasks, loadTaskHistory, loadTaskConfig]);
 
-  const runManualTaskExecution = async () => {
-    setIsLoading(true);
-    setIsCurrentlyRunning(true);
-    try {
-      // Execute the task directly rather than just triggering the worker
-      const result = await executeTask(db);
-      console.log(`Manual task execution result: ${result.status} - ${result.details || ''}`);
-
-      // After execution, refresh the data
-      await refreshAllData();
-    } catch (error) {
-      console.error('Error executing manual task:', error);
-    } finally {
-      setIsLoading(false);
-      setIsCurrentlyRunning(false);
-    }
-  };
-
-  // Record task execution for history
-  const recordTaskExecution = async () => {
-    try {
-      const timestamp = new Date().toISOString();
-      const executionData = {
-        timestamp,
-        status: 'Manually Triggered',
-        details: 'Task was manually triggered for testing',
-      };
-
-      const key = `task_execution_${Date.now()}`;
-      await db.runAsync('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)', [
-        key,
-        JSON.stringify(executionData),
-      ]);
-
-      // Refresh data
-      await loadTaskHistory();
-    } catch (error) {
-      console.error('Error recording task execution:', error);
-    }
-  };
-
-  useEffect(() => {
-    // Resolve when inner app is mounted
-    if (resolver) {
-      resolver();
-      console.log('Resolver called');
-    }
-
-    // Load initial data
-    refreshAllData();
-
-    // Listen to app state changes
-    const sub = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        console.log('App foregrounded, reload data');
-        refreshAllData();
-      }
-      if (appState.current.match(/active/) && nextAppState === 'background') {
-        console.log('App backgrounded');
-      }
-      appState.current = nextAppState;
-    });
-
-    return () => {
-      sub.remove();
-    };
-  }, [refreshAllData]);
-
-  return (
-    <View className="flex-1 p-4">
-      {isLoading && (
-        <View className="absolute inset-0 z-50 items-center justify-center bg-background/70">
-          <ActivityIndicator size="large" color="#007AFF" />
-        </View>
-      )}
-
-      <View className="mb-4 flex flex-row items-center justify-between">
-        <Text variant="h3">Background Tasks</Text>
-        <View className="flex-row space-x-2">
-          <Button variant="outline" onPress={refreshAllData}>
-            <Text>Refresh</Text>
-          </Button>
-          <Button
-            variant="default"
-            disabled={isCurrentlyRunning}
-            onPress={async () => {
-              setIsLoading(true);
-              setIsCurrentlyRunning(true);
-              try {
-                // First try running our own direct execution
-                await runManualTaskExecution();
-
-                // Then also trigger the background task for testing
-                await BackgroundTask.triggerTaskWorkerForTestingAsync();
-                await recordTaskExecution();
-
-                // Refresh all data
-                await refreshAllData();
-              } finally {
-                setIsLoading(false);
-                setIsCurrentlyRunning(false);
-              }
-            }}>
-            <Text className="text-white">{isCurrentlyRunning ? 'Running...' : 'Run Task'}</Text>
-          </Button>
-        </View>
-      </View>
-
-      <ScrollView className="flex-1">
-        {/* Last Execution Summary */}
-        <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
-          <Text variant="h4" className="mb-2">
-            Background Task Summary
-          </Text>
-          <View className="flex-row justify-between border-b border-border py-2">
-            <Text className="font-medium">Status:</Text>
-            <Text
-              className={
-                isCurrentlyRunning
-                  ? 'text-blue-600'
-                  : lastExecutionTime
-                    ? 'text-green-600'
-                    : 'text-amber-600'
-              }>
-              {isCurrentlyRunning
-                ? 'Running'
-                : lastExecutionTime
-                  ? 'Active'
-                  : 'No Recent Executions'}
-            </Text>
-          </View>
-          {lastExecutionTime && (
-            <View className="flex-row justify-between border-b border-border py-2">
-              <Text className="font-medium">Last Execution:</Text>
-              <Text>{lastExecutionTime}</Text>
-            </View>
-          )}
-          <View className="flex-row justify-between border-b border-border py-2">
-            <Text className="font-medium">Registered Tasks:</Text>
-            <Text>{registeredTasks.length}</Text>
-          </View>
-          <View className="flex-row justify-between border-b border-border py-2">
-            <Text className="font-medium">Task Settings:</Text>
-            <Text>
-              Every {taskConfig.intervalMinutes || BACKGROUND_TASK_OPTIONS.minimumInterval} min
-            </Text>
-          </View>
-          <View className="flex-row justify-between py-2">
-            <Text className="font-medium">SMS Messages Processed:</Text>
-            <Text>{smsHistory.length}</Text>
-          </View>
-          <Button
-            variant="outline"
-            className="mt-2"
-            onPress={() => setIsSettingsOpen(!isSettingsOpen)}>
-            <Text>{isSettingsOpen ? 'Hide Settings' : 'Configure Task'}</Text>
-          </Button>
-        </View>
-
-        {/* Task Settings Panel - only visible when isSettingsOpen is true */}
-        {isSettingsOpen && (
-          <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
-            <Text variant="h4" className="mb-4">
-              Task Settings
-            </Text>
-
-            <View className="mb-4">
-              <Text className="mb-1 font-medium">Task Enabled</Text>
-              <View className="flex-row items-center">
-                <Switch
-                  value={taskConfig.enabled}
-                  onValueChange={(value) => setTaskConfig({ ...taskConfig, enabled: value })}
-                />
-                <Text className="ml-2">{taskConfig.enabled ? 'Enabled' : 'Disabled'}</Text>
-              </View>
-            </View>
-
-            <View className="mb-4">
-              <Text className="mb-1 font-medium">Interval (minutes)</Text>
-              <TextInput
-                className="rounded border border-border p-2"
-                keyboardType="numeric"
-                value={String(taskConfig.intervalMinutes)}
-                onChangeText={(value) => {
-                  const interval = parseInt(value) || BACKGROUND_TASK_OPTIONS.minimumInterval;
-                  setTaskConfig({ ...taskConfig, intervalMinutes: interval });
-                }}
-              />
-              <Text className="mt-1 text-xs text-gray-500">
-                Minimum: {BACKGROUND_TASK_OPTIONS.minimumInterval} minutes
-              </Text>
-            </View>
-
-            <View className="mb-4">
-              <Text className="mb-1 font-medium">Require WiFi Connection</Text>
-              <View className="flex-row items-center">
-                <Switch
-                  value={taskConfig.requiresWifi}
-                  onValueChange={(value) => setTaskConfig({ ...taskConfig, requiresWifi: value })}
-                />
-                <Text className="ml-2">
-                  {taskConfig.requiresWifi ? 'WiFi Only' : 'Any Network'}
+  // Memoized components for better performance
+  const PerformanceMetricsCard = useMemo(
+    () => (
+      <Card className="m-2">
+        <CardHeader>
+          <CardTitle>Performance Metrics</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {taskHistory.length > 0 ? (
+            <>
+              <View className="flex-row justify-between border-b border-border py-2">
+                <Text className="font-medium">Success Rate:</Text>
+                <Text
+                  className={
+                    performanceMetrics.successRate > 80 ? 'text-green-600' : 'text-amber-600'
+                  }>
+                  {performanceMetrics.successRate.toFixed(1)}%
                 </Text>
               </View>
-            </View>
-
-            <View className="mb-4">
-              <Text className="mb-1 font-medium">Run on App Launch</Text>
-              <View className="flex-row items-center">
-                <Switch
-                  value={taskConfig.runOnAppLaunch}
-                  onValueChange={(value) => setTaskConfig({ ...taskConfig, runOnAppLaunch: value })}
-                />
-                <Text className="ml-2">{taskConfig.runOnAppLaunch ? 'Enabled' : 'Disabled'}</Text>
+              <View className="flex-row justify-between border-b border-border py-2">
+                <Text className="font-medium">Avg. Execution Time:</Text>
+                <Text>{(performanceMetrics.avgExecutionTime / 1000).toFixed(2)} sec</Text>
               </View>
-            </View>
+              <View className="flex-row justify-between border-b border-border py-2">
+                <Text className="font-medium">Total Executions:</Text>
+                <Text>{performanceMetrics.totalRuns}</Text>
+              </View>
+              <View className="flex-row justify-between py-2">
+                <Text className="font-medium">Total Messages Processed:</Text>
+                <Text>{performanceMetrics.totalMessages}</Text>
+              </View>
+            </>
+          ) : (
+            <Text className="italic text-gray-500">No performance data available</Text>
+          )}
+        </CardContent>
+      </Card>
+    ),
+    [performanceMetrics, taskHistory.length]
+  );
 
-            <Button variant="default" onPress={() => saveTaskSettings(taskConfig)}>
-              <Text className="text-white">Save Settings</Text>
-            </Button>
-          </View>
-        )}
-
-        {/* Performance Metrics */}
-        <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
-          <Text variant="h4" className="mb-2">
-            Performance Metrics
-          </Text>
-          <View className="flex-row justify-between border-b border-border py-2">
-            <Text className="font-medium">Success Rate:</Text>
-            <Text
-              className={performanceMetrics.successRate > 80 ? 'text-green-600' : 'text-amber-600'}>
-              {performanceMetrics.successRate.toFixed(1)}%
-            </Text>
-          </View>
-          <View className="flex-row justify-between border-b border-border py-2">
-            <Text className="font-medium">Avg. Execution Time:</Text>
-            <Text>{(performanceMetrics.avgExecutionTime / 1000).toFixed(2)} sec</Text>
-          </View>
-          <View className="flex-row justify-between border-b border-border py-2">
-            <Text className="font-medium">Total Executions:</Text>
-            <Text>{performanceMetrics.totalRuns}</Text>
-          </View>
-          <View className="flex-row justify-between py-2">
-            <Text className="font-medium">Total Messages Processed:</Text>
-            <Text>{performanceMetrics.totalMessages}</Text>
-          </View>
-        </View>
-
-        {/* Registered Tasks Section */}
-        <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
-          <Text variant="h4" className="mb-2">
-            Registered Tasks
-          </Text>
+  const RegisteredTasksCard = useMemo(
+    () => (
+      <Card className="m-2">
+        <CardHeader>
+          <CardTitle>Registered Tasks</CardTitle>
+        </CardHeader>
+        <CardContent>
           {registeredTasks.length > 0 ? (
             registeredTasks.map((task, index) => (
               <View key={index} className="mb-2 rounded-lg bg-gray-100 p-4 dark:bg-gray-800">
@@ -477,13 +200,19 @@ export default function BackgroundTaskScreen() {
           ) : (
             <Text className="italic text-gray-500">No registered tasks found</Text>
           )}
-        </View>
+        </CardContent>
+      </Card>
+    ),
+    [registeredTasks]
+  );
 
-        {/* Task Execution History */}
-        <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
-          <Text variant="h4" className="mb-2">
-            Task Execution History
-          </Text>
+  const TaskExecutionHistoryCard = useMemo(
+    () => (
+      <Card className="m-2">
+        <CardHeader>
+          <CardTitle>Task Execution History</CardTitle>
+        </CardHeader>
+        <CardContent>
           {taskHistory.length > 0 ? (
             taskHistory.map((execution, index) => (
               <View key={index} className="mb-2 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
@@ -511,61 +240,89 @@ export default function BackgroundTaskScreen() {
           ) : (
             <Text className="italic text-gray-500">No task execution history found</Text>
           )}
-        </View>
+        </CardContent>
+      </Card>
+    ),
+    [taskHistory]
+  );
 
-        {/* SMS History Section */}
-        <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
-          <Text variant="h4" className="mb-2">
-            Latest SMS
-          </Text>
-          {smsHistory.length > 0 ? (
-            <View className="rounded-lg bg-gray-100 p-4 dark:bg-gray-800">
-              <Text className="font-bold">From: {smsHistory[0].address}</Text>
-              <Text className="my-1">{smsHistory[0].body}</Text>
-              <View className="flex-row justify-between">
-                {smsHistory[0].amount && smsHistory[0].type && (
-                  <Text className="text-xs text-gray-500">
-                    {smsHistory[0].type === 'credit' ? 'Credit' : 'Debit'} - {smsHistory[0].amount}{' '}
-                    ₹
-                  </Text>
-                )}
-                <Text className="text-right text-xs text-gray-500">
-                  {new Date(smsHistory[0].date).toLocaleString()}
+  useEffect(() => {
+    // Resolve when inner app is mounted
+    if (resolver) {
+      resolver();
+      console.log('Resolver called');
+    }
+
+    // Load initial data
+    refreshAllData();
+
+    // Listen to app state changes
+    const sub = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        console.log('App foregrounded, reload data');
+        refreshAllData();
+      }
+      if (appState.current.match(/active/) && nextAppState === 'background') {
+        console.log('App backgrounded');
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      sub.remove();
+    };
+  }, [refreshAllData]);
+
+  return (
+    <ScrollView
+      className="flex-1"
+      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refreshAllData} />}>
+      {/* Background Task Summary */}
+      <Card className="m-2">
+        <CardHeader>
+          <CardTitle>Background Task Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {registeredTasks.length > 0 ? (
+            <>
+              <View className="flex-row justify-between border-b border-border py-2">
+                <Text className="font-medium">Status:</Text>
+                <Text className={lastExecutionTime ? 'text-green-600' : 'text-amber-600'}>
+                  {lastExecutionTime ? 'Active' : 'No Recent Executions'}
                 </Text>
               </View>
-            </View>
-          ) : (
-            <Text className="italic text-gray-500">No SMS captured yet</Text>
-          )}
-        </View>
-
-        {/* Previous SMS Section */}
-        {smsHistory.length > 1 && (
-          <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
-            <Text variant="h4" className="mb-2">
-              Previous SMS
-            </Text>
-            {smsHistory.slice(1).map((sms, index) => (
-              <View
-                key={index}
-                className="mb-2 rounded-lg bg-gray-100 p-4 opacity-80 dark:bg-gray-800">
-                <Text className="font-bold">From: {sms.address}</Text>
-                <Text className="my-1">{sms.body}</Text>
-                <View className="flex-row justify-between">
-                  {sms.amount && sms.type && (
-                    <Text className="text-xs text-gray-500">
-                      {sms.type === 'credit' ? 'Credit' : 'Debit'} - {sms.amount} ₹
-                    </Text>
-                  )}
-                  <Text className="text-right text-xs text-gray-500">
-                    {new Date(sms.date).toLocaleString()}
-                  </Text>
+              {lastExecutionTime && (
+                <View className="flex-row justify-between border-b border-border py-2">
+                  <Text className="font-medium">Last Execution:</Text>
+                  <Text>{lastExecutionTime}</Text>
                 </View>
+              )}
+              <View className="flex-row justify-between border-b border-border py-2">
+                <Text className="font-medium">Registered Tasks:</Text>
+                <Text className="text-primary">{registeredTasks.length}</Text>
               </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-    </View>
+              <View className="flex-row justify-between border-b border-border py-2">
+                <Text className="font-medium">Task Settings:</Text>
+                <Text>
+                  Every {taskConfig.intervalMinutes || BACKGROUND_TASK_OPTIONS.minimumInterval} min
+                </Text>
+              </View>
+              <View className="flex-row justify-between py-2">
+                <Text className="font-medium">Task History Records:</Text>
+                <Text className="text-primary">{taskHistory.length}</Text>
+              </View>
+            </>
+          ) : (
+            <Text className="italic text-gray-500">No background tasks registered</Text>
+          )}
+        </CardContent>
+      </Card>
+
+      {PerformanceMetricsCard}
+
+      {RegisteredTasksCard}
+
+      {TaskExecutionHistoryCard}
+    </ScrollView>
   );
 }

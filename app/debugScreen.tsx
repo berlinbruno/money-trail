@@ -1,38 +1,49 @@
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { createAlert } from '@/lib/db/alertQueries';
 import { insertTransaction } from '@/lib/db/transactionQueries';
 import { AlertFrequency, AlertType } from '@/types/Alert';
 import { TransactionCategory, TransactionMode, TransactionType } from '@/types/Transaction';
+import * as Device from 'expo-device';
 import { useSQLiteContext } from 'expo-sqlite';
-import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Platform,
+  RefreshControl,
   ScrollView,
   ToastAndroid,
   TouchableOpacity,
   View,
 } from 'react-native';
 
-// Try to import Device, but handle errors gracefully
-let Device: any = null;
-try {
-  // Dynamic import to handle potential module loading issues
-  import('expo-device')
-    .then((module) => {
-      Device = module;
-    })
-    .catch((err) => {
-      console.error('Error loading expo-device:', err);
-    });
-} catch (error) {
-  console.error('Failed to import expo-device:', error);
-}
+// Constants for better performance and maintainability
+const TRANSACTION_TYPES: TransactionType[] = ['debit', 'credit'];
+const DEBIT_CATEGORIES: TransactionCategory[] = [
+  'food',
+  'grocery',
+  'bills',
+  'shopping',
+  'travel',
+  'other',
+];
+const CREDIT_CATEGORIES: TransactionCategory[] = ['salary', 'investments', 'refund', 'other'];
+const SAMPLE_AMOUNTS = [10.99, 25.5, 100, 500, 1000, 1500, 2000];
+const SAMPLE_DESCRIPTIONS = [
+  'Lunch',
+  'Uber ride',
+  'Electric bill',
+  'Movie tickets',
+  'Monthly salary',
+  'Birthday gift',
+];
+const TRANSACTION_MODES: TransactionMode[] = ['cash', 'card', 'upi', 'neft', 'other'];
+const ALERT_TYPES: AlertType[] = ['income', 'spending'];
+const ALERT_FREQUENCIES: AlertFrequency[] = ['weekly', 'monthly'];
+const SAMPLE_THRESHOLDS = [500, 1000, 2000, 5000];
 
-// Helper to show toast/alert across platforms
+// Platform-specific message helper
 const showMessage = (message: string) => {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
@@ -46,9 +57,17 @@ export default function DebugScreen() {
   const [dbInfo, setDbInfo] = useState<{ table: string; count: number }[]>([]);
   const [configRecords, setConfigRecords] = useState<{ key: string; value: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [appVersion] = useState('1.0.0');
   const [memoryUsage, setMemoryUsage] = useState<any>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const appVersion = useMemo(() => '1.0.0', []);
+
+  // Memoize device info to avoid recalculation
+  const deviceInfo = useMemo(() => {
+    return {
+      platform: `${Platform.OS} ${Platform.Version}`,
+      isAndroid: Platform.OS === 'android',
+    };
+  }, []);
 
   // Fetch DB information
   const fetchDbInfo = useCallback(async () => {
@@ -88,54 +107,30 @@ export default function DebugScreen() {
     }
   }, [db]);
 
-  // Show config detail
-  const showConfigDetail = (config: { key: string; value: string }) => {
+  // Show config detail - wrapped in useCallback for optimization
+  const showConfigDetail = useCallback((config: { key: string; value: string }) => {
     Alert.alert(`Config: ${config.key}`, config.value, [{ text: 'Close', onPress: () => {} }]);
-  };
+  }, []);
 
-  // Generate test data
-  const generateTestData = async () => {
+  // Generate test data with optimized random selection
+  const generateTestData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Create sample transactions
-      const transactionTypes: TransactionType[] = ['debit', 'credit'];
-      const debitCategories: TransactionCategory[] = [
-        'food',
-        'grocery',
-        'bills',
-        'shopping',
-        'travel',
-        'other',
-      ];
-      const creditCategories: TransactionCategory[] = ['salary', 'investments', 'refund', 'other'];
-      const amounts = [10.99, 25.5, 100, 500, 1000, 1500, 2000];
-      const descriptions = [
-        'Lunch',
-        'Uber ride',
-        'Electric bill',
-        'Movie tickets',
-        'Monthly salary',
-        'Birthday gift',
-      ];
-      const modes: TransactionMode[] = ['cash', 'card', 'upi', 'neft', 'other'];
-
       const now = new Date();
 
-      // Generate 20 random transactions spanning last 30 days
+      // Generate transactions using constants
       for (let i = 0; i < 20; i++) {
-        const type = transactionTypes[Math.floor(Math.random() * transactionTypes.length)];
-        // Choose appropriate categories based on transaction type
-        const categoryOptions = type === 'debit' ? debitCategories : creditCategories;
+        const type = TRANSACTION_TYPES[Math.floor(Math.random() * TRANSACTION_TYPES.length)];
+        const categoryOptions = type === 'debit' ? DEBIT_CATEGORIES : CREDIT_CATEGORIES;
         const category = categoryOptions[Math.floor(Math.random() * categoryOptions.length)];
-        const amount = amounts[Math.floor(Math.random() * amounts.length)];
-        const description = descriptions[Math.floor(Math.random() * descriptions.length)];
-        const mode = modes[Math.floor(Math.random() * modes.length)];
+        const amount = SAMPLE_AMOUNTS[Math.floor(Math.random() * SAMPLE_AMOUNTS.length)];
+        const description =
+          SAMPLE_DESCRIPTIONS[Math.floor(Math.random() * SAMPLE_DESCRIPTIONS.length)];
+        const mode = TRANSACTION_MODES[Math.floor(Math.random() * TRANSACTION_MODES.length)];
 
-        // Random date within last 30 days
         const date = new Date(now);
         date.setDate(date.getDate() - Math.floor(Math.random() * 30));
 
-        // Generate a unique hash for each transaction to avoid UNIQUE constraint failures
         const uniqueHash = `test_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 10)}`;
 
         await insertTransaction(db, {
@@ -153,17 +148,13 @@ export default function DebugScreen() {
         });
       }
 
-      // Create sample alerts
-      const alertTypes: AlertType[] = ['income', 'spending'];
-      const frequencies: AlertFrequency[] = ['weekly', 'monthly'];
-      const thresholds = [500, 1000, 2000, 5000];
-
+      // Generate alerts using constants
       for (let i = 0; i < 8; i++) {
-        const type = alertTypes[Math.floor(Math.random() * alertTypes.length)];
-        const frequency = frequencies[Math.floor(Math.random() * frequencies.length)];
-        const categoryOptions = type === 'income' ? creditCategories : debitCategories;
+        const type = ALERT_TYPES[Math.floor(Math.random() * ALERT_TYPES.length)];
+        const frequency = ALERT_FREQUENCIES[Math.floor(Math.random() * ALERT_FREQUENCIES.length)];
+        const categoryOptions = type === 'income' ? CREDIT_CATEGORIES : DEBIT_CATEGORIES;
         const category = categoryOptions[Math.floor(Math.random() * categoryOptions.length)];
-        const threshold = thresholds[Math.floor(Math.random() * thresholds.length)];
+        const threshold = SAMPLE_THRESHOLDS[Math.floor(Math.random() * SAMPLE_THRESHOLDS.length)];
 
         await createAlert(db, {
           type,
@@ -175,7 +166,6 @@ export default function DebugScreen() {
       }
 
       showMessage('Test data generated successfully');
-      // Refresh DB info after generating data
       fetchDbInfo();
     } catch (error) {
       console.error('Error generating test data:', error);
@@ -183,42 +173,43 @@ export default function DebugScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [db, fetchDbInfo]);
 
-  // Check memory usage
-  const checkMemoryUsage = async () => {
+  // Optimized memory usage check
+  const checkMemoryUsage = useCallback(async () => {
     try {
-      // Create memory usage object
       const memoryInfo: any = {
         timestamp: new Date().toISOString(),
+        deviceInfo: deviceInfo.platform,
       };
 
-      // Add device information
-      memoryInfo.deviceInfo = `${Platform.OS} ${Platform.Version}`;
-
-      // Get device information using expo-device
+      // Get device information efficiently
       try {
-        memoryInfo.deviceName = Device.deviceName || 'Unknown';
-        memoryInfo.deviceModel = Device.modelName || 'Unknown Model';
-        memoryInfo.deviceType = Device.getDeviceTypeAsync
-          ? (await Device.getDeviceTypeAsync()) === Device.DeviceType.PHONE
-            ? 'Phone'
-            : 'Tablet'
-          : 'Unknown Type';
-        memoryInfo.brand = Device.brand || 'Unknown Brand';
-        memoryInfo.osName = Device.osName || Platform.OS;
-        memoryInfo.osVersion = Device.osVersion || Platform.Version.toString();
+        const deviceTypeResult = Device.getDeviceTypeAsync
+          ? await Device.getDeviceTypeAsync()
+          : null;
 
-        memoryInfo.isDevice = Device.isDevice ? 'Physical Device' : 'Emulator/Simulator';
+        Object.assign(memoryInfo, {
+          deviceName: Device.deviceName || 'Unknown',
+          deviceModel: Device.modelName || 'Unknown Model',
+          deviceType: deviceTypeResult === Device.DeviceType?.PHONE ? 'Phone' : 'Tablet',
+          brand: Device.brand || 'Unknown Brand',
+          osName: Device.osName || Platform.OS,
+          osVersion: Device.osVersion || Platform.Version.toString(),
+          isDevice: Device.isDevice ? 'Physical Device' : 'Emulator/Simulator',
+        });
 
-        // Get memory if available through the OS
-        if (Platform.OS === 'android' && Platform.constants) {
-          if (Platform.constants.Release) {
-            memoryInfo.androidRelease = Platform.constants.Release;
+        if (deviceInfo.isAndroid) {
+          try {
+            const constants = Platform.constants as any;
+            if (constants?.Release) {
+              memoryInfo.androidRelease = constants.Release;
+            }
+          } catch {
+            // Ignore android constants errors
           }
         }
 
-        // Add a note about memory API limitations
         memoryInfo.note = 'Memory usage metrics require native modules with additional permissions';
       } catch (deviceError) {
         console.error('Error getting device metrics:', deviceError);
@@ -228,14 +219,13 @@ export default function DebugScreen() {
       setMemoryUsage(memoryInfo);
     } catch (error) {
       console.error('Error checking device info:', error);
-      const fallbackInfo = {
+      setMemoryUsage({
         timestamp: new Date().toISOString(),
         error: 'Failed to retrieve device information',
         errorDetails: error instanceof Error ? error.message : String(error),
-      };
-      setMemoryUsage(fallbackInfo);
+      });
     }
-  };
+  }, [deviceInfo]);
 
   // Clear all data
   const clearAllData = async () => {
@@ -303,150 +293,155 @@ export default function DebugScreen() {
     );
   };
 
-  // Fetch DB info on initial load
+  // Initialize data on mount
   useEffect(() => {
     fetchDbInfo();
-  }, [fetchDbInfo]);
+    checkMemoryUsage();
+  }, [fetchDbInfo, checkMemoryUsage]);
+
+  // Memoized components for better performance
+  const DatabaseInfoCard = useMemo(
+    () => (
+      <Card className="m-2">
+        <CardHeader>
+          <CardTitle>Database Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {dbInfo.map((item, index) => (
+            <View key={index} className="flex-row justify-between border-b border-border py-2">
+              <Text className="flex-1 font-medium">{item.table}</Text>
+              <Text className="text-primary">{item.count} records</Text>
+            </View>
+          ))}
+        </CardContent>
+      </Card>
+    ),
+    [dbInfo]
+  );
+
+  const ConfigRecordsCard = useMemo(() => {
+    if (configRecords.length === 0) return null;
+
+    return (
+      <Card className="m-2">
+        <CardHeader>
+          <CardTitle>Config Records</CardTitle>
+          <CardDescription>(Tap on a record to see full details)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Header Row */}
+          <View className="flex-row border-b-2 border-border bg-muted">
+            <Text className="flex-1 p-2 font-bold">Key</Text>
+            <Text className="flex-1 p-2 font-bold">Value</Text>
+          </View>
+
+          {/* Data Rows */}
+          {configRecords.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              className="flex-row border-b border-border"
+              onPress={() => showConfigDetail(item)}>
+              <View className="flex-1 p-2">
+                <Text className="font-medium">{item.key}</Text>
+              </View>
+              <View className="flex-1 p-2">
+                <Text className="text-muted-foreground" numberOfLines={2} ellipsizeMode="tail">
+                  {item.value}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </CardContent>
+      </Card>
+    );
+  }, [configRecords, showConfigDetail]);
 
   return (
-    <View className="flex-1 bg-background p-4">
-      <StatusBar style="auto" />
+    <ScrollView
+      className="flex-1"
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading}
+          onRefresh={() => {
+            fetchDbInfo();
+            checkMemoryUsage();
+          }}
+        />
+      }>
+      {DatabaseInfoCard}
 
-      <Text className="mb-4 text-center text-2xl font-bold">Money Trail Debugger</Text>
-
-      {isLoading && (
-        <View className="absolute inset-0 z-50 items-center justify-center bg-background/70">
-          <ActivityIndicator size="large" color="#007AFF" />
-        </View>
-      )}
-
-      <ScrollView className="flex-1">
-        <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
-          <Text className="mb-3 text-lg font-semibold">Database Information</Text>
-          <View className="mb-4">
-            {dbInfo.map((item, index) => (
-              <View key={index} className="flex-row justify-between border-b border-border py-2">
-                <Text className="flex-1 font-medium">{item.table}</Text>
-                <Text className="text-primary">{item.count} records</Text>
-              </View>
-            ))}
-          </View>
-          <Button className="mt-2" onPress={fetchDbInfo}>
-            <Text>Refresh DB Info</Text>
+      <Card className="m-2">
+        <CardHeader>
+          <CardTitle>Data Management</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button className="mb-2" onPress={generateTestData}>
+            <Text>Generate Test Data</Text>
           </Button>
-        </View>
+          <Button variant="destructive" onPress={clearAllData}>
+            <Text>Clear All Records</Text>
+          </Button>
+          <Text className="mt-1 text-center text-xs italic text-destructive">
+            (Preserves table structure)
+          </Text>
+        </CardContent>
+      </Card>
 
-        {/* Config Table Records */}
-        {configRecords.length > 0 && (
-          <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
-            <Text className="mb-2 text-lg font-semibold">Config Records</Text>
-            <Text className="mb-1 text-muted-foreground">
-              (Tap on a record to see full details)
-            </Text>
-            <View className="mb-4">
-              <View className="flex-row justify-between border-b-2 border-border bg-muted py-2">
-                <Text className="flex-1 font-bold">Key</Text>
-                <Text className="flex-2 pl-2 font-bold">Value</Text>
-              </View>
-              {configRecords.map((item, index) => (
-                <TouchableOpacity
-                  key={index}
-                  className="flex-row justify-between border-b border-border py-2"
-                  onPress={() => showConfigDetail(item)}>
-                  <Text className="flex-1 font-medium">{item.key}</Text>
-                  <Text
-                    className="flex-2 pl-2 text-muted-foreground"
-                    numberOfLines={1}
-                    ellipsizeMode="tail">
-                    {item.value}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+      {ConfigRecordsCard}
+
+      <Card className="m-2">
+        <CardHeader>
+          <CardTitle>System Information</CardTitle>
+        </CardHeader>
+        {memoryUsage ? (
+          <CardContent>
+            <Text className="mb-1">App Version: {appVersion}</Text>
+            {memoryUsage.deviceName && (
+              <Text className="mb-1">Device: {memoryUsage.deviceName}</Text>
+            )}
+            {memoryUsage.deviceModel && (
+              <Text className="mb-1">Model: {memoryUsage.deviceModel}</Text>
+            )}
+            {memoryUsage.brand && <Text className="mb-1">Brand: {memoryUsage.brand}</Text>}
+            {memoryUsage.deviceType && <Text className="mb-1">Type: {memoryUsage.deviceType}</Text>}
+            {memoryUsage.isDevice && (
+              <Text className="mb-1">Environment: {memoryUsage.isDevice}</Text>
+            )}
+            {memoryUsage.osName && <Text className="mb-1">OS: {memoryUsage.osName}</Text>}
+            {memoryUsage.osVersion && (
+              <Text className="mb-1">OS Version: {memoryUsage.osVersion}</Text>
+            )}
+            {memoryUsage.androidRelease && (
+              <Text className="mb-1">Android Release: {memoryUsage.androidRelease}</Text>
+            )}
+            {memoryUsage.deviceInfo && (
+              <Text className="mb-1">Platform: {memoryUsage.deviceInfo}</Text>
+            )}
+
+            {memoryUsage.deviceError && (
+              <Text className="mt-2 text-xs italic text-amber-500">
+                Note: {memoryUsage.deviceError}
+              </Text>
+            )}
+
+            {memoryUsage.note && (
+              <Text className="mt-2 text-xs italic text-muted-foreground">{memoryUsage.note}</Text>
+            )}
+
+            {memoryUsage.error && (
+              <Text className="mt-2 text-xs text-destructive">Error: {memoryUsage.error}</Text>
+            )}
+
+            {memoryUsage.errorDetails && (
+              <Text className="text-xs text-destructive">{memoryUsage.errorDetails}</Text>
+            )}
+          </CardContent>
+        ) : (
+          <View className="mt-2 rounded-md bg-muted p-3">
+            <Text className="text-muted-foreground">Loading system information...</Text>
           </View>
         )}
-
-        <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
-          <Text className="mb-3 text-lg font-semibold">Data Management</Text>
-          <View className="mb-2">
-            <Button className="mb-2" onPress={generateTestData}>
-              <Text>Generate Test Data</Text>
-            </Button>
-          </View>
-          <View className="mb-2">
-            <Button className="mb-1" variant="destructive" onPress={clearAllData}>
-              <Text>Clear All Records</Text>
-            </Button>
-            <Text className="text-center text-xs italic text-destructive">
-              (Preserves table structure)
-            </Text>
-          </View>
-        </View>
-
-        <View className="mb-6 rounded-lg bg-card p-4 shadow-sm">
-          <Text className="mb-3 text-lg font-semibold">System Information</Text>
-          <Text className="mb-1">App Version: {appVersion}</Text>
-
-          <Button
-            className="my-2"
-            onPress={() => {
-              setIsLoading(true);
-              checkMemoryUsage().finally(() => setIsLoading(false));
-            }}>
-            <Text>Check Memory Usage</Text>
-          </Button>
-
-          {memoryUsage && (
-            <View className="mt-2 rounded-md bg-muted p-3">
-              <Text className="mb-3 font-medium">Timestamp: {memoryUsage.timestamp}</Text>
-
-              <Text className="mb-2 font-semibold">Device Information</Text>
-              {memoryUsage.deviceInfo && <Text className="mb-1">OS: {memoryUsage.deviceInfo}</Text>}
-              {memoryUsage.deviceName && (
-                <Text className="mb-1">Device Name: {memoryUsage.deviceName}</Text>
-              )}
-              {memoryUsage.deviceModel && (
-                <Text className="mb-1">Model: {memoryUsage.deviceModel}</Text>
-              )}
-              {memoryUsage.brand && <Text className="mb-1">Brand: {memoryUsage.brand}</Text>}
-              {memoryUsage.deviceType && (
-                <Text className="mb-1">Device Type: {memoryUsage.deviceType}</Text>
-              )}
-              {memoryUsage.isDevice && (
-                <Text className="mb-1">Environment: {memoryUsage.isDevice}</Text>
-              )}
-
-              <Text className="mb-2 mt-3 font-semibold">System Information</Text>
-              {memoryUsage.osName && <Text className="mb-1">OS Name: {memoryUsage.osName}</Text>}
-              {memoryUsage.osVersion && (
-                <Text className="mb-1">OS Version: {memoryUsage.osVersion}</Text>
-              )}
-              {memoryUsage.androidRelease && (
-                <Text className="mb-1">Android Release: {memoryUsage.androidRelease}</Text>
-              )}
-              {memoryUsage.deviceError && (
-                <Text className="mt-2 text-xs italic text-amber-500">
-                  Note: {memoryUsage.deviceError}
-                </Text>
-              )}
-
-              {memoryUsage.note && (
-                <Text className="mt-2 text-xs italic text-muted-foreground">
-                  {memoryUsage.note}
-                </Text>
-              )}
-
-              {memoryUsage.error && (
-                <Text className="mt-2 text-xs text-destructive">Error: {memoryUsage.error}</Text>
-              )}
-
-              {memoryUsage.errorDetails && (
-                <Text className="text-xs text-destructive">{memoryUsage.errorDetails}</Text>
-              )}
-            </View>
-          )}
-        </View>
-      </ScrollView>
-    </View>
+      </Card>
+    </ScrollView>
   );
 }

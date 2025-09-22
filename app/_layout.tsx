@@ -81,9 +81,12 @@ export default function RootLayout() {
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <Stack>
           <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
-          <Stack.Screen name="backgroundScreen" />
-          <Stack.Screen name="debugScreen" />
-          <Stack.Screen name="+not-found" />
+          <Stack.Screen
+            name="backgroundScreen"
+            options={{ headerShown: true, title: 'Background Tasks' }}
+          />
+          <Stack.Screen name="debugScreen" options={{ headerShown: true, title: 'Debug' }} />
+          <Stack.Screen name="+not-found" options={{ headerShown: true, title: 'Not Found' }} />
         </Stack>
         <PortalHost />
       </ThemeProvider>
