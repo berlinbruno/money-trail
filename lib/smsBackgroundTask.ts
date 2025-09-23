@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundTask from 'expo-background-task';
 import { openDatabaseAsync } from 'expo-sqlite';
 import * as TaskManager from 'expo-task-manager';
+import { getMessageScanCount } from './db/settingsQueries';
 import { syncTransactions } from './smsSync';
 
 export const BACKGROUND_TASK_IDENTIFIER = 'fetch-sms-task';
@@ -15,6 +16,7 @@ export const BACKGROUND_TASK_OPTIONS = {
 export const DEFAULT_TASK_CONFIG = {
   enabled: true,
   intervalMinutes: 120, // Default 2 hours (matches settings default)
+  messageScanCount: 200, // Default 200 messages (matches settings default)
   requiresWifi: false,
   runOnAppLaunch: true,
 };
@@ -96,9 +98,12 @@ export const executeTask = async (db: any): Promise<TaskExecutionLog> => {
       return executionLog;
     }
 
+    // Get the current messageScanCount from user settings
+    const messageScanCount = await getMessageScanCount();
+
     // Use the enhanced sync function
     const result = await syncTransactions(db, {
-      maxMessages: 200,
+      maxMessages: messageScanCount,
       defaultAccount: 'default',
       requireApproval: true,
     });

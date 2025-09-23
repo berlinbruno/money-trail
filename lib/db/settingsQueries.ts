@@ -1,30 +1,27 @@
-import { AlertFrequency, AlertType } from '@/types/Alert';
-import { TransactionCategory, TransactionMode, TransactionType } from '@/types/Transaction';
+import {
+  ALERT_FREQUENCIES,
+  ALERT_TYPES,
+  CREDIT_CATEGORIES,
+  DEBIT_CATEGORIES,
+  SAMPLE_AMOUNTS,
+  SAMPLE_DESCRIPTIONS,
+  SAMPLE_THRESHOLDS,
+  TRANSACTION_MODES,
+  TRANSACTION_TYPES,
+} from '@/constants/testDataConstants';
+import {
+  clearSettingsData,
+  getConfigRecords,
+  getSettingsValue,
+  setSettingsValue,
+} from '@/utils/settingsStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SQLiteDatabase } from 'expo-sqlite';
 import { createAlert } from './alertQueries';
 import { insertTransaction } from './transactionQueries';
 
-// AsyncStorage helper functions for settings
-const SETTINGS_PREFIX = '@money_trail_settings:';
-
-async function setSettingsValue(key: string, value: string): Promise<void> {
-  try {
-    await AsyncStorage.setItem(`${SETTINGS_PREFIX}${key}`, value);
-  } catch (error) {
-    console.error(`Error setting ${key}:`, error);
-    throw error;
-  }
-}
-
-async function getSettingsValue(key: string): Promise<string | null> {
-  try {
-    return await AsyncStorage.getItem(`${SETTINGS_PREFIX}${key}`);
-  } catch (error) {
-    console.error(`Error getting ${key}:`, error);
-    throw error;
-  }
-}
+// Re-export utility functions for backward compatibility
+export { clearSettingsData, getConfigRecords };
 
 // Helper functions for specific settings config values
 export async function getAppTheme(): Promise<string> {
@@ -46,11 +43,20 @@ export async function setBackSync(enabled: boolean) {
 
 export async function getSyncInterval(): Promise<number> {
   const value = await getSettingsValue('sync_interval');
-  return parseInt(value || '600', 10);
+  return parseInt(value || '120', 10); // Default 120 minutes (2 hours)
 }
 
-export async function setSyncInterval(intervalSeconds: number) {
-  await setSettingsValue('sync_interval', intervalSeconds.toString());
+export async function setSyncInterval(intervalMinutes: number) {
+  await setSettingsValue('sync_interval', intervalMinutes.toString());
+}
+
+export async function getMessageScanCount(): Promise<number> {
+  const value = await getSettingsValue('message_scan_count');
+  return parseInt(value || '200', 10);
+}
+
+export async function setMessageScanCount(count: number) {
+  await setSettingsValue('message_scan_count', count.toString());
 }
 
 export async function getCurrencyFormat(): Promise<string> {
@@ -81,7 +87,7 @@ export async function setLastSyncTime(date: Date) {
 
 export async function resetLastSyncTime(): Promise<void> {
   try {
-    await AsyncStorage.removeItem(`${SETTINGS_PREFIX}lastSmsSync`);
+    await AsyncStorage.removeItem('@money_trail_settings:lastSmsSync');
     console.log('Last sync time reset successfully');
   } catch (error) {
     console.error('Error resetting last sync time:', error);
@@ -97,7 +103,8 @@ export async function initializeAppConfig() {
     const settingsDefaults = [
       { key: 'app_theme', value: 'system' },
       { key: 'back_sync', value: 'true' },
-      { key: 'sync_interval', value: '7200' }, // 120 minutes in seconds (2 hours)
+      { key: 'sync_interval', value: '120' }, // 120 minutes (2 hours)
+      { key: 'message_scan_count', value: '200' }, // Default 200 messages
       { key: 'currency_format', value: 'INR' },
       { key: 'push_notification', value: 'true' },
     ];
@@ -199,49 +206,6 @@ export async function getDbInfo(db: SQLiteDatabase): Promise<{ table: string; co
 }
 
 /**
- * Get all config records from AsyncStorage
- */
-export async function getConfigRecords(): Promise<{ key: string; value: string }[]> {
-  try {
-    // Get all keys that start with our settings prefix
-    const allKeys = await AsyncStorage.getAllKeys();
-    const settingsKeys = allKeys.filter((key) => key.startsWith(SETTINGS_PREFIX));
-
-    // Get all values for our settings keys
-    const settingsItems = await AsyncStorage.multiGet(settingsKeys);
-
-    return settingsItems.map(([key, value]) => ({
-      key: key.replace(SETTINGS_PREFIX, ''), // Remove prefix for cleaner display
-      value: value || '',
-    }));
-  } catch (error) {
-    console.error('Error fetching config records:', error);
-    throw error;
-  }
-}
-
-/**
- * Clear all settings from AsyncStorage
- */
-export async function clearSettingsData(): Promise<void> {
-  try {
-    // Get all keys that start with our settings prefix
-    const allKeys = await AsyncStorage.getAllKeys();
-    const settingsKeys = allKeys.filter((key) => key.startsWith(SETTINGS_PREFIX));
-
-    if (settingsKeys.length > 0) {
-      await AsyncStorage.multiRemove(settingsKeys);
-      console.log(`Successfully cleared ${settingsKeys.length} settings from AsyncStorage`);
-    } else {
-      console.log('No settings found to clear');
-    }
-  } catch (error) {
-    console.error('Error clearing settings data:', error);
-    throw error;
-  }
-}
-
-/**
  * Clear all data from database tables (more aggressive than resetAllData)
  */
 export async function clearAllData(db: SQLiteDatabase): Promise<void> {
@@ -318,31 +282,6 @@ export async function clearAllData(db: SQLiteDatabase): Promise<void> {
     throw error;
   }
 }
-
-// Constants for test data generation
-const TRANSACTION_TYPES: TransactionType[] = ['debit', 'credit'];
-const DEBIT_CATEGORIES: TransactionCategory[] = [
-  'food',
-  'grocery',
-  'bills',
-  'shopping',
-  'travel',
-  'other',
-];
-const CREDIT_CATEGORIES: TransactionCategory[] = ['salary', 'investments', 'refund', 'other'];
-const SAMPLE_AMOUNTS = [10.99, 25.5, 100, 500, 1000, 1500, 2000];
-const SAMPLE_DESCRIPTIONS = [
-  'Lunch',
-  'Uber ride',
-  'Electric bill',
-  'Movie tickets',
-  'Monthly salary',
-  'Birthday gift',
-];
-const TRANSACTION_MODES: TransactionMode[] = ['cash', 'card', 'upi', 'neft', 'other'];
-const ALERT_TYPES: AlertType[] = ['income', 'spending'];
-const ALERT_FREQUENCIES: AlertFrequency[] = ['weekly', 'monthly'];
-const SAMPLE_THRESHOLDS = [500, 1000, 2000, 5000];
 
 /**
  * Generate test data for development and debugging

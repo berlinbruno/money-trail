@@ -14,6 +14,7 @@ import {
   APP_VERSION,
   CURRENCY_OPTIONS,
   CURRENCY_PREVIEW_AMOUNT,
+  MESSAGE_SCAN_COUNTS,
   SYNC_INTERVALS,
 } from '@/constants/settingsConstants';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -52,6 +53,7 @@ export default function SettingsScreen() {
   const {
     backgroundSyncEnabled,
     syncInterval,
+    messageScanCount,
     lastSyncTime,
     selectedCurrency,
     pushNotificationsEnabled: notificationsEnabled,
@@ -60,6 +62,7 @@ export default function SettingsScreen() {
     // Actions from settings context
     setBackgroundSyncEnabled,
     setSyncIntervalMinutes,
+    setMessageScanCount,
     resetLastSyncTime,
     setCurrency,
     setPushNotifications,
@@ -119,6 +122,19 @@ export default function SettingsScreen() {
       }
     },
     [setSyncIntervalMinutes]
+  );
+
+  const handleMessageScanCountChange = useCallback(
+    async (count: number) => {
+      try {
+        await setMessageScanCount(count as any);
+        showMessage(`Message scan count set to ${count} messages`);
+      } catch (error) {
+        console.error('Error saving message scan count:', error);
+        showMessage('Failed to save message scan count setting');
+      }
+    },
+    [setMessageScanCount]
   );
 
   const handleResetSyncTime = useCallback(() => {
@@ -279,6 +295,36 @@ export default function SettingsScreen() {
             </ScrollView>
           </View>
 
+          <View className="border-t border-border py-3">
+            <Text className="mb-2 font-medium">Messages to Scan</Text>
+            <Text className="mb-3 text-sm text-muted-foreground">
+              Maximum number of SMS messages to process per sync
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mb-3"
+              contentContainerStyle={{ gap: 8 }}>
+              {MESSAGE_SCAN_COUNTS.map((count) => (
+                <TouchableOpacity
+                  key={count}
+                  className={`rounded-full px-3 py-2 ${
+                    messageScanCount === count ? 'bg-primary' : 'bg-secondary'
+                  }`}
+                  onPress={() => handleMessageScanCountChange(count)}>
+                  <Text
+                    className={
+                      messageScanCount === count
+                        ? 'text-primary-foreground'
+                        : 'text-secondary-foreground'
+                    }>
+                    {count} msgs
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
           <View className="border-t border-border pt-3">
             <View className="mb-3 flex-row items-center justify-between">
               <View className="flex-1">
@@ -298,9 +344,11 @@ export default function SettingsScreen() {
     [
       backgroundSyncEnabled,
       syncInterval,
+      messageScanCount,
       lastSyncTime,
       handleBackgroundSyncToggle,
       handleSyncIntervalChange,
+      handleMessageScanCountChange,
       handleResetSyncTime,
     ]
   );

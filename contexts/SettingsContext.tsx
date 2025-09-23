@@ -1,13 +1,19 @@
-import { CURRENCY_OPTIONS, SYNC_INTERVALS } from '@/constants/settingsConstants';
+import {
+  CURRENCY_OPTIONS,
+  MESSAGE_SCAN_COUNTS,
+  SYNC_INTERVALS,
+} from '@/constants/settingsConstants';
 import {
   getBackSync,
   getCurrencyFormat,
   getLastSyncTime,
+  getMessageScanCount,
   getPushNotification,
   getSyncInterval,
   resetLastSyncTime as resetLastSyncTimeQuery,
   setBackSync,
   setCurrencyFormat,
+  setMessageScanCount as setMessageScanCountQuery,
   setPushNotification,
   setSyncInterval,
 } from '@/lib/db/settingsQueries';
@@ -18,11 +24,13 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 // Types
 type CurrencyType = (typeof CURRENCY_OPTIONS)[number];
 type SyncIntervalType = (typeof SYNC_INTERVALS)[number];
+type MessageScanCountType = (typeof MESSAGE_SCAN_COUNTS)[number];
 
 interface SettingsState {
   // Sync settings
   backgroundSyncEnabled: boolean;
   syncInterval: SyncIntervalType;
+  messageScanCount: MessageScanCountType;
   lastSyncTime: Date | null;
 
   // Currency settings
@@ -39,6 +47,7 @@ interface SettingsActions {
   // Sync actions
   setBackgroundSyncEnabled: (enabled: boolean) => Promise<void>;
   setSyncIntervalMinutes: (interval: SyncIntervalType) => Promise<void>;
+  setMessageScanCount: (count: MessageScanCountType) => Promise<void>;
   resetLastSyncTime: () => Promise<void>;
 
   // Currency actions
@@ -65,6 +74,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   // Sync state
   const [backgroundSyncEnabled, setBackgroundSyncState] = useState(false);
   const [syncInterval, setSyncIntervalState] = useState<SyncIntervalType>(120);
+  const [messageScanCount, setMessageScanCountState] = useState<MessageScanCountType>(200);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   // Currency state
@@ -82,18 +92,26 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
       try {
         setIsLoading(true);
 
-        const [syncEnabled, syncIntervalSeconds, currencyCode, notificationsEnabled, lastSync] =
-          await Promise.all([
-            getBackSync(),
-            getSyncInterval(),
-            getCurrencyFormat(),
-            getPushNotification(),
-            getLastSyncTime(),
-          ]);
+        const [
+          syncEnabled,
+          syncIntervalMinutes,
+          messageScanCountValue,
+          currencyCode,
+          notificationsEnabled,
+          lastSync,
+        ] = await Promise.all([
+          getBackSync(),
+          getSyncInterval(),
+          getMessageScanCount(),
+          getCurrencyFormat(),
+          getPushNotification(),
+          getLastSyncTime(),
+        ]);
 
         // Update all state
         setBackgroundSyncState(syncEnabled);
-        setSyncIntervalState((syncIntervalSeconds / 60) as SyncIntervalType); // Convert seconds to minutes
+        setSyncIntervalState(syncIntervalMinutes as SyncIntervalType); // Already in minutes
+        setMessageScanCountState(messageScanCountValue as MessageScanCountType);
         setSelectedCurrencyState(
           CURRENCY_OPTIONS.find((c) => c.code === currencyCode) || CURRENCY_OPTIONS[0]
         );
@@ -105,7 +123,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
           try {
             await updateTaskConfiguration(db, {
               enabled: syncEnabled,
-              intervalMinutes: (syncIntervalSeconds / 60) as SyncIntervalType, // Convert seconds to minutes
+              intervalMinutes: syncIntervalMinutes as SyncIntervalType, // Already in minutes
             });
             console.log('Background task configuration initialized');
           } catch (error) {
@@ -159,8 +177,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const setSyncIntervalMinutes = useCallback(
     async (interval: SyncIntervalType) => {
       try {
-        const intervalSeconds = interval * 60;
-        await setSyncInterval(intervalSeconds);
+        await setSyncInterval(interval); // Already in minutes
         setSyncIntervalState(interval);
 
         // Update background task if sync is enabled
@@ -183,6 +200,34 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
       }
     },
     [backgroundSyncEnabled, db]
+  );
+
+  const setMessageScanCount = useCallback(
+    async (count: MessageScanCountType) => {
+      try {
+        await setMessageScanCountQuery(count);
+        setMessageScanCountState(count);
+
+        // Update background task configuration if sync is enabled
+        if (backgroundSyncEnabled) {
+          const success = await updateTaskConfiguration(db, {
+            enabled: backgroundSyncEnabled,
+            intervalMinutes: syncInterval,
+          });
+
+          if (!success) {
+            console.error('Failed to update background task message scan count');
+            throw new Error('Failed to update background task message scan count');
+          } else {
+            console.log(`Background sync message scan count updated to ${count} messages`);
+          }
+        }
+      } catch (error) {
+        console.error('Error setting message scan count:', error);
+        throw error;
+      }
+    },
+    [backgroundSyncEnabled, db, syncInterval]
   );
 
   const resetLastSyncTime = useCallback(async () => {
@@ -226,6 +271,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     // State
     backgroundSyncEnabled,
     syncInterval,
+    messageScanCount,
     lastSyncTime,
     selectedCurrency,
     pushNotificationsEnabled,
@@ -234,6 +280,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     // Actions
     setBackgroundSyncEnabled,
     setSyncIntervalMinutes,
+    setMessageScanCount,
     resetLastSyncTime,
     setCurrency,
     setPushNotifications,

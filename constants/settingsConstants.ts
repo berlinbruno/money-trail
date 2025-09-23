@@ -22,5 +22,8 @@ export const CURRENCY_OPTIONS = [
 // Sync interval options in minutes
 export const SYNC_INTERVALS = [15, 120, 180, 360, 720, 1440, 2880] as const;
 
+// Message scan count options
+export const MESSAGE_SCAN_COUNTS = [50, 100, 200, 500, 1000] as const;
+
 // Sample amount for currency preview
 export const CURRENCY_PREVIEW_AMOUNT = '1,234';

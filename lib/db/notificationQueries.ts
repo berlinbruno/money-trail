@@ -1,26 +1,8 @@
 // lib/db/alerts.ts
 import { IAlertRow, INotificationRow } from '@/types/Common';
+import { getCurrencySymbol } from '@/utils/currencyUtils';
 import { formatAmountWithSymbol } from '@/utils/formatters';
 import { SQLiteDatabase } from 'expo-sqlite';
-import { getCurrencyFormat } from './settingsQueries';
-
-/**
- * Get currency symbol for notifications based on stored currency format
- */
-async function getCurrencySymbol(db: SQLiteDatabase): Promise<string> {
-  const currencyCode = await getCurrencyFormat();
-  const currencyMap: Record<string, string> = {
-    USD: '$',
-    EUR: '€',
-    GBP: '£',
-    INR: '₹',
-    JPY: '¥',
-    CAD: 'C$',
-    AUD: 'A$',
-    CNY: '¥',
-  };
-  return currencyMap[currencyCode] || '$';
-}
 
 export async function insertAlertNotifications(
   db: SQLiteDatabase,
@@ -28,7 +10,7 @@ export async function insertAlertNotifications(
 ): Promise<void> {
   if (!alerts?.length) return;
 
-  const currencySymbol = await getCurrencySymbol(db);
+  const currencySymbol = await getCurrencySymbol();
 
   // Use transaction for better performance
   await db.withTransactionAsync(async () => {
