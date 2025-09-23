@@ -55,7 +55,7 @@ export default function DebugScreen() {
       setDbInfo(counts);
 
       // Fetch config table records
-      const configResult = await getConfigRecords(db);
+      const configResult = await getConfigRecords();
       setConfigRecords(configResult);
 
       showMessage('Database info updated');

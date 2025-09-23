@@ -175,7 +175,7 @@ export async function syncTransactions(
 
   try {
     // Get last sync time
-    const lastSync = await getLastSyncTime(db);
+    const lastSync = await getLastSyncTime();
     const now = new Date();
 
     console.log('Starting SMS sync...', {
@@ -214,7 +214,7 @@ export async function syncTransactions(
 
     // Update last sync time if any messages were processed successfully
     if (results.length > 0) {
-      await setLastSyncTime(db, now);
+      await setLastSyncTime(now);
       console.log('Updated last sync time:', now.toISOString());
     }
 

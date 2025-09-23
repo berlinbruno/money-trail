@@ -1,4 +1,5 @@
-import { SettingsProvider, useSettings } from '@/contexts/SettingsContext';
+import { SettingsProvider } from '@/contexts/SettingsContext';
+import { ThemeProvider as AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import '@/global.css';
 
 import { initializeAppConfig } from '@/lib/db/settingsQueries';
@@ -8,29 +9,33 @@ import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import * as BackgroundTask from 'expo-background-task';
 import { Stack } from 'expo-router';
-import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
+import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import * as TaskManager from 'expo-task-manager';
 import React, { useEffect, useRef } from 'react';
-import { Alert, Appearance } from 'react-native';
+import { Alert } from 'react-native';
+import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+
+// Configure Reanimated logger to disable strict mode warnings
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false, // Disable strict mode to suppress shared value access warnings
+});
 
 export { ErrorBoundary } from 'expo-router';
 
-// Themed content component that responds to settings
+// Themed content component that responds to theme context
 function ThemedAppContent() {
-  const { theme } = useSettings();
+  const { colorScheme, isThemeLoading } = useTheme();
 
-  // Calculate effective color scheme based on theme setting
-  const effectiveColorScheme = React.useMemo(() => {
-    if (theme === 'system') {
-      return Appearance.getColorScheme() || 'light';
-    }
-    return theme === 'dark' ? 'dark' : 'light';
-  }, [theme]);
+  // Only block rendering during initial theme loading to prevent navigation unmounting
+  if (isThemeLoading) {
+    return null; // Only for initial theme loading
+  }
 
   return (
-    <ThemeProvider value={NAV_THEME[effectiveColorScheme as keyof typeof NAV_THEME]}>
-      <StatusBar style={effectiveColorScheme === 'dark' ? 'light' : 'dark'} />
+    <ThemeProvider value={NAV_THEME[colorScheme]}>
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <Stack>
         <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
         <Stack.Screen
@@ -45,14 +50,14 @@ function ThemedAppContent() {
   );
 }
 
-// App component that has access to the database context
-function AppWithSettings() {
-  const db = useSQLiteContext();
-
+// App component with both theme and settings contexts
+function AppWithProviders() {
   return (
-    <SettingsProvider database={db}>
-      <ThemedAppContent />
-    </SettingsProvider>
+    <AppThemeProvider>
+      <SettingsProvider>
+        <ThemedAppContent />
+      </SettingsProvider>
+    </AppThemeProvider>
   );
 }
 
@@ -118,7 +123,7 @@ export default function RootLayout() {
           await db.execAsync('PRAGMA journal_mode = WAL;');
 
           // Initialize default configuration values
-          await initializeAppConfig(db);
+          await initializeAppConfig();
 
           console.log('Database initialization completed successfully');
         } catch (error) {
@@ -126,7 +131,7 @@ export default function RootLayout() {
           // Don't throw here to prevent app crash - let it continue with default behavior
         }
       }}>
-      <AppWithSettings />
+      <AppWithProviders />
     </SQLiteProvider>
   );
 }

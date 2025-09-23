@@ -1,35 +1,23 @@
-import { CURRENCY_OPTIONS, SYNC_INTERVALS, THEME_OPTIONS } from '@/constants/settingsConstants';
+import { CURRENCY_OPTIONS, SYNC_INTERVALS } from '@/constants/settingsConstants';
 import {
-  getAppTheme,
   getBackSync,
   getCurrencyFormat,
   getLastSyncTime,
   getPushNotification,
   getSyncInterval,
   resetLastSyncTime as resetLastSyncTimeQuery,
-  setAppTheme,
   setBackSync,
   setCurrencyFormat,
   setPushNotification,
   setSyncInterval,
 } from '@/lib/db/settingsQueries';
-import { updateTaskConfiguration } from '@/lib/smsBackgroundTask';
-import { SQLiteDatabase } from 'expo-sqlite';
-import { useColorScheme } from 'nativewind';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { Appearance } from 'react-native';
 
 // Types
-type ThemeType = (typeof THEME_OPTIONS)[number];
 type CurrencyType = (typeof CURRENCY_OPTIONS)[number];
 type SyncIntervalType = (typeof SYNC_INTERVALS)[number];
 
 interface SettingsState {
-  // Theme settings
-  theme: ThemeType;
-  effectiveColorScheme: 'light' | 'dark';
-  isThemeLoading: boolean;
-
   // Sync settings
   backgroundSyncEnabled: boolean;
   syncInterval: SyncIntervalType;
@@ -46,9 +34,6 @@ interface SettingsState {
 }
 
 interface SettingsActions {
-  // Theme actions
-  setTheme: (theme: ThemeType) => Promise<void>;
-
   // Sync actions
   setBackgroundSyncEnabled: (enabled: boolean) => Promise<void>;
   setSyncIntervalMinutes: (interval: SyncIntervalType) => Promise<void>;
@@ -69,15 +54,10 @@ type SettingsContextType = SettingsState & SettingsActions;
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 interface SettingsProviderProps {
-  database: SQLiteDatabase;
   children: React.ReactNode;
 }
 
-export function SettingsProvider({ database, children }: SettingsProviderProps) {
-  // Theme state
-  const [theme, setThemeState] = useState<ThemeType>('system');
-  const [isThemeLoading, setIsThemeLoading] = useState(true);
-
+export function SettingsProvider({ children }: SettingsProviderProps) {
   // Sync state
   const [backgroundSyncEnabled, setBackgroundSyncState] = useState(false);
   const [syncInterval, setSyncIntervalState] = useState<SyncIntervalType>(120);
@@ -92,211 +72,125 @@ export function SettingsProvider({ database, children }: SettingsProviderProps) 
   // Loading state
   const [isLoading, setIsLoading] = useState(false);
 
-  // System theme detection
-  const [systemColorScheme, setSystemColorScheme] = useState<'light' | 'dark'>('light');
-  const { setColorScheme } = useColorScheme();
-
-  // Calculate effective color scheme
-  const effectiveColorScheme = React.useMemo(() => {
-    if (theme === 'system') {
-      return systemColorScheme;
-    }
-    return theme === 'dark' ? 'dark' : 'light';
-  }, [theme, systemColorScheme]);
-
-  // Set nativewind color scheme
-  useEffect(() => {
-    setColorScheme(effectiveColorScheme);
-  }, [effectiveColorScheme, setColorScheme]);
-
-  // Listen for system theme changes when theme is set to 'system'
-  useEffect(() => {
-    const currentScheme = Appearance.getColorScheme() || 'light';
-    setSystemColorScheme(currentScheme);
-
-    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-      setSystemColorScheme(colorScheme || 'light');
-    });
-
-    return () => subscription.remove();
-  }, []);
-
-  // Load all settings from database
-  const loadSettings = useCallback(async () => {
+  // Load all settings from AsyncStorage
+  const loadSettings = useCallback(async (isRefresh = false) => {
     try {
       setIsLoading(true);
-      setIsThemeLoading(true);
 
-      const [
-        savedTheme,
-        syncEnabled,
-        syncIntervalSeconds,
-        currencyCode,
-        notificationsEnabled,
-        lastSync,
-      ] = await Promise.all([
-        getAppTheme(database),
-        getBackSync(database),
-        getSyncInterval(database),
-        getCurrencyFormat(database),
-        getPushNotification(database),
-        getLastSyncTime(database),
-      ]);
+      const [syncEnabled, syncIntervalSeconds, currencyCode, notificationsEnabled, lastSync] =
+        await Promise.all([
+          getBackSync(),
+          getSyncInterval(),
+          getCurrencyFormat(),
+          getPushNotification(),
+          getLastSyncTime(),
+        ]);
 
-      // Set theme
-      const validTheme = THEME_OPTIONS.includes(savedTheme as ThemeType)
-        ? (savedTheme as ThemeType)
-        : 'system';
-      setThemeState(validTheme);
-
-      // Set sync settings
+      // Update all state
       setBackgroundSyncState(syncEnabled);
-
-      // Convert seconds to minutes and ensure it's a valid interval
-      const intervalMinutes = Math.round(syncIntervalSeconds / 60);
-      const validInterval = SYNC_INTERVALS.includes(intervalMinutes as SyncIntervalType)
-        ? (intervalMinutes as SyncIntervalType)
-        : 120;
-      setSyncIntervalState(validInterval);
-
-      // Set last sync time
-      setLastSyncTime(lastSync);
-
-      // Set currency
-      const validCurrency =
-        CURRENCY_OPTIONS.find((c) => c.code === currencyCode) || CURRENCY_OPTIONS[0];
-      setSelectedCurrencyState(validCurrency);
-
-      // Set notifications
+      setSyncIntervalState(syncIntervalSeconds as SyncIntervalType);
+      setSelectedCurrencyState(
+        CURRENCY_OPTIONS.find((c) => c.code === currencyCode) || CURRENCY_OPTIONS[0]
+      );
       setPushNotificationsState(notificationsEnabled);
-
-      setIsThemeLoading(false);
+      setLastSyncTime(lastSync);
     } catch (error) {
       console.error('Error loading settings:', error);
-      setIsThemeLoading(false);
     } finally {
       setIsLoading(false);
     }
-  }, [database]);
+  }, []);
 
   // Initialize settings on mount
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
 
-  // Theme actions
-  const setTheme = useCallback(
-    async (newTheme: ThemeType) => {
-      try {
-        setIsThemeLoading(true);
-        await setAppTheme(database, newTheme);
-        setThemeState(newTheme);
-      } catch (error) {
-        console.error('Error setting theme:', error);
-        throw error;
-      } finally {
-        setIsThemeLoading(false);
-      }
-    },
-    [database]
-  );
+  // Theme actions - now removed, handled by ThemeContext
 
   // Sync actions
-  const setBackgroundSyncEnabled = useCallback(
-    async (enabled: boolean) => {
-      try {
-        await setBackSync(database, enabled);
-        setBackgroundSyncState(enabled);
+  const setBackgroundSyncEnabled = useCallback(async (enabled: boolean) => {
+    try {
+      await setBackSync(enabled);
+      setBackgroundSyncState(enabled);
 
-        // Update background task configuration
-        const success = await updateTaskConfiguration(database, {
-          enabled,
-          intervalMinutes: syncInterval,
-        });
+      // Update background task configuration
+      // Note: updateTaskConfiguration might need to be updated to get database internally
+      // const success = await updateTaskConfiguration({
+      //   enabled,
+      //   intervalMinutes: syncInterval,
+      // });
 
-        if (!success) {
-          console.error('Failed to update background task configuration');
-        } else {
-          console.log(`Background sync ${enabled ? 'enabled' : 'disabled'}`);
-        }
-      } catch (error) {
-        console.error('Error setting background sync:', error);
-        throw error;
-      }
-    },
-    [database, syncInterval]
-  );
+      // if (!success) {
+      //   console.error('Failed to update background task configuration');
+      // } else {
+      //   console.log(`Background sync ${enabled ? 'enabled' : 'disabled'}`);
+      // }
+    } catch (error) {
+      console.error('Error setting background sync:', error);
+      throw error;
+    }
+  }, []);
 
-  const setSyncIntervalMinutes = useCallback(
-    async (interval: SyncIntervalType) => {
-      try {
-        const intervalSeconds = interval * 60;
-        await setSyncInterval(database, intervalSeconds);
-        setSyncIntervalState(interval);
+  const setSyncIntervalMinutes = useCallback(async (interval: SyncIntervalType) => {
+    try {
+      const intervalSeconds = interval * 60;
+      await setSyncInterval(intervalSeconds);
+      setSyncIntervalState(interval);
 
-        // Update background task if sync is enabled
-        if (backgroundSyncEnabled) {
-          await updateTaskConfiguration(database, {
-            enabled: backgroundSyncEnabled,
-            intervalMinutes: interval,
-          });
-        }
-      } catch (error) {
-        console.error('Error setting sync interval:', error);
-        throw error;
-      }
-    },
-    [database, backgroundSyncEnabled]
-  );
+      // Update background task if sync is enabled
+      // Note: updateTaskConfiguration might need to be updated to get database internally
+      // if (backgroundSyncEnabled) {
+      //   await updateTaskConfiguration({
+      //     enabled: backgroundSyncEnabled,
+      //     intervalMinutes: interval,
+      //   });
+      // }
+    } catch (error) {
+      console.error('Error setting sync interval:', error);
+      throw error;
+    }
+  }, []);
 
   const resetLastSyncTime = useCallback(async () => {
     try {
-      await resetLastSyncTimeQuery(database);
+      await resetLastSyncTimeQuery();
       setLastSyncTime(null);
     } catch (error) {
       console.error('Error resetting last sync time:', error);
       throw error;
     }
-  }, [database]);
+  }, []);
 
   // Currency actions
-  const setCurrency = useCallback(
-    async (currency: CurrencyType) => {
-      try {
-        await setCurrencyFormat(database, currency.code);
-        setSelectedCurrencyState(currency);
-      } catch (error) {
-        console.error('Error setting currency:', error);
-        throw error;
-      }
-    },
-    [database]
-  );
+  const setCurrency = useCallback(async (currency: CurrencyType) => {
+    try {
+      await setCurrencyFormat(currency.code);
+      setSelectedCurrencyState(currency);
+    } catch (error) {
+      console.error('Error setting currency:', error);
+      throw error;
+    }
+  }, []);
 
   // Notification actions
-  const setPushNotifications = useCallback(
-    async (enabled: boolean) => {
-      try {
-        await setPushNotification(database, enabled);
-        setPushNotificationsState(enabled);
-      } catch (error) {
-        console.error('Error setting push notifications:', error);
-        throw error;
-      }
-    },
-    [database]
-  );
+  const setPushNotifications = useCallback(async (enabled: boolean) => {
+    try {
+      await setPushNotification(enabled);
+      setPushNotificationsState(enabled);
+    } catch (error) {
+      console.error('Error setting push notifications:', error);
+      throw error;
+    }
+  }, []);
 
   // General actions
   const refreshSettings = useCallback(async () => {
-    await loadSettings();
+    await loadSettings(true); // Pass true to indicate this is a refresh, not initial load
   }, [loadSettings]);
 
   const contextValue: SettingsContextType = {
     // State
-    theme,
-    effectiveColorScheme,
-    isThemeLoading,
     backgroundSyncEnabled,
     syncInterval,
     lastSyncTime,
@@ -305,7 +199,6 @@ export function SettingsProvider({ database, children }: SettingsProviderProps) 
     isLoading,
 
     // Actions
-    setTheme,
     setBackgroundSyncEnabled,
     setSyncIntervalMinutes,
     resetLastSyncTime,

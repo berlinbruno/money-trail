@@ -1,66 +1,87 @@
 import { AlertFrequency, AlertType } from '@/types/Alert';
 import { TransactionCategory, TransactionMode, TransactionType } from '@/types/Transaction';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SQLiteDatabase } from 'expo-sqlite';
 import { createAlert } from './alertQueries';
-import { getConfig, setConfig } from './configQueries';
 import { insertTransaction } from './transactionQueries';
 
+// AsyncStorage helper functions for settings
+const SETTINGS_PREFIX = '@money_trail_settings:';
+
+async function setSettingsValue(key: string, value: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(`${SETTINGS_PREFIX}${key}`, value);
+  } catch (error) {
+    console.error(`Error setting ${key}:`, error);
+    throw error;
+  }
+}
+
+async function getSettingsValue(key: string): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(`${SETTINGS_PREFIX}${key}`);
+  } catch (error) {
+    console.error(`Error getting ${key}:`, error);
+    throw error;
+  }
+}
+
 // Helper functions for specific settings config values
-export async function getAppTheme(db: SQLiteDatabase): Promise<string> {
-  return (await getConfig(db, 'app_theme')) || 'system';
+export async function getAppTheme(): Promise<string> {
+  return (await getSettingsValue('app_theme')) || 'system';
 }
 
-export async function setAppTheme(db: SQLiteDatabase, theme: string) {
-  await setConfig(db, 'app_theme', theme);
+export async function setAppTheme(theme: string) {
+  await setSettingsValue('app_theme', theme);
 }
 
-export async function getBackSync(db: SQLiteDatabase): Promise<boolean> {
-  const value = await getConfig(db, 'back_sync');
+export async function getBackSync(): Promise<boolean> {
+  const value = await getSettingsValue('back_sync');
   return value === 'true';
 }
 
-export async function setBackSync(db: SQLiteDatabase, enabled: boolean) {
-  await setConfig(db, 'back_sync', enabled.toString());
+export async function setBackSync(enabled: boolean) {
+  await setSettingsValue('back_sync', enabled.toString());
 }
 
-export async function getSyncInterval(db: SQLiteDatabase): Promise<number> {
-  const value = await getConfig(db, 'sync_interval');
+export async function getSyncInterval(): Promise<number> {
+  const value = await getSettingsValue('sync_interval');
   return parseInt(value || '600', 10);
 }
 
-export async function setSyncInterval(db: SQLiteDatabase, intervalSeconds: number) {
-  await setConfig(db, 'sync_interval', intervalSeconds.toString());
+export async function setSyncInterval(intervalSeconds: number) {
+  await setSettingsValue('sync_interval', intervalSeconds.toString());
 }
 
-export async function getCurrencyFormat(db: SQLiteDatabase): Promise<string> {
-  return (await getConfig(db, 'currency_format')) || 'USD';
+export async function getCurrencyFormat(): Promise<string> {
+  return (await getSettingsValue('currency_format')) || 'USD';
 }
 
-export async function setCurrencyFormat(db: SQLiteDatabase, currency: string) {
-  await setConfig(db, 'currency_format', currency);
+export async function setCurrencyFormat(currency: string) {
+  await setSettingsValue('currency_format', currency);
 }
 
-export async function getPushNotification(db: SQLiteDatabase): Promise<boolean> {
-  const value = await getConfig(db, 'push_notification');
+export async function getPushNotification(): Promise<boolean> {
+  const value = await getSettingsValue('push_notification');
   return value === 'true';
 }
 
-export async function setPushNotification(db: SQLiteDatabase, enabled: boolean) {
-  await setConfig(db, 'push_notification', enabled.toString());
+export async function setPushNotification(enabled: boolean) {
+  await setSettingsValue('push_notification', enabled.toString());
 }
 
-export async function getLastSyncTime(db: SQLiteDatabase): Promise<Date | null> {
-  const value = await getConfig(db, 'lastSmsSync');
+export async function getLastSyncTime(): Promise<Date | null> {
+  const value = await getSettingsValue('lastSmsSync');
   return value ? new Date(value) : null;
 }
 
-export async function setLastSyncTime(db: SQLiteDatabase, date: Date) {
-  await setConfig(db, 'lastSmsSync', date.toISOString());
+export async function setLastSyncTime(date: Date) {
+  await setSettingsValue('lastSmsSync', date.toISOString());
 }
 
-export async function resetLastSyncTime(db: SQLiteDatabase): Promise<void> {
+export async function resetLastSyncTime(): Promise<void> {
   try {
-    await db.runAsync('DELETE FROM config WHERE key = ?', ['lastSmsSync']);
+    await AsyncStorage.removeItem(`${SETTINGS_PREFIX}lastSmsSync`);
     console.log('Last sync time reset successfully');
   } catch (error) {
     console.error('Error resetting last sync time:', error);
@@ -69,7 +90,7 @@ export async function resetLastSyncTime(db: SQLiteDatabase): Promise<void> {
 }
 
 // Initialize default settings configuration values if not present
-export async function initializeAppConfig(db: SQLiteDatabase) {
+export async function initializeAppConfig() {
   console.log('Initializing app configuration...');
 
   try {
@@ -82,9 +103,9 @@ export async function initializeAppConfig(db: SQLiteDatabase) {
     ];
 
     for (const { key, value } of settingsDefaults) {
-      const existingValue = await getConfig(db, key);
+      const existingValue = await getSettingsValue(key);
       if (existingValue === null) {
-        await setConfig(db, key, value);
+        await setSettingsValue(key, value);
         console.log(`Set default setting: ${key} = ${value}`);
       } else {
         console.log(`Setting already exists: ${key} = ${existingValue}`);
@@ -100,6 +121,7 @@ export async function initializeAppConfig(db: SQLiteDatabase) {
 
 /**
  * Reset all user data (transactions, alerts, notifications) but preserve config settings
+ * Note: This function still requires a database parameter for clearing SQLite tables
  */
 export async function resetAllData(db: SQLiteDatabase): Promise<void> {
   try {
@@ -137,6 +159,19 @@ export async function resetAllData(db: SQLiteDatabase): Promise<void> {
 }
 
 /**
+ * Reset only settings data from AsyncStorage (lighter version without database)
+ */
+export async function resetSettingsOnly(): Promise<void> {
+  try {
+    await clearSettingsData();
+    console.log('Successfully reset settings data');
+  } catch (error) {
+    console.error('Error resetting settings:', error);
+    throw error;
+  }
+}
+
+/**
  * Get database information including table names and record counts
  */
 export async function getDbInfo(db: SQLiteDatabase): Promise<{ table: string; count: number }[]> {
@@ -164,18 +199,44 @@ export async function getDbInfo(db: SQLiteDatabase): Promise<{ table: string; co
 }
 
 /**
- * Get all config records from the config table
+ * Get all config records from AsyncStorage
  */
-export async function getConfigRecords(
-  db: SQLiteDatabase
-): Promise<{ key: string; value: string }[]> {
+export async function getConfigRecords(): Promise<{ key: string; value: string }[]> {
   try {
-    const configResult = await db.getAllAsync<{ key: string; value: string }>(
-      'SELECT key, value FROM config'
-    );
-    return configResult;
+    // Get all keys that start with our settings prefix
+    const allKeys = await AsyncStorage.getAllKeys();
+    const settingsKeys = allKeys.filter((key) => key.startsWith(SETTINGS_PREFIX));
+
+    // Get all values for our settings keys
+    const settingsItems = await AsyncStorage.multiGet(settingsKeys);
+
+    return settingsItems.map(([key, value]) => ({
+      key: key.replace(SETTINGS_PREFIX, ''), // Remove prefix for cleaner display
+      value: value || '',
+    }));
   } catch (error) {
     console.error('Error fetching config records:', error);
+    throw error;
+  }
+}
+
+/**
+ * Clear all settings from AsyncStorage
+ */
+export async function clearSettingsData(): Promise<void> {
+  try {
+    // Get all keys that start with our settings prefix
+    const allKeys = await AsyncStorage.getAllKeys();
+    const settingsKeys = allKeys.filter((key) => key.startsWith(SETTINGS_PREFIX));
+
+    if (settingsKeys.length > 0) {
+      await AsyncStorage.multiRemove(settingsKeys);
+      console.log(`Successfully cleared ${settingsKeys.length} settings from AsyncStorage`);
+    } else {
+      console.log('No settings found to clear');
+    }
+  } catch (error) {
+    console.error('Error clearing settings data:', error);
     throw error;
   }
 }
@@ -249,6 +310,9 @@ export async function clearAllData(db: SQLiteDatabase): Promise<void> {
     } catch (vacuumError) {
       console.warn('VACUUM failed, but data clearing was successful:', vacuumError);
     }
+
+    // Also clear settings from AsyncStorage
+    await clearSettingsData();
   } catch (error) {
     console.error('Error clearing all data:', error);
     throw error;

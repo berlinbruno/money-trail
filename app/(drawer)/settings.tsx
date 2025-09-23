@@ -15,11 +15,12 @@ import {
   CURRENCY_OPTIONS,
   CURRENCY_PREVIEW_AMOUNT,
   SYNC_INTERVALS,
-  THEME_OPTIONS,
 } from '@/constants/settingsConstants';
 import { useSettings } from '@/contexts/SettingsContext';
+import { THEME_OPTIONS, useTheme } from '@/contexts/ThemeContext';
 import { resetAllData } from '@/lib/db/settingsQueries';
 import { formatCurrencyLabel, formatSyncInterval } from '@/utils/formatters';
+import { logSystemTheme } from '@/utils/themeUtils';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useMemo } from 'react';
 import {
@@ -43,9 +44,12 @@ const showMessage = (message: string) => {
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
+
+  // Theme context
+  const { theme: selectedTheme, setTheme } = useTheme();
+
+  // Settings context (non-theme settings)
   const {
-    // State from settings context
-    theme: selectedTheme,
     backgroundSyncEnabled,
     syncInterval,
     lastSyncTime,
@@ -54,7 +58,6 @@ export default function SettingsScreen() {
     isLoading,
 
     // Actions from settings context
-    setTheme,
     setBackgroundSyncEnabled,
     setSyncIntervalMinutes,
     resetLastSyncTime,
@@ -181,6 +184,13 @@ export default function SettingsScreen() {
       showMessage('Failed to refresh settings');
     }
   };
+
+  const handleTestSystemTheme = useCallback(() => {
+    const themeInfo = logSystemTheme();
+    showMessage(
+      `System theme: ${themeInfo.currentTheme} (${themeInfo.isDark ? 'Dark' : 'Light'} mode)`
+    );
+  }, []);
 
   // Memoized components for better performance
   const AppearanceCard = useMemo(
@@ -402,10 +412,13 @@ export default function SettingsScreen() {
             <Text className="font-medium">App Version:</Text>
             <Text className="text-primary">{appVersion}</Text>
           </View>
+          <Button className="mt-3 w-full" variant="outline" onPress={handleTestSystemTheme}>
+            <Text>Test System Theme Detection</Text>
+          </Button>
         </CardContent>
       </Card>
     ),
-    [appVersion]
+    [appVersion, handleTestSystemTheme]
   );
 
   return (

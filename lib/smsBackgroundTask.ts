@@ -1,7 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundTask from 'expo-background-task';
 import { openDatabaseAsync } from 'expo-sqlite';
 import * as TaskManager from 'expo-task-manager';
-import { getConfig, setConfig } from './db/configQueries';
 import { syncTransactions } from './smsSync';
 
 export const BACKGROUND_TASK_IDENTIFIER = 'fetch-sms-task';
@@ -19,12 +19,15 @@ export const DEFAULT_TASK_CONFIG = {
   runOnAppLaunch: true,
 };
 
+// Task configuration storage key
+const TASK_CONFIG_KEY = '@money_trail_settings:taskConfig';
+
 /**
- * Get task configuration from database or return defaults
+ * Get task configuration from AsyncStorage or return defaults
  */
-export const getTaskConfig = async (db: any) => {
+export const getTaskConfig = async () => {
   try {
-    const configStr = await getConfig(db, 'taskConfig');
+    const configStr = await AsyncStorage.getItem(TASK_CONFIG_KEY);
     if (configStr) {
       return { ...DEFAULT_TASK_CONFIG, ...JSON.parse(configStr) };
     }
@@ -35,11 +38,14 @@ export const getTaskConfig = async (db: any) => {
 };
 
 /**
- * Save task configuration to database
+ * Save task configuration to AsyncStorage
  */
-export const saveTaskConfig = async (db: any, config: typeof DEFAULT_TASK_CONFIG) => {
+export const saveTaskConfig = async (config: typeof DEFAULT_TASK_CONFIG) => {
   try {
-    await setConfig(db, 'taskConfig', JSON.stringify({ ...DEFAULT_TASK_CONFIG, ...config }));
+    await AsyncStorage.setItem(
+      TASK_CONFIG_KEY,
+      JSON.stringify({ ...DEFAULT_TASK_CONFIG, ...config })
+    );
     return true;
   } catch (error) {
     console.error('Error saving task config:', error);
@@ -82,7 +88,7 @@ export const executeTask = async (db: any): Promise<TaskExecutionLog> => {
 
   try {
     // Get task configuration
-    const config = await getTaskConfig(db);
+    const config = await getTaskConfig();
     if (!config.enabled) {
       executionLog.status = 'Skipped';
       executionLog.details = 'Background sync is disabled';
@@ -156,7 +162,7 @@ export const registerBackgroundTask = async (db: any): Promise<boolean> => {
     }
 
     // Get current configuration
-    const config = await getTaskConfig(db);
+    const config = await getTaskConfig();
 
     // Update background task options based on config
     const taskOptions = {
@@ -204,11 +210,11 @@ export const updateTaskConfiguration = async (
 ): Promise<boolean> => {
   try {
     // Get current config
-    const currentConfig = await getTaskConfig(db);
+    const currentConfig = await getTaskConfig();
     const updatedConfig = { ...currentConfig, ...newConfig };
 
     // Save updated config
-    const saved = await saveTaskConfig(db, updatedConfig);
+    const saved = await saveTaskConfig(updatedConfig);
     if (!saved) {
       console.error('Failed to save task configuration');
       return false;

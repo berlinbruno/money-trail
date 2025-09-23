@@ -8,7 +8,7 @@ import { getCurrencyFormat } from './settingsQueries';
  * Get currency symbol for notifications based on stored currency format
  */
 async function getCurrencySymbol(db: SQLiteDatabase): Promise<string> {
-  const currencyCode = await getCurrencyFormat(db);
+  const currencyCode = await getCurrencyFormat();
   const currencyMap: Record<string, string> = {
     USD: '$',
     EUR: '€',

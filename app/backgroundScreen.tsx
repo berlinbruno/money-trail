@@ -102,12 +102,12 @@ export default function BackgroundTaskScreen() {
   // Load task configuration
   const loadTaskConfig = useCallback(async () => {
     try {
-      const config = await getTaskConfig(db);
+      const config = await getTaskConfig();
       setTaskConfig(config);
     } catch (error) {
       console.error('Error loading task config:', error);
     }
-  }, [db]);
+  }, []);
 
   const refreshAllData = useCallback(async () => {
     setIsLoading(true);
