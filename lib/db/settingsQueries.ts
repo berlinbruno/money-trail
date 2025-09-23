@@ -97,7 +97,7 @@ export async function initializeAppConfig() {
     const settingsDefaults = [
       { key: 'app_theme', value: 'system' },
       { key: 'back_sync', value: 'true' },
-      { key: 'sync_interval', value: '600' }, // 10 minutes in seconds
+      { key: 'sync_interval', value: '7200' }, // 120 minutes in seconds (2 hours)
       { key: 'currency_format', value: 'INR' },
       { key: 'push_notification', value: 'true' },
     ];

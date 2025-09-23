@@ -20,7 +20,7 @@ export const CURRENCY_OPTIONS = [
 ] as const;
 
 // Sync interval options in minutes
-export const SYNC_INTERVALS = [15, 120, 180, 360, 720, 1440] as const;
+export const SYNC_INTERVALS = [15, 120, 180, 360, 720, 1440, 2880] as const;
 
 // Sample amount for currency preview
 export const CURRENCY_PREVIEW_AMOUNT = '1,234';

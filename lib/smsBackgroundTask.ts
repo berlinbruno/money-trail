@@ -14,7 +14,7 @@ export const BACKGROUND_TASK_OPTIONS = {
 // Task scheduling configuration defaults
 export const DEFAULT_TASK_CONFIG = {
   enabled: true,
-  intervalMinutes: BACKGROUND_TASK_OPTIONS.minimumInterval,
+  intervalMinutes: 120, // Default 2 hours (matches settings default)
   requiresWifi: false,
   runOnAppLaunch: true,
 };
@@ -222,11 +222,29 @@ export const updateTaskConfiguration = async (
 
     // If background sync is disabled, unregister the task
     if (!updatedConfig.enabled) {
+      console.log('Background sync disabled, unregistering task');
       return await unregisterBackgroundTask();
     }
 
-    // If enabled, register/re-register with new settings
-    return await registerBackgroundTask(db);
+    // Check if task is currently registered
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_TASK_IDENTIFIER);
+
+    // If the interval has changed or task is not registered, we need to re-register
+    const intervalChanged = currentConfig.intervalMinutes !== updatedConfig.intervalMinutes;
+
+    if (isRegistered && intervalChanged) {
+      console.log('Task interval changed, re-registering background task');
+      // Unregister first, then re-register with new settings
+      await unregisterBackgroundTask();
+    }
+
+    // Register with new settings if not registered or if we just unregistered
+    if (!isRegistered || intervalChanged) {
+      return await registerBackgroundTask(db);
+    }
+
+    console.log('Background task configuration updated successfully');
+    return true;
   } catch (error) {
     console.error('Failed to update task configuration:', error);
     return false;

@@ -11,6 +11,8 @@ import {
   setPushNotification,
   setSyncInterval,
 } from '@/lib/db/settingsQueries';
+import { updateTaskConfiguration } from '@/lib/smsBackgroundTask';
+import { useSQLiteContext } from 'expo-sqlite';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 // Types
@@ -58,6 +60,8 @@ interface SettingsProviderProps {
 }
 
 export function SettingsProvider({ children }: SettingsProviderProps) {
+  const db = useSQLiteContext();
+
   // Sync state
   const [backgroundSyncEnabled, setBackgroundSyncState] = useState(false);
   const [syncInterval, setSyncIntervalState] = useState<SyncIntervalType>(120);
@@ -72,34 +76,51 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   // Loading state
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load all settings from AsyncStorage
-  const loadSettings = useCallback(async (isRefresh = false) => {
-    try {
-      setIsLoading(true);
+  // Load all settings from database
+  const loadSettings = useCallback(
+    async (isRefresh = false) => {
+      try {
+        setIsLoading(true);
 
-      const [syncEnabled, syncIntervalSeconds, currencyCode, notificationsEnabled, lastSync] =
-        await Promise.all([
-          getBackSync(),
-          getSyncInterval(),
-          getCurrencyFormat(),
-          getPushNotification(),
-          getLastSyncTime(),
-        ]);
+        const [syncEnabled, syncIntervalSeconds, currencyCode, notificationsEnabled, lastSync] =
+          await Promise.all([
+            getBackSync(),
+            getSyncInterval(),
+            getCurrencyFormat(),
+            getPushNotification(),
+            getLastSyncTime(),
+          ]);
 
-      // Update all state
-      setBackgroundSyncState(syncEnabled);
-      setSyncIntervalState(syncIntervalSeconds as SyncIntervalType);
-      setSelectedCurrencyState(
-        CURRENCY_OPTIONS.find((c) => c.code === currencyCode) || CURRENCY_OPTIONS[0]
-      );
-      setPushNotificationsState(notificationsEnabled);
-      setLastSyncTime(lastSync);
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+        // Update all state
+        setBackgroundSyncState(syncEnabled);
+        setSyncIntervalState((syncIntervalSeconds / 60) as SyncIntervalType); // Convert seconds to minutes
+        setSelectedCurrencyState(
+          CURRENCY_OPTIONS.find((c) => c.code === currencyCode) || CURRENCY_OPTIONS[0]
+        );
+        setPushNotificationsState(notificationsEnabled);
+        setLastSyncTime(lastSync);
+
+        // Initialize background task configuration on first load
+        if (!isRefresh) {
+          try {
+            await updateTaskConfiguration(db, {
+              enabled: syncEnabled,
+              intervalMinutes: (syncIntervalSeconds / 60) as SyncIntervalType, // Convert seconds to minutes
+            });
+            console.log('Background task configuration initialized');
+          } catch (error) {
+            console.error('Error initializing background task:', error);
+            // Don't fail the entire settings load if background task setup fails
+          }
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [db]
+  );
 
   // Initialize settings on mount
   useEffect(() => {
@@ -109,48 +130,60 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   // Theme actions - now removed, handled by ThemeContext
 
   // Sync actions
-  const setBackgroundSyncEnabled = useCallback(async (enabled: boolean) => {
-    try {
-      await setBackSync(enabled);
-      setBackgroundSyncState(enabled);
+  const setBackgroundSyncEnabled = useCallback(
+    async (enabled: boolean) => {
+      try {
+        await setBackSync(enabled);
+        setBackgroundSyncState(enabled);
 
-      // Update background task configuration
-      // Note: updateTaskConfiguration might need to be updated to get database internally
-      // const success = await updateTaskConfiguration({
-      //   enabled,
-      //   intervalMinutes: syncInterval,
-      // });
+        // Update background task configuration
+        const success = await updateTaskConfiguration(db, {
+          enabled,
+          intervalMinutes: syncInterval,
+        });
 
-      // if (!success) {
-      //   console.error('Failed to update background task configuration');
-      // } else {
-      //   console.log(`Background sync ${enabled ? 'enabled' : 'disabled'}`);
-      // }
-    } catch (error) {
-      console.error('Error setting background sync:', error);
-      throw error;
-    }
-  }, []);
+        if (!success) {
+          console.error('Failed to update background task configuration');
+          throw new Error('Failed to update background task configuration');
+        } else {
+          console.log(`Background sync ${enabled ? 'enabled' : 'disabled'}`);
+        }
+      } catch (error) {
+        console.error('Error setting background sync:', error);
+        throw error;
+      }
+    },
+    [db, syncInterval]
+  );
 
-  const setSyncIntervalMinutes = useCallback(async (interval: SyncIntervalType) => {
-    try {
-      const intervalSeconds = interval * 60;
-      await setSyncInterval(intervalSeconds);
-      setSyncIntervalState(interval);
+  const setSyncIntervalMinutes = useCallback(
+    async (interval: SyncIntervalType) => {
+      try {
+        const intervalSeconds = interval * 60;
+        await setSyncInterval(intervalSeconds);
+        setSyncIntervalState(interval);
 
-      // Update background task if sync is enabled
-      // Note: updateTaskConfiguration might need to be updated to get database internally
-      // if (backgroundSyncEnabled) {
-      //   await updateTaskConfiguration({
-      //     enabled: backgroundSyncEnabled,
-      //     intervalMinutes: interval,
-      //   });
-      // }
-    } catch (error) {
-      console.error('Error setting sync interval:', error);
-      throw error;
-    }
-  }, []);
+        // Update background task if sync is enabled
+        if (backgroundSyncEnabled) {
+          const success = await updateTaskConfiguration(db, {
+            enabled: backgroundSyncEnabled,
+            intervalMinutes: interval,
+          });
+
+          if (!success) {
+            console.error('Failed to update background task interval');
+            throw new Error('Failed to update background task interval');
+          } else {
+            console.log(`Background sync interval updated to ${interval} minutes`);
+          }
+        }
+      } catch (error) {
+        console.error('Error setting sync interval:', error);
+        throw error;
+      }
+    },
+    [backgroundSyncEnabled, db]
+  );
 
   const resetLastSyncTime = useCallback(async () => {
     try {

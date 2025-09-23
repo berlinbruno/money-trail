@@ -254,7 +254,11 @@ export default function SettingsScreen() {
             <Text className="mb-3 text-sm text-muted-foreground">
               How often to check for new SMS messages
             </Text>
-            <View className="flex-row flex-wrap gap-2">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mb-3"
+              contentContainerStyle={{ gap: 8 }}>
               {SYNC_INTERVALS.map((interval) => (
                 <TouchableOpacity
                   key={interval}
@@ -272,7 +276,7 @@ export default function SettingsScreen() {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
           </View>
 
           <View className="border-t border-border pt-3">
