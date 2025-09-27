@@ -1,4 +1,4 @@
-import { cn } from '@/utils/utils';
+import { cn } from '@/utils/classNameHelpers';
 import * as LabelPrimitive from '@rn-primitives/label';
 import { Platform } from 'react-native';
 

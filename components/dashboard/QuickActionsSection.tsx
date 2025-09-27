@@ -59,16 +59,16 @@ export function DashboardQuickActionsSection() {
           </Link>
         </View>
         <View className="flex flex-row justify-between">
-          <Link asChild href={'/debugScreen'}>
+          <Link asChild href={'/debug'}>
             <TouchableOpacity className="mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary">
               <Code color={theme.colors.text} />
               <Text>Debug</Text>
             </TouchableOpacity>
           </Link>
-          <Link asChild href={'/backgroundScreen'}>
+          <Link asChild href={'/background'}>
             <TouchableOpacity className="mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary">
               <MessageSquareCode color={theme.colors.text} />
-              <Text>BackGround</Text>
+              <Text>Background</Text>
             </TouchableOpacity>
           </Link>
           <View className="mx-1 flex-1" />

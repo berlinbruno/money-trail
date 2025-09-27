@@ -1,7 +1,7 @@
 import { Label } from '@/components/ui/label';
 import { useSettings } from '@/contexts/SettingsContext';
 import { CategoryBreakdown } from '@/types/Insight';
-import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatters';
+import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatterUtils';
 import React from 'react';
 import { View } from 'react-native';
 

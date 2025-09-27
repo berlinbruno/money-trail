@@ -1,5 +1,5 @@
 import { initializeBackgroundTask } from '@/lib/backgroundTaskSetup';
-import { initializeAppPermissions } from '@/utils/appPermissions';
+import { initializeAppPermissions } from '@/utils/permissionInitializer';
 import { useEffect, useRef } from 'react';
 
 /**

@@ -1,6 +1,9 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Text } from '@/components/ui/text';
+import {
+  ConfigRecordsCard,
+  DataManagementCard,
+  DatabaseInfoCard,
+  SystemInfoCard,
+} from '@/components/debug';
 import { APP_VERSION } from '@/constants/settingsConstants';
 import {
   clearAllData,
@@ -11,15 +14,7 @@ import {
 import * as Device from 'expo-device';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  ToastAndroid,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, Platform, RefreshControl, ScrollView, ToastAndroid } from 'react-native';
 
 // Platform-specific message helper
 const showMessage = (message: string) => {
@@ -173,63 +168,6 @@ export default function DebugScreen() {
     checkMemoryUsage();
   }, [fetchDbInfo, checkMemoryUsage]);
 
-  // Memoized components for better performance
-  const DatabaseInfoCard = useMemo(
-    () => (
-      <Card className="m-2">
-        <CardHeader>
-          <CardTitle>Database Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {dbInfo.map((item, index) => (
-            <View key={index} className="flex-row justify-between border-b border-border py-2">
-              <Text className="flex-1 font-medium">{item.table}</Text>
-              <Text className="text-primary">{item.count} records</Text>
-            </View>
-          ))}
-        </CardContent>
-      </Card>
-    ),
-    [dbInfo]
-  );
-
-  const ConfigRecordsCard = useMemo(() => {
-    if (configRecords.length === 0) return null;
-
-    return (
-      <Card className="m-2">
-        <CardHeader>
-          <CardTitle>Config Records</CardTitle>
-          <CardDescription>(Tap on a record to see full details)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Header Row */}
-          <View className="flex-row border-b-2 border-border bg-muted">
-            <Text className="flex-1 p-2 font-bold">Key</Text>
-            <Text className="flex-1 p-2 font-bold">Value</Text>
-          </View>
-
-          {/* Data Rows */}
-          {configRecords.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              className="flex-row border-b border-border"
-              onPress={() => showConfigDetail(item)}>
-              <View className="flex-1 p-2">
-                <Text className="font-medium">{item.key}</Text>
-              </View>
-              <View className="flex-1 p-2">
-                <Text className="text-muted-foreground" numberOfLines={2} ellipsizeMode="tail">
-                  {item.value}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </CardContent>
-      </Card>
-    );
-  }, [configRecords, showConfigDetail]);
-
   return (
     <ScrollView
       className="flex-1"
@@ -242,80 +180,16 @@ export default function DebugScreen() {
           }}
         />
       }>
-      {DatabaseInfoCard}
+      <DatabaseInfoCard dbInfo={dbInfo} />
 
-      <Card className="m-2">
-        <CardHeader>
-          <CardTitle>Data Management</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button className="mb-2" onPress={handleGenerateTestData}>
-            <Text>Generate Test Data</Text>
-          </Button>
-          <Button variant="destructive" onPress={handleClearAllData}>
-            <Text>Clear All Records</Text>
-          </Button>
-          <Text className="mt-1 text-center text-xs italic text-destructive">
-            (Preserves table structure)
-          </Text>
-        </CardContent>
-      </Card>
+      <DataManagementCard
+        onGenerateTestData={handleGenerateTestData}
+        onClearAllData={handleClearAllData}
+      />
 
-      {ConfigRecordsCard}
+      <ConfigRecordsCard configRecords={configRecords} onConfigDetail={showConfigDetail} />
 
-      <Card className="m-2">
-        <CardHeader>
-          <CardTitle>System Information</CardTitle>
-        </CardHeader>
-        {memoryUsage ? (
-          <CardContent>
-            <Text className="mb-1">App Version: {appVersion}</Text>
-            {memoryUsage.deviceName && (
-              <Text className="mb-1">Device: {memoryUsage.deviceName}</Text>
-            )}
-            {memoryUsage.deviceModel && (
-              <Text className="mb-1">Model: {memoryUsage.deviceModel}</Text>
-            )}
-            {memoryUsage.brand && <Text className="mb-1">Brand: {memoryUsage.brand}</Text>}
-            {memoryUsage.deviceType && <Text className="mb-1">Type: {memoryUsage.deviceType}</Text>}
-            {memoryUsage.isDevice && (
-              <Text className="mb-1">Environment: {memoryUsage.isDevice}</Text>
-            )}
-            {memoryUsage.osName && <Text className="mb-1">OS: {memoryUsage.osName}</Text>}
-            {memoryUsage.osVersion && (
-              <Text className="mb-1">OS Version: {memoryUsage.osVersion}</Text>
-            )}
-            {memoryUsage.androidRelease && (
-              <Text className="mb-1">Android Release: {memoryUsage.androidRelease}</Text>
-            )}
-            {memoryUsage.deviceInfo && (
-              <Text className="mb-1">Platform: {memoryUsage.deviceInfo}</Text>
-            )}
-
-            {memoryUsage.deviceError && (
-              <Text className="mt-2 text-xs italic text-amber-500">
-                Note: {memoryUsage.deviceError}
-              </Text>
-            )}
-
-            {memoryUsage.note && (
-              <Text className="mt-2 text-xs italic text-muted-foreground">{memoryUsage.note}</Text>
-            )}
-
-            {memoryUsage.error && (
-              <Text className="mt-2 text-xs text-destructive">Error: {memoryUsage.error}</Text>
-            )}
-
-            {memoryUsage.errorDetails && (
-              <Text className="text-xs text-destructive">{memoryUsage.errorDetails}</Text>
-            )}
-          </CardContent>
-        ) : (
-          <View className="mt-2 rounded-md bg-muted p-3">
-            <Text className="text-muted-foreground">Loading system information...</Text>
-          </View>
-        )}
-      </Card>
+      <SystemInfoCard memoryUsage={memoryUsage} appVersion={appVersion} />
     </ScrollView>
   );
 }

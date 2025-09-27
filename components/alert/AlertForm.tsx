@@ -7,7 +7,7 @@ import {
   NewAlert,
 } from '@/types/Alert';
 import { TransactionCategory } from '@/types/Transaction';
-import { capitalizeFirstLetter } from '@/utils/formatters';
+import { capitalizeFirstLetter } from '@/utils/formatterUtils';
 import { useTheme } from '@react-navigation/native';
 import { Loader2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';

@@ -1,7 +1,7 @@
 import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSettings } from '@/contexts/SettingsContext';
 import { InsightsSummary } from '@/types/Insight';
-import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatters';
+import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatterUtils';
 import { useMemo } from 'react';
 import { TREND_COLORS } from '../../constants/insightsConstants';
 import InsightItem from './InsightItem';

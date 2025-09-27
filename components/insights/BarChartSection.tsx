@@ -14,7 +14,7 @@ import {
   generateYAxisLabels,
   getBarChartData,
 } from '@/utils/finance/insightsUtils';
-import { formatAmountWithCurrency } from '@/utils/formatters';
+import { formatAmountWithCurrency } from '@/utils/formatterUtils';
 import { useTheme } from '@react-navigation/native';
 import React, { useMemo } from 'react';
 import { View } from 'react-native';

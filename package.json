@@ -10,7 +10,9 @@
     "format": "prettier --write .",
     "type-check": "tsc --noEmit",
     "doctor": "npx expo-doctor",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

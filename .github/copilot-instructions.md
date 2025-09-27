@@ -74,6 +74,11 @@ npm run type-check   # TypeScript compilation check
 - **utils/transactions/**: Transaction-specific utilities (`transactionParser.ts`, `filterUtils.ts`)
 - **utils/finance/**: Financial calculations and insights (`insightsUtils.ts`)
 - **utils/formatters.ts**: Consolidated formatting utilities
+- **utils/classNameHelpers.ts**: TailwindCSS class merging utility (`cn` function)
+- **utils/permissionInitializer.ts**: App permission initialization at startup
+- **utils/asyncStorageHelpers.ts**: AsyncStorage wrapper for settings
+- **utils/dateQueryHelpers.ts**: SQLite date formatting utilities
+- **utils/systemThemeHelpers.ts**: System theme detection utilities
 - **contexts/AppProvider.tsx**: Unified context provider combining theme and settings
 
 ### Component Organization
@@ -157,7 +162,12 @@ npm run type-check   # TypeScript compilation check
 - **Database Operations**: `@/lib/database/{queryFile}` (e.g., `@/lib/database/transactionQueries`)
 - **SMS Processing**: `@/lib/sms/{module}` (e.g., `@/lib/sms/sync`, `@/lib/sms/backgroundTask`)
 - **Utilities**: `@/utils/{category}/{file}` (e.g., `@/utils/transactions/transactionParser`, `@/utils/finance/insightsUtils`)
-- **Formatters**: `@/utils/formatters` (consolidated formatting and `cn` utility)
+- **Formatters**: `@/utils/formatters` (consolidated formatting utilities)
+- **Class Names**: `@/utils/classNameHelpers` (TailwindCSS class merging with `cn` function)
+- **Permissions**: `@/utils/permissionUtils`, `@/utils/permissionInitializer` (permission handling and initialization)
+- **Storage**: `@/utils/asyncStorageHelpers` (AsyncStorage wrapper for settings)
+- **Theme**: `@/utils/systemThemeHelpers` (system theme detection utilities)
+- **Database Helpers**: `@/utils/dateQueryHelpers` (SQLite date formatting utilities)
 - **UI Components**: `@/components/ui/{component}`
 - **Feature Components**: `@/components/{domain}/{component}`
 

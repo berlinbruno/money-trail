@@ -1,5 +1,5 @@
 import { NewTransaction, TransactionCategory, TransactionSource } from '@/types/Transaction';
-import { CryptoDigestAlgorithm, digestStringAsync } from 'expo-crypto';
+import { getSmsHash } from '@/utils/cryptoUtils';
 import { SQLiteDatabase } from 'expo-sqlite';
 import SmsAndroid from 'react-native-get-sms-android';
 import { getLastSyncTime, setLastSyncTime } from '../database/settingsQueries';
@@ -77,10 +77,7 @@ async function generateSmsHash(sms: {
   body: string;
   date: number;
 }): Promise<string> {
-  return await digestStringAsync(
-    CryptoDigestAlgorithm.MD5,
-    `${sms.address}|${sms.body}|${sms.date}`
-  );
+  return await getSmsHash(sms.body, `${sms.address}|${sms.date}`);
 }
 
 /**

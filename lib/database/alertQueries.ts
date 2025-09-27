@@ -1,6 +1,6 @@
 import { Alert, AlertFrequency, AlertType, EditAlert, NewAlert } from '@/types/Alert';
 import { TransactionType } from '@/types/Transaction';
-import { getDateFormat } from '@/utils/dbUtils';
+import { getDateFormat } from '@/utils/dateQueryHelpers';
 import { SQLiteDatabase } from 'expo-sqlite';
 
 export async function fetchAlertsByTypeAndFrequency(

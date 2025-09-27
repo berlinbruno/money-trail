@@ -1,4 +1,4 @@
-// utils/formatters.ts
+// utils/formatterUtils.ts
 
 /**
  * Format a number as currency with optional locale and currency type.

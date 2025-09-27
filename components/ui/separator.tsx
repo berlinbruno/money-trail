@@ -1,4 +1,4 @@
-import { cn } from '@/utils/utils';
+import { cn } from '@/utils/classNameHelpers';
 import * as SeparatorPrimitive from '@rn-primitives/separator';
 
 function Separator({

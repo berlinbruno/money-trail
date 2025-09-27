@@ -1,7 +1,7 @@
 // lib/db/alerts.ts
 import { IAlertRow, INotificationRow } from '@/types/Common';
 import { getCurrencySymbol } from '@/utils/finance/currencyUtils';
-import { formatAmountWithSymbol } from '@/utils/formatters';
+import { formatAmountWithSymbol } from '@/utils/formatterUtils';
 import { SQLiteDatabase } from 'expo-sqlite';
 
 export async function insertAlertNotifications(

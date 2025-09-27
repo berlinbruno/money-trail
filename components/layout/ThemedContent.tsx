@@ -24,10 +24,10 @@ export function ThemedContent() {
       <Stack>
         <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
         <Stack.Screen
-          name="backgroundScreen"
+          name="background"
           options={{ headerShown: true, title: 'Background Tasks' }}
         />
-        <Stack.Screen name="debugScreen" options={{ headerShown: true, title: 'Debug' }} />
+        <Stack.Screen name="debug" options={{ headerShown: true, title: 'Debug' }} />
         <Stack.Screen name="+not-found" options={{ headerShown: true, title: 'Not Found' }} />
       </Stack>
       <PortalHost />

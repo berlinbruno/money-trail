@@ -3,7 +3,7 @@ import { Card, CardDescription, CardFooter, CardHeader } from '@/components/ui/c
 import { CATEGORY_COLORS } from '@/constants/transactionConstants';
 import { useSettings } from '@/contexts/SettingsContext';
 import { TransactionCategory } from '@/types/Transaction';
-import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatters';
+import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatterUtils';
 import React from 'react';
 import { View } from 'react-native';
 import LegendItem from '../insights/LegendItem';

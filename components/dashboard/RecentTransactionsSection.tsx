@@ -2,7 +2,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Text } from '@/components/ui/text';
 import { useSettings } from '@/contexts/SettingsContext';
 import { RecentTx } from '@/types/Insight';
-import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatters';
+import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatterUtils';
 import { Link } from 'expo-router';
 
 interface RecentTransactionsSectionProps {

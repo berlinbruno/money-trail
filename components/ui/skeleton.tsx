@@ -1,4 +1,4 @@
-import { cn } from '@/utils/utils';
+import { cn } from '@/utils/classNameHelpers';
 import { View } from 'react-native';
 
 function Skeleton({

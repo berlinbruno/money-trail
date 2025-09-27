@@ -12,7 +12,7 @@ import {
   generateYAxisLabels,
   getTrendLineData,
 } from '@/utils/finance/insightsUtils';
-import { formatAmountWithCurrency } from '@/utils/formatters';
+import { formatAmountWithCurrency } from '@/utils/formatterUtils';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { useTheme } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';

@@ -15,7 +15,7 @@ import {
   getConfigRecords,
   getSettingsValue,
   setSettingsValue,
-} from '@/utils/settingsStorage';
+} from '@/utils/asyncStorageHelpers';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SQLiteDatabase } from 'expo-sqlite';
 import { createAlert } from './alertQueries';

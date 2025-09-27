@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TREND_COLORS } from '@/constants/insightsConstants';
 import { useSettings } from '@/contexts/SettingsContext';
 import { KPIData } from '@/types/Insight';
-import { formatAmountWithCurrency } from '@/utils/formatters';
+import { formatAmountWithCurrency } from '@/utils/formatterUtils';
 import { KPIItem } from './KPIItem';
 
 export function DashboardKPISection({ kpiData }: { kpiData: KPIData }) {

@@ -1,5 +1,5 @@
 import { Text } from '@/components/ui/text';
-import { capitalizeFirstLetter } from '@/utils/formatters';
+import { capitalizeFirstLetter } from '@/utils/formatterUtils';
 import React from 'react';
 import { View } from 'react-native';
 import { Label } from '../ui/label';

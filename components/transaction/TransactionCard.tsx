@@ -1,6 +1,6 @@
 import { useSettings } from '@/contexts/SettingsContext';
 import { TransactionType } from '@/types/Transaction';
-import { formatAmountWithCurrency, formatDate } from '@/utils/formatters';
+import { formatAmountWithCurrency, formatDate } from '@/utils/formatterUtils';
 import React from 'react';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import { Label } from '../ui/label';

@@ -14,8 +14,8 @@ import {
   TransactionMode,
   TransactionType,
 } from '@/types/Transaction';
-import { capitalizeFirstLetter } from '@/utils/formatters';
-import { getTransactionHash } from '@/utils/hash';
+import { capitalizeFirstLetter } from '@/utils/formatterUtils';
+import { getTransactionHash } from '@/utils/hashUtils';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@react-navigation/native';
 import { Loader2 } from 'lucide-react-native';

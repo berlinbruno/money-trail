@@ -3,7 +3,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { Alert } from '@/types/Alert';
 import { IAlertRow } from '@/types/Common';
 import { TransactionCategory } from '@/types/Transaction';
-import { formatAmountWithCurrency } from '@/utils/formatters';
+import { formatAmountWithCurrency } from '@/utils/formatterUtils';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { TouchableOpacity, View } from 'react-native';

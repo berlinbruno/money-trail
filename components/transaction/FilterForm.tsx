@@ -1,6 +1,6 @@
 import { TRANSACTION_CATEGORIES } from '@/constants/transactionConstants';
 import type { FilterState } from '@/types/FilterState';
-import { capitalizeFirstLetter } from '@/utils/formatters';
+import { capitalizeFirstLetter } from '@/utils/formatterUtils';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React from 'react';
 import { Platform, ScrollView, TouchableOpacity, View } from 'react-native';

@@ -1,4 +1,4 @@
-import { cn } from '@/utils/utils';
+import { cn } from '@/utils/classNameHelpers';
 import { Platform, TextInput, type TextInputProps } from 'react-native';
 
 function Input({

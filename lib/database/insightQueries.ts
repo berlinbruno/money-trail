@@ -1,7 +1,7 @@
 import { CATEGORY_COLORS } from '@/constants/transactionConstants';
 import { CategoryBreakdown, InsightsSummary, Period, TimeSeriesRecord } from '@/types/Insight';
 import { TransactionCategory } from '@/types/Transaction';
-import { getDateCondition } from '@/utils/dbUtils';
+import { getDateCondition } from '@/utils/dateQueryHelpers';
 import { SQLiteDatabase } from 'expo-sqlite';
 
 export async function fetchIncomeExpenseTrend(

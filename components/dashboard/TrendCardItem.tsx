@@ -1,6 +1,6 @@
 import { Card } from '@/components/ui/card';
 import { useSettings } from '@/contexts/SettingsContext';
-import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatters';
+import { capitalizeFirstLetter, formatAmountWithCurrency } from '@/utils/formatterUtils';
 import { Activity, TrendingDown, TrendingUp } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';

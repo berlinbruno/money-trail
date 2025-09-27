@@ -1,4 +1,4 @@
-// utils/utils.ts
+// utils/classNameHelpers.ts
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
