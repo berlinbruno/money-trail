@@ -1,7 +1,9 @@
-import BarChartSection from '@/components/insights/BarChartSection';
-import LineChartSection from '@/components/insights/LineChartSection';
-import PieChartSection from '@/components/insights/PieChartSection';
-import SmartInsightsSection from '@/components/insights/SmartInsightsSection';
+import {
+  BarChartSection,
+  LineChartSection,
+  PieChartSection,
+  SmartInsightsSection,
+} from '@/components/insights';
 import { RANGE_OPTIONS } from '@/constants/insightsConstants';
 import {
   fetchCategoryBreakdown,

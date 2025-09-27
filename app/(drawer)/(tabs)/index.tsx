@@ -1,8 +1,10 @@
-import { DashboardNotificationsSection } from '@/components/dashboard/DashboardNotificationsSection';
-import { DashboardKPISection } from '@/components/dashboard/KPISection';
-import { DashboardQuickActionsSection } from '@/components/dashboard/QuickActionsSection';
-import { DashboardRecentTransactionsSection } from '@/components/dashboard/RecentTransactionsSection';
-import { DashboardTrendsSection } from '@/components/dashboard/TrendsSection';
+import {
+  DashboardKPISection,
+  DashboardNotificationsSection,
+  DashboardQuickActionsSection,
+  DashboardRecentTransactionsSection,
+  DashboardTrendsSection,
+} from '@/components/dashboard';
 import {
   getMonthlyKPI,
   getRecentTransactions,

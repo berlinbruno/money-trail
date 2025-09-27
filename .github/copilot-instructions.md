@@ -12,7 +12,7 @@ Money Trail is a React Native Expo app for automatic expense tracking via SMS pa
 - **Transaction Parsing**: `utils/transactions/transactionParser.ts` extracts amounts, types (debit/credit), and metadata from SMS text
 - **Background Processing**: `lib/sms/backgroundTask.ts` handles automatic SMS sync via Expo Background Tasks every 10 minutes
 - **SMS Sync Logic**: `lib/sms/sync.ts` orchestrates transaction processing and categorization
-- **Deduplication**: Uses MD5 hashing (`expo-crypto`) of SMS content to prevent duplicate transactions
+- **Deduplication**: Uses MD5 hashing (`utils/cryptoUtils.ts` with expo-crypto fallback) of SMS content to prevent duplicate transactions
 
 ### Navigation Structure
 

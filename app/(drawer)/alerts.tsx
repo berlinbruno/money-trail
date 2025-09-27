@@ -4,8 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Dimensions, FlatList, RefreshControl, View } from 'react-native';
 import { PieChart } from 'react-native-gifted-charts';
 
-import AlertCategoryCard from '@/components/alert/AlertCategoryCard';
-import AlertForm from '@/components/alert/AlertForm';
+import { AlertCategoryCard, AlertForm } from '@/components/alert';
 import { Label } from '@/components/ui/label';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';

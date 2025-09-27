@@ -28,6 +28,8 @@ const initCrypto = async () => {
         }
         return Math.abs(hash).toString(16);
       };
+      // Mark that we're using fallback
+      cryptoModule = false;
     }
   }
 };
@@ -62,5 +64,5 @@ export async function getSmsHash(smsBody: string, smsDate: string): Promise<stri
  */
 export const isCryptoAvailable = async (): Promise<boolean> => {
   await initCrypto();
-  return cryptoModule !== null;
+  return cryptoModule !== false && cryptoModule !== null;
 };
