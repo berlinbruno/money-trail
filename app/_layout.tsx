@@ -116,7 +116,6 @@ export default function RootLayout() {
   return (
     <SQLiteProvider
       databaseName="app.db"
-      assetSource={{ assetId: require('@/assets//database/app.db') }}
       onInit={async (db) => {
         try {
           // Enable WAL mode for better concurrency
