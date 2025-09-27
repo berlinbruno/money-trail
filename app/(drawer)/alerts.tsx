@@ -16,10 +16,10 @@ import {
   fetchAlertsByTypeAndFrequency,
   fetchTotalTransactionAmount,
   updateAlert,
-} from '@/lib/db/alertQueries';
+} from '@/lib/database/alertQueries';
 import { AlertFrequency, Alert as Alerts, AlertType, EditAlert, NewAlert } from '@/types/Alert';
 import { TransactionCategory } from '@/types/Transaction';
-import { calculateUsageRatio, formatPercentage } from '@/utils/alertUtils';
+import { calculateUsageRatio, formatPercentage } from '@/utils/finance/alertUtils';
 
 export default function AlertDashboardScreen() {
   const [alertsGroupedByCategory, setAlertsGroupedByCategory] = useState<Record<string, Alerts[]>>({

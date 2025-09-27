@@ -1,4 +1,4 @@
-import { getCurrencyFormat } from '@/lib/db/settingsQueries';
+import { getCurrencyFormat } from '@/lib/database/settingsQueries';
 
 /**
  * Currency symbol mapping

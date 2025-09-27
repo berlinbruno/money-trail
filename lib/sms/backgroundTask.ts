@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundTask from 'expo-background-task';
 import { openDatabaseAsync } from 'expo-sqlite';
 import * as TaskManager from 'expo-task-manager';
-import { getMessageScanCount } from './db/settingsQueries';
-import { syncTransactions } from './smsSync';
+import { getMessageScanCount } from '../database/settingsQueries';
+import { syncTransactions } from './sync';
 
 export const BACKGROUND_TASK_IDENTIFIER = 'fetch-sms-task';
 export const BACKGROUND_TASK_OPTIONS = {

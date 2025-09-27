@@ -9,13 +9,14 @@ Money Trail is a React Native Expo app for automatic expense tracking via SMS pa
 ### Core SMS Processing Pipeline
 
 - **SMS Collection**: `react-native-get-sms-android` fetches finance-related SMS using regex patterns
-- **Transaction Parsing**: `utils/transactionParser.ts` extracts amounts, types (debit/credit), and metadata from SMS text
-- **Background Processing**: `lib/smsBackgroundTask.ts` handles automatic SMS sync via Expo Background Tasks every 10 minutes
+- **Transaction Parsing**: `utils/transactions/transactionParser.ts` extracts amounts, types (debit/credit), and metadata from SMS text
+- **Background Processing**: `lib/sms/backgroundTask.ts` handles automatic SMS sync via Expo Background Tasks every 10 minutes
+- **SMS Sync Logic**: `lib/sms/sync.ts` orchestrates transaction processing and categorization
 - **Deduplication**: Uses MD5 hashing (`crypto-js`) of SMS content to prevent duplicate transactions
 
 ### Navigation Structure
 
-```
+```text
 Stack (Root Layout)
 └── Drawer Layout
     ├── Tabs Layout (Dashboard)
@@ -30,7 +31,9 @@ Stack (Root Layout)
 - **Location**: `assets/database/app.db` (bundled), accessed via `expo-sqlite`
 - **WAL Mode**: Enabled for better concurrency (`PRAGMA journal_mode = WAL`)
 - **Key Tables**: transactions, notifications, alerts, config
-- **Queries**: Organized in `lib/db/` with separate files per domain (`transactionQueries.ts`, `dashboardQueries.ts`, etc.)
+- **Queries**: Organized in `lib/database/` with separate files per domain (`transactionQueries.ts`, `dashboardQueries.ts`, etc.)
+- **Initialization**: Automatic table creation via `initializeDatabase()` function
+- **Sync Configuration**: Stores sync intervals in minutes (10, 15, 30, 60) for better UX
 
 ### State Management Patterns
 
@@ -64,10 +67,19 @@ npm run type-check   # TypeScript compilation check
 
 ## Key Patterns & Conventions
 
+### Folder Organization
+
+- **lib/database/**: All database operations and queries (moved from `lib/db/`)
+- **lib/sms/**: SMS processing pipeline (`backgroundTask.ts`, `sync.ts`, `parser.ts`)
+- **utils/transactions/**: Transaction-specific utilities (`transactionParser.ts`, `filterUtils.ts`)
+- **utils/finance/**: Financial calculations and insights (`insightsUtils.ts`)
+- **utils/formatters.ts**: Consolidated formatting utilities (includes `cn` function)
+- **contexts/AppProvider.tsx**: Unified context provider combining theme and settings
+
 ### Component Organization
 
 - **UI Components**: `components/ui/` - Reusable UI primitives from `react-native-reusables`
-- **Feature Components**: `components/{domain}/` - Domain-specific components (dashboard, transaction, alert)
+- **Feature Components**: `components/{domain}/` - Domain-specific components (dashboard, transaction, alert, insights)
 - **Styling**: TailwindCSS via NativeWind with dark/light theme support
 
 ### Type Definitions
@@ -109,23 +121,51 @@ npm run type-check   # TypeScript compilation check
 ### Adding New Transaction Categories
 
 1. Update `constants/transactionConstants.ts` with new category
-2. Modify `categorizeTransaction()` in `lib/smsSync.ts`
+2. Modify `categorizeTransaction()` in `lib/sms/sync.ts`
 3. Update type definitions in `types/Transaction.ts`
 
 ### SMS Parser Improvements
 
-- Test with `utils/transactionParser.ts` functions
+- Test with `utils/transactions/transactionParser.ts` functions
 - Focus on `parseTransactionFromSms()` for single transactions
 - Handle multi-transaction SMS with `parseMultipleTransactionsFromSms()`
+- Background task logic is in `lib/sms/backgroundTask.ts`
 
 ### Dashboard Data Sources
 
-- Add new KPI calculations in `lib/db/dashboardQueries.ts`
+- Add new KPI calculations in `lib/database/dashboardQueries.ts`
 - Update dashboard components in `components/dashboard/`
 - Follow pattern of parallel data fetching with `Promise.all`
+
+### Financial Insights & Analytics
+
+- Calculation functions in `utils/finance/insightsUtils.ts`
+- Chart data processing and trend analysis
+- Category breakdown and spending pattern detection
 
 ### Background Task Debugging
 
 - Check task registration status via `TaskManager.isTaskRegisteredAsync()`
 - Monitor execution logs stored in `config` table
 - Test task execution with `executeTask()` function directly
+- Background task implementation in `lib/sms/backgroundTask.ts`
+
+## File Organization Best Practices
+
+### Import Path Patterns
+
+- **Database Operations**: `@/lib/database/{queryFile}` (e.g., `@/lib/database/transactionQueries`)
+- **SMS Processing**: `@/lib/sms/{module}` (e.g., `@/lib/sms/sync`, `@/lib/sms/backgroundTask`)
+- **Utilities**: `@/utils/{category}/{file}` (e.g., `@/utils/transactions/transactionParser`, `@/utils/finance/insightsUtils`)
+- **Formatters**: `@/utils/formatters` (consolidated formatting and `cn` utility)
+- **UI Components**: `@/components/ui/{component}`
+- **Feature Components**: `@/components/{domain}/{component}`
+
+### Code Organization Principles
+
+- **Feature-based Folders**: Group related functionality together
+- **Single Responsibility**: Each file has a clear, focused purpose
+- **Consistent Imports**: Use absolute imports with @ alias throughout
+- **Type Safety**: Leverage TypeScript interfaces from `types/` folder
+- **Database Consistency**: All queries use minute-based sync intervals
+- **Context Consolidation**: Unified providers in `contexts/AppProvider.tsx`

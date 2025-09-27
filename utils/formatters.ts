@@ -1,4 +1,14 @@
 // utils/formatters.ts
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+/**
+ * Utility function to merge Tailwind CSS classes
+ * Combines clsx and tailwind-merge for optimal class handling
+ */
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 /**
  * Format a number as currency with optional locale and currency type.
@@ -146,27 +156,23 @@ export function capitalizeFirstLetter(str: string | null): string {
 }
 
 /**
- * Format sync interval for display (e.g., "15 min", "2h", "1d")
+ * Format currency display with proper symbol placement
  */
-export function formatSyncInterval(interval: number): string {
-  if (interval >= 1440) {
-    const days = interval / 1440;
-    return `${days}d`;
-  }
-  if (interval >= 60) {
-    const hours = interval / 60;
-    return `${hours}h`;
-  }
-  return `${interval} min`;
+export function formatCurrencyLabel(currency: { symbol: string; name: string; code: string }) {
+  return `${currency.symbol} ${currency.name} (${currency.code})`;
 }
 
 /**
- * Format currency display label with symbol, code, and name
+ * Format sync interval for display (e.g., "15m", "2h", "1d")
  */
-export function formatCurrencyLabel(currency: {
-  code: string;
-  symbol: string;
-  name: string;
-}): string {
-  return `${currency.symbol} ${currency.code} - ${currency.name}`;
+export function formatSyncInterval(minutes: number): string {
+  if (minutes >= 1440) {
+    const days = Math.floor(minutes / 1440);
+    return `${days}d`;
+  }
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h`;
+  }
+  return `${minutes}m`;
 }

@@ -6,13 +6,13 @@ import {
   TREND_COLORS,
 } from '@/constants/insightsConstants';
 import { useSettings } from '@/contexts/SettingsContext';
-import { formatAmountWithCurrency } from '@/utils/formatters';
 import {
   calculateStep,
   calculateTotals,
   generateYAxisLabels,
   getTrendLineData,
-} from '@/utils/insightsUtils';
+} from '@/utils/finance/insightsUtils';
+import { formatAmountWithCurrency } from '@/utils/formatters';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { useTheme } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';

@@ -1,5 +1,5 @@
 import { Text } from '@/components/ui/text';
-import { markNotificationAsRead } from '@/lib/db/notificationQueries';
+import { markNotificationAsRead } from '@/lib/database/notificationQueries';
 import { INotificationRow } from '@/types/Common';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback } from 'react';

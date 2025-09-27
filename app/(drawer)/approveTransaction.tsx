@@ -19,11 +19,11 @@ import {
   updateAllTransactionFlags,
   updateTransaction,
   updateTransactionFlag,
-} from '@/lib/db/transactionQueries';
+} from '@/lib/database/transactionQueries';
 
 import { FilterState } from '@/types/FilterState';
 import { EditTransaction, NewTransaction, Transaction } from '@/types/Transaction';
-import { fetchTransactionsFromDB, getDateRangeForPreset } from '@/utils/filterUtils';
+import { fetchTransactionsFromDB, getDateRangeForPreset } from '@/utils/transactions/filterUtils';
 
 // Type Guard
 const isEditTransaction = (

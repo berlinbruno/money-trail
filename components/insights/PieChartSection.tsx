@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ANIMATION_DURATION, PIE_RADIUS, SEGMENTS } from '@/constants/insightsConstants';
 import { CategoryBreakdown } from '@/types/Insight';
-import { getPieChartData } from '@/utils/insightsUtils';
+import { getPieChartData } from '@/utils/finance/insightsUtils';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { useTheme } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';

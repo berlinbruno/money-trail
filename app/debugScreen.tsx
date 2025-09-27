@@ -7,7 +7,7 @@ import {
   generateTestData,
   getConfigRecords,
   getDbInfo,
-} from '@/lib/db/settingsQueries';
+} from '@/lib/database/settingsQueries';
 import * as Device from 'expo-device';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';

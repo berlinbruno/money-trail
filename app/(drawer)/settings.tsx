@@ -19,7 +19,7 @@ import {
 } from '@/constants/settingsConstants';
 import { useSettings } from '@/contexts/SettingsContext';
 import { THEME_OPTIONS, useTheme } from '@/contexts/ThemeContext';
-import { resetAllData } from '@/lib/db/settingsQueries';
+import { resetAllData } from '@/lib/database/settingsQueries';
 import { formatCurrencyLabel, formatSyncInterval } from '@/utils/formatters';
 import { logSystemTheme } from '@/utils/themeUtils';
 import { useSQLiteContext } from 'expo-sqlite';

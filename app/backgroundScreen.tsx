@@ -5,7 +5,7 @@ import {
   DEFAULT_TASK_CONFIG,
   getTaskConfig,
   initializeBackgroundTask,
-} from '@/lib/smsBackgroundTask';
+} from '@/lib/sms/backgroundTask';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as TaskManager from 'expo-task-manager';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';

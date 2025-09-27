@@ -7,9 +7,9 @@ import {
   fetchCategoryBreakdown,
   fetchIncomeExpenseTrend,
   fetchInsightsSummary,
-} from '@/lib/db/insightQueries';
+} from '@/lib/database/insightQueries';
 import { CategoryBreakdown, insightsDataset, InsightsSummary } from '@/types/Insight';
-import { transformTimeSeries } from '@/utils/insightsUtils';
+import { transformTimeSeries } from '@/utils/finance/insightsUtils';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { useTheme } from '@react-navigation/native';
 import { useSQLiteContext } from 'expo-sqlite';

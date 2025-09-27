@@ -1,14 +1,15 @@
+import { ALERT_FREQUENCIES, ALERT_TYPES } from '@/constants/alertsConstants';
 import {
-  ALERT_FREQUENCIES,
-  ALERT_TYPES,
-  CREDIT_CATEGORIES,
-  DEBIT_CATEGORIES,
   SAMPLE_AMOUNTS,
   SAMPLE_DESCRIPTIONS,
   SAMPLE_THRESHOLDS,
-  TRANSACTION_MODES,
-  TRANSACTION_TYPES,
 } from '@/constants/testDataConstants';
+import {
+  CREDIT_CATEGORIES,
+  DEBIT_CATEGORIES,
+  TRANSACTION_MODES,
+  TRANSACTION_TYPE,
+} from '@/constants/transactionConstants';
 import {
   clearSettingsData,
   getConfigRecords,
@@ -292,7 +293,7 @@ export async function generateTestData(db: SQLiteDatabase): Promise<void> {
 
     // Generate transactions using constants
     for (let i = 0; i < 20; i++) {
-      const type = TRANSACTION_TYPES[Math.floor(Math.random() * TRANSACTION_TYPES.length)];
+      const type = TRANSACTION_TYPE[Math.floor(Math.random() * TRANSACTION_TYPE.length)];
       const categoryOptions = type === 'debit' ? DEBIT_CATEGORIES : CREDIT_CATEGORIES;
       const category = categoryOptions[Math.floor(Math.random() * categoryOptions.length)];
       const amount = SAMPLE_AMOUNTS[Math.floor(Math.random() * SAMPLE_AMOUNTS.length)];
@@ -340,6 +341,51 @@ export async function generateTestData(db: SQLiteDatabase): Promise<void> {
     console.log('Successfully generated test data');
   } catch (error) {
     console.error('Error generating test data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Insert realistic dummy data for demonstration purposes
+ */
+export async function insertDummyData(db: SQLiteDatabase): Promise<void> {
+  try {
+    // --- Transactions ---
+    await db.execAsync(`
+      INSERT INTO transactions (account, type, title, amount, date, mode, category, source, pending_approval)
+      VALUES 
+        ('HDFC', 'debit', 'Grocery Shopping', 1200, '2025-08-15', 'upi', 'grocery', 'manual', 0),
+        ('HDFC', 'credit', 'Salary', 50000, '2025-08-01', 'other', 'salary', 'manual', 0),
+        ('ICICI', 'debit', 'Fuel', 3000, '2025-08-10', 'card', 'fuel', 'manual', 0),
+        ('ICICI', 'debit', 'Rent', 15000, '2025-08-01', 'neft', 'rent', 'manual', 0),
+        ('HDFC', 'credit', 'Investment Refund', 2000, '2025-08-05', 'other', 'refund', 'api', 0);
+    `);
+
+    // --- Alerts ---
+    await db.execAsync(`
+      INSERT INTO alerts (type, frequency, category, threshold)
+      VALUES
+        ('income', 'monthly', 'salary', 50000),
+        ('income', 'monthly', 'investments', 10000),
+        ('spending', 'weekly', 'grocery', 2000),
+        ('spending', 'monthly', 'rent', 15000),
+        ('spending', 'weekly', 'fuel', 1500);
+    `);
+
+    // --- Notifications ---
+    await db.execAsync(`
+      INSERT INTO notifications (type, title, message, severity, is_read)
+      VALUES
+        ('transaction', 'New Transaction', '1200 spent on Grocery Shopping.', 'medium', 0),
+        ('transaction', 'New Transaction', '50000 received as Salary.', 'success', 0),
+        ('alert', 'Income Alert', 'You have reached 100% of your salary goal.', 'high', 0),
+        ('alert', 'Spending Alert', 'You have used 85% of your grocery weekly budget.', 'high', 0),
+        ('system', 'Welcome', 'Welcome to your finance tracker app!', 'info', 1);
+    `);
+
+    console.log('Successfully inserted dummy data');
+  } catch (error) {
+    console.error('Error inserting dummy data:', error);
     throw error;
   }
 }

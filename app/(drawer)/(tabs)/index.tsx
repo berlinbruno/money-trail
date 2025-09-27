@@ -3,12 +3,16 @@ import { DashboardKPISection } from '@/components/dashboard/KPISection';
 import { DashboardQuickActionsSection } from '@/components/dashboard/QuickActionsSection';
 import { DashboardRecentTransactionsSection } from '@/components/dashboard/RecentTransactionsSection';
 import { DashboardTrendsSection } from '@/components/dashboard/TrendsSection';
-import { getMonthlyKPI, getRecentTransactions, getTopDeviations } from '@/lib/db/dashboardQueries';
+import {
+  getMonthlyKPI,
+  getRecentTransactions,
+  getTopDeviations,
+} from '@/lib/database/dashboardQueries';
 import {
   getAlertsWithProgress,
   getUnreadNotifications,
   insertAlertNotifications,
-} from '@/lib/db/notificationQueries';
+} from '@/lib/database/notificationQueries';
 import { INotificationRow } from '@/types/Common';
 import { KPIData, RecentTx, TrendRow } from '@/types/Insight';
 import { useSQLiteContext } from 'expo-sqlite';

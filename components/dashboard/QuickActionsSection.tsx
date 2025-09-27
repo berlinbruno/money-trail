@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { useSettings } from '@/contexts/SettingsContext';
-import { syncTransactions } from '@/lib/smsSync';
+import { syncTransactions } from '@/lib/sms/sync';
 import { useTheme } from '@react-navigation/native';
 import { Link } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';

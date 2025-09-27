@@ -8,13 +8,13 @@ import {
 } from '@/constants/insightsConstants';
 import { useSettings } from '@/contexts/SettingsContext';
 import { insightsDataset } from '@/types/Insight';
-import { formatAmountWithCurrency } from '@/utils/formatters';
 import {
   calculateStep,
   calculateTotals,
   generateYAxisLabels,
   getBarChartData,
-} from '@/utils/insightsUtils';
+} from '@/utils/finance/insightsUtils';
+import { formatAmountWithCurrency } from '@/utils/formatters';
 import { useTheme } from '@react-navigation/native';
 import React, { useMemo } from 'react';
 import { View } from 'react-native';

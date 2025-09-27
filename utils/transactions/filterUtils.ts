@@ -1,4 +1,4 @@
-import { getTransactions } from '@/lib/db/transactionQueries';
+import { getTransactions } from '@/lib/database/transactionQueries';
 import { SQLiteDatabase } from 'expo-sqlite';
 
 export const getDateRangeForPreset = (preset: string): { start: Date | null; end: Date | null } => {

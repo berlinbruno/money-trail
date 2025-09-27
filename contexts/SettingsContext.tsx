@@ -16,8 +16,8 @@ import {
   setMessageScanCount as setMessageScanCountQuery,
   setPushNotification,
   setSyncInterval,
-} from '@/lib/db/settingsQueries';
-import { updateTaskConfiguration } from '@/lib/smsBackgroundTask';
+} from '@/lib/database/settingsQueries';
+import { updateTaskConfiguration } from '@/lib/sms/backgroundTask';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 

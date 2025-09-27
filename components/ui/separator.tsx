@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/formatters';
 import * as SeparatorPrimitive from '@rn-primitives/separator';
 
 function Separator({

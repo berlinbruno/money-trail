@@ -1,5 +1,5 @@
 import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { clearAllNotifications } from '@/lib/db/notificationQueries';
+import { clearAllNotifications } from '@/lib/database/notificationQueries';
 import { INotificationRow } from '@/types/Common';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback } from 'react';

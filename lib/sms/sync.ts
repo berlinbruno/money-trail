@@ -1,10 +1,10 @@
 import { NewTransaction, TransactionCategory, TransactionSource } from '@/types/Transaction';
-import { parseTransactionFromSms } from '@/utils/transactionParser';
 import { MD5 } from 'crypto-js';
 import { SQLiteDatabase } from 'expo-sqlite';
 import SmsAndroid from 'react-native-get-sms-android';
-import { getLastSyncTime, setLastSyncTime } from './db/settingsQueries';
-import { insertTransaction } from './db/transactionQueries';
+import { getLastSyncTime, setLastSyncTime } from '../database/settingsQueries';
+import { insertTransaction } from '../database/transactionQueries';
+import { parseTransactionFromSms } from './parser';
 
 // Enhanced types for better SMS processing
 export interface SyncResult {
