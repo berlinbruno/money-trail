@@ -1,4 +1,4 @@
-import { cn } from '@/utils/formatters';
+import { cn } from '@/utils/utils';
 import * as SwitchPrimitives from '@rn-primitives/switch';
 import { Platform } from 'react-native';
 

@@ -1,5 +1,13 @@
-import { MD5 } from 'crypto-js';
+import { CryptoDigestAlgorithm, digestStringAsync } from 'expo-crypto';
 
-export function getTransactionHash(title: string, amount: string, date: Date, account: string) {
-  return MD5(`${title}|${amount}|${date}|${account}`);
+export async function getTransactionHash(
+  title: string,
+  amount: string,
+  date: Date,
+  account: string
+) {
+  return await digestStringAsync(
+    CryptoDigestAlgorithm.MD5,
+    `${title}|${amount}|${date}|${account}`
+  );
 }

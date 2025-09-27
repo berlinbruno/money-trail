@@ -1,4 +1,4 @@
-import { cn } from '@/utils/formatters';
+import { cn } from '@/utils/utils';
 import * as ProgressPrimitive from '@rn-primitives/progress';
 import { Platform, View } from 'react-native';
 import Animated, {

@@ -1,4 +1,4 @@
-import { cn } from '@/utils/formatters';
+import { cn } from '@/utils/utils';
 import { Platform, TextInput, type TextInputProps } from 'react-native';
 
 function Input({

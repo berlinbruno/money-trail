@@ -1,5 +1,5 @@
 import { NewTransaction, TransactionCategory, TransactionSource } from '@/types/Transaction';
-import { MD5 } from 'crypto-js';
+import { CryptoDigestAlgorithm, digestStringAsync } from 'expo-crypto';
 import { SQLiteDatabase } from 'expo-sqlite';
 import SmsAndroid from 'react-native-get-sms-android';
 import { getLastSyncTime, setLastSyncTime } from '../database/settingsQueries';
@@ -72,8 +72,15 @@ export async function getFinanceInboxMessagesByDateRange(
 /**
  * Generate SMS hash for deduplication
  */
-export function getSmsHash(sms: { address: string; body: string; date: number }) {
-  return MD5(`${sms.address}|${sms.body}|${sms.date}`).toString();
+async function generateSmsHash(sms: {
+  address: string;
+  body: string;
+  date: number;
+}): Promise<string> {
+  return await digestStringAsync(
+    CryptoDigestAlgorithm.MD5,
+    `${sms.address}|${sms.body}|${sms.date}`
+  );
 }
 
 /**
@@ -117,7 +124,7 @@ export async function insertSmsTransaction(
   const parsed = parseTransactionFromSms(sms.body);
   if (!parsed.amount || parsed.type === 'unknown') return null;
 
-  const smsHash = getSmsHash(sms);
+  const smsHash = await generateSmsHash(sms);
   const existing = await db.getFirstAsync(`SELECT id FROM transactions WHERE sms_hash=?`, [
     smsHash,
   ]);

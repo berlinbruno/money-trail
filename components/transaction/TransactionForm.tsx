@@ -33,7 +33,6 @@ interface Props {
 }
 
 const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) => {
-  const isEditMode = !!transaction;
   const theme = useTheme();
 
   const [amount, setAmount] = useState('');
@@ -77,43 +76,41 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
     );
   }, [amount, title, category, mode, type]);
 
-  const handleSave = useCallback(() => {
-    if (!isValid) {
-      Alert.alert('Validation Error', 'Please fill all required fields correctly.');
-      return;
-    }
-
-    setIsLoading(true);
-    const timestamp = date.toISOString();
+  const handleSubmit = useCallback(async () => {
+    if (!isValid) return;
 
     try {
-      if (isEditMode) {
+      setIsLoading(true);
+      const timestamp = date.toISOString();
+      const smsHash = await getTransactionHash(title, amount, date, 'default');
+
+      if (transaction) {
+        // Update existing transaction
         onSubmit({
-          ...(transaction as EditTransaction),
-          account: 'default',
-          type,
+          ...transaction,
           amount: parseFloat(amount),
           category,
           mode,
           title: capitalizeFirstLetter(title),
+          type,
           date: timestamp,
-          source: 'manual',
-          updated_at: timestamp,
-          pending_approval: 0,
+          updated_at: new Date().toISOString(),
+          source: transaction.source || 'manual',
         });
       } else {
+        // Create new transaction
         onSubmit({
-          account: 'default',
-          type,
           amount: parseFloat(amount),
+          account: 'default',
           category,
+          type,
           mode,
           title: capitalizeFirstLetter(title),
           source: 'manual',
           date: timestamp,
           created_at: timestamp,
           pending_approval: 0,
-          sms_hash: getTransactionHash(title, amount, date, 'default').toString(),
+          sms_hash: smsHash,
         });
       }
     } catch (error) {
@@ -121,19 +118,7 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
       Alert.alert('Error', 'An error occurred while saving the transaction.');
       setIsLoading(false);
     }
-  }, [
-    amount,
-    title,
-    category,
-    mode,
-    type,
-    isValid,
-    isEditMode,
-    onSubmit,
-    transaction,
-    date,
-    setIsLoading,
-  ]);
+  }, [amount, title, category, mode, type, isValid, date, transaction, onSubmit]);
 
   const renderOptions = <T extends string>(
     options: readonly T[],
@@ -218,7 +203,7 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
       </View>
 
       <View className="mt-6 flex-row justify-around gap-2">
-        <Button className="flex-[2]" onPress={handleSave} disabled={!isValid || isLoading}>
+        <Button className="flex-[2]" onPress={handleSubmit} disabled={!isValid || isLoading}>
           {isLoading ? (
             <View className="flex-row items-center">
               <View className="mr-2 animate-spin">
