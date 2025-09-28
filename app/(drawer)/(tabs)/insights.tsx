@@ -5,6 +5,7 @@ import {
   SmartInsightsSection,
 } from '@/components/insights';
 import { RANGE_OPTIONS } from '@/constants/insightsConstants';
+import { useToastHelpers } from '@/contexts/ToastProvider';
 import {
   fetchCategoryBreakdown,
   fetchIncomeExpenseTrend,
@@ -22,6 +23,7 @@ import { RefreshControl, ScrollView, View } from 'react-native';
 export default function InsightsScreen() {
   const theme = useTheme();
   const db = useSQLiteContext();
+  const { showError } = useToastHelpers();
   const [selectedRangeIndex, setSelectedRangeIndex] = useState(0);
   const [state, setState] = useState({
     insightsSummary: null as InsightsSummary | null,
@@ -36,9 +38,6 @@ export default function InsightsScreen() {
   // Fetch all data in main page
   const fetchInsightsData = useCallback(async () => {
     if (!db) return;
-    setState((prev) => ({
-      ...prev,
-    }));
     try {
       const currentRange = RANGE_OPTIONS[selectedRangeIndex];
       const [categories, summary, trendData] = await Promise.all([
@@ -63,7 +62,12 @@ export default function InsightsScreen() {
           return updated;
         })(),
       }));
-    } catch {
+    } catch (error) {
+      console.error('Error fetching insights data:', error);
+      showError({
+        title: 'Insights Loading Failed',
+        description: 'Unable to load insights data',
+      });
       setState((prev) => ({
         ...prev,
         categoryBreakdown: { income: [], expense: [] },
@@ -71,16 +75,19 @@ export default function InsightsScreen() {
         timeSeriesData: null,
       }));
     }
-  }, [db, selectedRangeIndex]);
+  }, [db, selectedRangeIndex, showError]);
 
+  // Fetch data when dependencies change
   useEffect(() => {
     fetchInsightsData();
-  }, [fetchInsightsData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [db, selectedRangeIndex]); // Safe to disable - fetchInsightsData is stable
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     try {
       fetchInsightsData();
+      // Silent refresh - no toast needed for pull-to-refresh
     } finally {
       setIsRefreshing(false);
     }

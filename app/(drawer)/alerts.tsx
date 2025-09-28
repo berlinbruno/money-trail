@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
 import { ALERT_LABELS, ALERT_TYPE_FREQUENCY_MAP } from '@/constants/alertsConstants';
+import { useToastHelpers } from '@/contexts/ToastProvider';
 import {
   createAlert,
   deleteAlert,
@@ -39,55 +40,63 @@ export default function AlertDashboardScreen() {
 
   const theme = useTheme();
   const db = useSQLiteContext();
+  const { showSuccess, showError } = useToastHelpers();
   const screenWidth = Dimensions.get('window').width;
   const pieChartRadius = screenWidth / 5;
 
   // Calculates usage ratio for a list of alerts
 
   // Fetch alerts grouped by type and frequency, and attach current values
-  const loadAlerts = useCallback(async () => {
-    if (!db) return;
+  const loadAlerts = useCallback(
+    async (showLoader = true) => {
+      if (!db) return;
 
-    setIsRefreshing(true);
+      if (showLoader) setIsRefreshing(true);
 
-    try {
-      const incomeWeeklyAlerts = await fetchAlertsByTypeAndFrequency(db, 'income', 'weekly');
-      const incomeMonthlyAlerts = await fetchAlertsByTypeAndFrequency(db, 'income', 'monthly');
-      const spendingWeeklyAlerts = await fetchAlertsByTypeAndFrequency(db, 'spending', 'weekly');
-      const spendingMonthlyAlerts = await fetchAlertsByTypeAndFrequency(db, 'spending', 'monthly');
+      try {
+        const incomeWeeklyAlerts = await fetchAlertsByTypeAndFrequency(db, 'income', 'weekly');
+        const incomeMonthlyAlerts = await fetchAlertsByTypeAndFrequency(db, 'income', 'monthly');
+        const spendingWeeklyAlerts = await fetchAlertsByTypeAndFrequency(db, 'spending', 'weekly');
+        const spendingMonthlyAlerts = await fetchAlertsByTypeAndFrequency(
+          db,
+          'spending',
+          'monthly'
+        );
 
-      const incomeWeeklyCurrent = await fetchTotalTransactionAmount(db, 'credit', 'weekly');
-      const incomeMonthlyCurrent = await fetchTotalTransactionAmount(db, 'credit', 'monthly');
-      const spendingWeeklyCurrent = await fetchTotalTransactionAmount(db, 'debit', 'weekly');
-      const spendingMonthlyCurrent = await fetchTotalTransactionAmount(db, 'debit', 'monthly');
+        const incomeWeeklyCurrent = await fetchTotalTransactionAmount(db, 'credit', 'weekly');
+        const incomeMonthlyCurrent = await fetchTotalTransactionAmount(db, 'credit', 'monthly');
+        const spendingWeeklyCurrent = await fetchTotalTransactionAmount(db, 'debit', 'weekly');
+        const spendingMonthlyCurrent = await fetchTotalTransactionAmount(db, 'debit', 'monthly');
 
-      incomeWeeklyAlerts.forEach((alert) => (alert.current_value = incomeWeeklyCurrent));
-      incomeMonthlyAlerts.forEach((alert) => (alert.current_value = incomeMonthlyCurrent));
-      spendingWeeklyAlerts.forEach((alert) => (alert.current_value = spendingWeeklyCurrent));
-      spendingMonthlyAlerts.forEach((alert) => (alert.current_value = spendingMonthlyCurrent));
+        incomeWeeklyAlerts.forEach((alert) => (alert.current_value = incomeWeeklyCurrent));
+        incomeMonthlyAlerts.forEach((alert) => (alert.current_value = incomeMonthlyCurrent));
+        spendingWeeklyAlerts.forEach((alert) => (alert.current_value = spendingWeeklyCurrent));
+        spendingMonthlyAlerts.forEach((alert) => (alert.current_value = spendingMonthlyCurrent));
 
-      // Attach current_value to each alert
-      incomeWeeklyAlerts.forEach((alert) => (alert.current_value = incomeWeeklyCurrent));
-      incomeMonthlyAlerts.forEach((alert) => (alert.current_value = incomeMonthlyCurrent));
-      spendingWeeklyAlerts.forEach((alert) => (alert.current_value = spendingWeeklyCurrent));
-      spendingMonthlyAlerts.forEach((alert) => (alert.current_value = spendingMonthlyCurrent));
+        setAlertsGroupedByCategory({
+          'income-weekly': incomeWeeklyAlerts,
+          'income-monthly': incomeMonthlyAlerts,
+          'spending-weekly': spendingWeeklyAlerts,
+          'spending-monthly': spendingMonthlyAlerts,
+        });
+      } catch (error) {
+        console.error('Error loading alerts:', error);
+        showError({
+          title: 'Loading Failed',
+          description: 'Unable to load alerts data',
+        });
+      } finally {
+        if (showLoader) setIsRefreshing(false);
+      }
+    },
+    [db, showError]
+  );
 
-      setAlertsGroupedByCategory({
-        'income-weekly': incomeWeeklyAlerts,
-        'income-monthly': incomeMonthlyAlerts,
-        'spending-weekly': spendingWeeklyAlerts,
-        'spending-monthly': spendingMonthlyAlerts,
-      });
-    } catch (error) {
-      console.error('Error loading alerts:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [db]);
-
+  // Load alerts on mount
   useEffect(() => {
-    loadAlerts();
-  }, [loadAlerts]);
+    loadAlerts(false); // Silent initial load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Safe to disable - we only want this to run once on mount
 
   // Handlers for add, edit, delete alerts
   const handleAddAlert = (categoryKey: string, categories: TransactionCategory[]) => {
@@ -112,8 +121,20 @@ export default function AlertDashboardScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await deleteAlert(db, alertId);
-          loadAlerts();
+          try {
+            await deleteAlert(db, alertId);
+            await loadAlerts(false); // Silent refresh
+            showSuccess({
+              title: 'Alert Deleted',
+              description: 'Alert has been removed',
+            });
+          } catch (error) {
+            console.error('Failed to delete alert:', error);
+            showError({
+              title: 'Delete Failed',
+              description: 'Unable to delete alert',
+            });
+          }
         },
       },
     ]);
@@ -121,13 +142,16 @@ export default function AlertDashboardScreen() {
 
   const handleSubmitAlert = async (alert: NewAlert | EditAlert) => {
     try {
-      setIsRefreshing(true);
       if ('id' in alert) {
         await updateAlert(db, {
           id: alert.id,
           category: alert.category,
           threshold: alert.threshold,
           updated_at: alert.updated_at,
+        });
+        showSuccess({
+          title: 'Alert Updated',
+          description: 'Alert has been modified',
         });
       } else {
         await createAlert(db, {
@@ -137,21 +161,26 @@ export default function AlertDashboardScreen() {
           threshold: alert.threshold,
           created_at: alert.created_at,
         });
+        showSuccess({
+          title: 'Alert Created',
+          description: 'New alert has been added',
+        });
       }
-      await loadAlerts();
+      await loadAlerts(false); // Silent refresh
       setModalVisible(false);
     } catch (error) {
       console.error('Failed to save alert:', error);
-    } finally {
-      setIsRefreshing(false);
+      showError({
+        title: 'Save Failed',
+        description: 'Unable to save alert',
+      });
     }
   };
 
   // Pull-to-refresh handler
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await loadAlerts();
-    setIsRefreshing(false);
+    await loadAlerts(true); // Show loading for manual refresh
+    // Silent refresh - no toast needed for pull-to-refresh
   };
 
   // Derived data: calculate usage for spending and income alerts

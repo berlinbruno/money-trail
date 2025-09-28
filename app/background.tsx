@@ -3,6 +3,7 @@ import {
   PerformanceMetricsCard,
   RegisteredTasksCard,
 } from '@/components/background';
+import { useToastHelpers } from '@/contexts/ToastProvider';
 import { getRecentTaskExecutionLogs } from '@/lib/database/loggingQueries';
 import {
   DEFAULT_TASK_CONFIG,
@@ -23,6 +24,7 @@ initializeBackgroundTask(promise);
 
 export default function BackgroundTaskScreen() {
   const db = useSQLiteContext();
+  const { showError } = useToastHelpers();
   const [registeredTasks, setRegisteredTasks] = useState<TaskManager.TaskManagerTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [taskConfig, setTaskConfig] = useState({ ...DEFAULT_TASK_CONFIG });
@@ -40,8 +42,12 @@ export default function BackgroundTaskScreen() {
       setRegisteredTasks(tasks);
     } catch (error) {
       console.error('Error loading registered tasks:', error);
+      showError({
+        title: 'Task Loading Failed',
+        description: 'Unable to load background task information',
+      });
     }
-  }, []);
+  }, [showError]);
 
   const loadTaskConfig = useCallback(async () => {
     try {
@@ -49,8 +55,12 @@ export default function BackgroundTaskScreen() {
       setTaskConfig(config);
     } catch (error) {
       console.error('Error loading task config:', error);
+      showError({
+        title: 'Config Loading Failed',
+        description: 'Unable to load task configuration',
+      });
     }
-  }, []);
+  }, [showError]);
 
   const loadPerformanceMetrics = useCallback(async () => {
     try {
@@ -96,13 +106,21 @@ export default function BackgroundTaskScreen() {
       });
     } catch (error) {
       console.error('Error loading performance metrics:', error);
+      showError({
+        title: 'Metrics Loading Failed',
+        description: 'Unable to load performance data',
+      });
     }
-  }, [db]);
+  }, [db, showError]);
 
   const refreshAllData = useCallback(async () => {
     setIsLoading(true);
     try {
       await Promise.all([loadRegisteredTasks(), loadTaskConfig(), loadPerformanceMetrics()]);
+      // Silent refresh - no toast needed for pull-to-refresh
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      // Individual functions will show their own error toasts
     } finally {
       setIsLoading(false);
     }

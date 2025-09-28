@@ -383,6 +383,79 @@ export async function generateTestData(db: SQLiteDatabase): Promise<void> {
 }
 
 /**
+ * Generate test transactions only
+ */
+export async function generateTestTransactions(db: SQLiteDatabase): Promise<void> {
+  try {
+    const now = new Date();
+
+    // Generate transactions using constants
+    for (let i = 0; i < 20; i++) {
+      const type = TRANSACTION_TYPE[Math.floor(Math.random() * TRANSACTION_TYPE.length)];
+      const categoryOptions = type === 'debit' ? DEBIT_CATEGORIES : CREDIT_CATEGORIES;
+      const category = categoryOptions[Math.floor(Math.random() * categoryOptions.length)];
+      const amount = SAMPLE_AMOUNTS[Math.floor(Math.random() * SAMPLE_AMOUNTS.length)];
+      const description =
+        SAMPLE_DESCRIPTIONS[Math.floor(Math.random() * SAMPLE_DESCRIPTIONS.length)];
+      const mode = TRANSACTION_MODES[Math.floor(Math.random() * TRANSACTION_MODES.length)];
+
+      const date = new Date(now);
+      date.setDate(date.getDate() - Math.floor(Math.random() * 30));
+
+      const uniqueHash = `test_txn_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 10)}`;
+
+      await insertTransaction(db, {
+        type,
+        category,
+        amount,
+        title: description,
+        date: date.toISOString(),
+        created_at: new Date().toISOString(),
+        account: 'Main Account',
+        mode,
+        source: 'manual',
+        pending_approval: 0,
+        sms_hash: uniqueHash,
+      });
+    }
+
+    console.log('Successfully generated test transactions');
+  } catch (error) {
+    console.error('Error generating test transactions:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generate test alerts only
+ */
+export async function generateTestAlerts(db: SQLiteDatabase): Promise<void> {
+  try {
+    // Generate alerts using constants
+    for (let i = 0; i < 8; i++) {
+      const type = ALERT_TYPES[Math.floor(Math.random() * ALERT_TYPES.length)];
+      const frequency = ALERT_FREQUENCIES[Math.floor(Math.random() * ALERT_FREQUENCIES.length)];
+      const categoryOptions = type === 'income' ? CREDIT_CATEGORIES : DEBIT_CATEGORIES;
+      const category = categoryOptions[Math.floor(Math.random() * categoryOptions.length)];
+      const threshold = SAMPLE_THRESHOLDS[Math.floor(Math.random() * SAMPLE_THRESHOLDS.length)];
+
+      await createAlert(db, {
+        type,
+        frequency,
+        category,
+        threshold,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    console.log('Successfully generated test alerts');
+  } catch (error) {
+    console.error('Error generating test alerts:', error);
+    throw error;
+  }
+}
+
+/**
  * Insert realistic dummy data for demonstration purposes
  */
 export async function insertDummyData(db: SQLiteDatabase): Promise<void> {

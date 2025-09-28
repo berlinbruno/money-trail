@@ -6,6 +6,7 @@ import TransactionForm from '@/components/transaction/TransactionForm';
 import { Button } from '@/components/ui/button';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
+import { useToastHelpers } from '@/contexts/ToastProvider';
 import { useTheme } from '@react-navigation/native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ArrowUpDown, Filter, PlusCircle } from 'lucide-react-native';
@@ -33,6 +34,7 @@ const isEditTransaction = (
 export default function TransactionListScreen() {
   const db = useSQLiteContext();
   const theme = useTheme();
+  const { showSuccess, showError } = useToastHelpers();
 
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -64,17 +66,24 @@ export default function TransactionListScreen() {
     }));
   }, []);
 
-  const fetchTransactions = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      const rows = await fetchTransactionsFromDB(db, filterState, sortBy, sortOrder, false);
-      setTransactions(rows);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [db, filterState, sortBy, sortOrder]);
+  const fetchTransactions = useCallback(
+    async (showLoader = true) => {
+      if (showLoader) setIsRefreshing(true);
+      try {
+        const rows = await fetchTransactionsFromDB(db, filterState, sortBy, sortOrder, false);
+        setTransactions(rows);
+      } catch (error) {
+        console.error('Error fetching transactions:', error);
+        showError({
+          title: 'Loading Failed',
+          description: 'Unable to load transactions',
+        });
+      } finally {
+        if (showLoader) setIsRefreshing(false);
+      }
+    },
+    [db, filterState, sortBy, sortOrder, showError]
+  );
 
   const handleEditTransaction = (id: string) => {
     const tx = transactions?.find((t) => t.id === id);
@@ -94,23 +103,37 @@ export default function TransactionListScreen() {
         onPress: async () => {
           try {
             await deleteTransaction(db, id);
-            await fetchTransactions();
+            await fetchTransactions(false); // Silent refresh
+            showSuccess({
+              title: 'Transaction Deleted',
+              description: 'Transaction has been removed',
+            });
           } catch (err) {
             console.error('Failed to delete transaction:', err);
-            Alert.alert('Error', 'Failed to delete transaction');
+            showError({
+              title: 'Delete Failed',
+              description: 'Unable to delete transaction',
+            });
           }
         },
       },
     ]);
   };
 
+  // Initialize date preset once
   useEffect(() => {
     applyDatePreset('all');
-  }, [applyDatePreset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Safe to disable - we only want this to run once
 
+  // Fetch transactions when filter dependencies change
   useEffect(() => {
-    fetchTransactions();
-  }, [fetchTransactions]);
+    if (filterState.selectedPreset) {
+      // Only fetch if preset is set
+      fetchTransactions(false); // Silent initial load
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterState, sortBy, sortOrder]); // Safe to disable - fetchTransactions is stable
   return (
     <View className="flex-1">
       <SwipeListView
@@ -146,7 +169,7 @@ export default function TransactionListScreen() {
         stopRightSwipe={-180}
         disableRightSwipe
         refreshing={isRefreshing}
-        onRefresh={fetchTransactions}
+        onRefresh={() => fetchTransactions(true)}
       />
 
       {/* Transaction Modal */}
@@ -157,14 +180,30 @@ export default function TransactionListScreen() {
         <TransactionForm
           transaction={selectedTransaction}
           onSubmit={async (transaction) => {
-            if (isEditTransaction(transaction)) {
-              await updateTransaction(db, transaction);
-            } else {
-              await insertTransaction(db, transaction);
+            try {
+              if (isEditTransaction(transaction)) {
+                await updateTransaction(db, transaction);
+                showSuccess({
+                  title: 'Transaction Updated',
+                  description: 'Transaction has been modified',
+                });
+              } else {
+                await insertTransaction(db, transaction);
+                showSuccess({
+                  title: 'Transaction Added',
+                  description: 'New transaction has been created',
+                });
+              }
+              await fetchTransactions(false); // Silent refresh
+              setShowTransactionModal(false);
+              setSelectedTransaction(undefined);
+            } catch (err) {
+              console.error('Failed to save transaction:', err);
+              showError({
+                title: 'Save Failed',
+                description: 'Unable to save transaction',
+              });
             }
-            await fetchTransactions();
-            setShowTransactionModal(false);
-            setSelectedTransaction(undefined);
           }}
           onCancel={() => {
             setShowTransactionModal(false);

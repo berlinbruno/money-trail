@@ -5,6 +5,7 @@ import {
   DashboardRecentTransactionsSection,
   DashboardTrendsSection,
 } from '@/components/dashboard';
+import { useToastHelpers } from '@/contexts/ToastProvider';
 import {
   getMonthlyKPI,
   getRecentTransactions,
@@ -23,6 +24,7 @@ import { RefreshControl, ScrollView } from 'react-native';
 
 export default function DashboardScreen() {
   const db = useSQLiteContext();
+  const { showError } = useToastHelpers();
   const [monthlyKPIData, setMonthlyKPIData] = useState<KPIData>({
     totalIncome: 0,
     totalExpense: 0,
@@ -33,39 +35,56 @@ export default function DashboardScreen() {
   const [notifications, setNotifications] = useState<INotificationRow[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchDashboardData = useCallback(async () => {
-    setIsRefreshing(true);
+  const fetchDashboardData = useCallback(
+    async (showLoader = true) => {
+      if (showLoader) setIsRefreshing(true);
+      try {
+        const [transactions, kpiData, trendsData, unreadNotifications] = await Promise.all([
+          getRecentTransactions(db),
+          getMonthlyKPI(db),
+          getTopDeviations(db),
+          getUnreadNotifications(db, 3),
+        ]);
+        setRecentTransactions(transactions);
+        setMonthlyKPIData(kpiData);
+        setMonthlyTrends(trendsData);
+        setNotifications(unreadNotifications);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        showError({
+          title: 'Dashboard Loading Failed',
+          description: 'Unable to load dashboard data',
+        });
+      } finally {
+        if (showLoader) setIsRefreshing(false);
+      }
+    },
+    [db, showError]
+  );
+
+  const insertAlerts = useCallback(async () => {
     try {
-      const [transactions, kpiData, trendsData, unreadNotifications] = await Promise.all([
-        getRecentTransactions(db),
-        getMonthlyKPI(db),
-        getTopDeviations(db),
-        getUnreadNotifications(db, 3),
-      ]);
-      setRecentTransactions(transactions);
-      setMonthlyKPIData(kpiData);
-      setMonthlyTrends(trendsData);
-      setNotifications(unreadNotifications);
-    } finally {
-      setIsRefreshing(false);
+      const alertsData = await getAlertsWithProgress(db);
+      await insertAlertNotifications(db, alertsData);
+    } catch (error) {
+      console.error('Error inserting alert notifications:', error);
+      // Silent error - this is a background operation
     }
   }, [db]);
 
-  const insertAlerts = useCallback(async () => {
-    const alertsData = await getAlertsWithProgress(db);
-    await insertAlertNotifications(db, alertsData);
-  }, [db]);
-
+  // Load data on mount
   useEffect(() => {
-    fetchDashboardData();
+    fetchDashboardData(false); // Silent initial load
     insertAlerts();
-  }, [fetchDashboardData, insertAlerts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Safe to disable - we only want this to run once on mount
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      fetchDashboardData();
-      insertAlerts();
+      await fetchDashboardData(false); // Don't double-set loading
+      await insertAlerts();
+      // Silent refresh - no toast needed for pull-to-refresh
     } finally {
       setIsRefreshing(false);
     }
@@ -73,16 +92,32 @@ export default function DashboardScreen() {
 
   const handleMarkedRead = useCallback(
     async (id: number) => {
-      setNotifications((prev) => prev.filter((n) => n.id !== String(id)));
-      const unread = await getUnreadNotifications(db, 3);
-      setNotifications(unread);
+      try {
+        setNotifications((prev) => prev.filter((n) => n.id !== String(id)));
+        const unread = await getUnreadNotifications(db, 3);
+        setNotifications(unread);
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+        showError({
+          title: 'Notification Error',
+          description: 'Unable to mark notification as read',
+        });
+      }
     },
-    [db]
+    [db, showError]
   );
 
   const handleClearAll = useCallback(async () => {
-    setNotifications([]);
-  }, []);
+    try {
+      setNotifications([]);
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
+      showError({
+        title: 'Clear Failed',
+        description: 'Unable to clear notifications',
+      });
+    }
+  }, [showError]);
   return (
     <ScrollView
       className="p-2"

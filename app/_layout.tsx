@@ -1,10 +1,12 @@
 import { ThemedContent } from '@/components/layout/ThemedContent';
 import { AppProvider } from '@/contexts/AppProvider';
+import { ToastProvider } from '@/contexts/ToastProvider';
 import '@/global.css';
 import { useAppInitialization } from '@/hooks/useAppInitialization';
 import { initializeDatabase } from '@/lib/database/initialization';
 import { SQLiteProvider } from 'expo-sqlite';
 import React from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 
 // Configure Reanimated logger to disable strict mode warnings
@@ -21,15 +23,19 @@ function AppContent() {
 
   return (
     <AppProvider>
-      <ThemedContent />
+      <ToastProvider>
+        <ThemedContent />
+      </ToastProvider>
     </AppProvider>
   );
 }
 
 export default function RootLayout() {
   return (
-    <SQLiteProvider databaseName="app.db" onInit={initializeDatabase}>
-      <AppContent />
-    </SQLiteProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SQLiteProvider databaseName="app.db" onInit={initializeDatabase}>
+        <AppContent />
+      </SQLiteProvider>
+    </GestureHandlerRootView>
   );
 }

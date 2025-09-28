@@ -11,22 +11,15 @@ import { type Option } from '@/components/ui/select';
 import { APP_VERSION, CURRENCY_OPTIONS } from '@/constants/settingsConstants';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useToastHelpers } from '@/contexts/ToastProvider';
 import { resetAllData } from '@/lib/database/settingsQueries';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useMemo } from 'react';
-import { Alert, Platform, RefreshControl, ScrollView, ToastAndroid } from 'react-native';
-
-// Platform-specific message helper
-const showMessage = (message: string) => {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('Settings', message);
-  }
-};
+import { Alert, RefreshControl, ScrollView } from 'react-native';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
+  const { showSuccess, showError } = useToastHelpers();
 
   // Theme context
   const { theme: selectedTheme, setTheme } = useTheme();
@@ -60,98 +53,160 @@ export default function SettingsScreen() {
   // Handler functions using context actions
   const handleThemeChange = useCallback(
     async (theme: string) => {
+      // Prevent unnecessary changes
+      if (selectedTheme === theme) {
+        return; // No change needed, no toast shown
+      }
+
       try {
         await setTheme(theme as any);
-        showMessage(`Theme set to ${theme}`);
+        showSuccess({ title: 'Theme Updated', description: `Theme set to ${theme}` });
       } catch (error) {
         console.error('Error saving theme:', error);
-        showMessage('Failed to save theme setting');
+        showError({ title: 'Theme Error', description: 'Failed to save theme setting' });
       }
     },
-    [setTheme]
+    [selectedTheme, setTheme, showSuccess, showError]
   );
 
   const handleBackgroundSyncToggle = useCallback(
     async (value: boolean) => {
+      // Prevent unnecessary changes
+      if (backgroundSyncEnabled === value) {
+        return; // No change needed
+      }
+
       try {
         await setBackgroundSyncEnabled(value);
-        showMessage(`Background sync ${value ? 'enabled' : 'disabled'}`);
+        showSuccess({
+          title: 'Background Sync Updated',
+          description: `Background sync ${value ? 'enabled' : 'disabled'}`,
+        });
       } catch (error) {
         console.error('Error saving background sync setting:', error);
-        showMessage('Failed to save background sync setting');
+        showError({ title: 'Sync Error', description: 'Failed to save background sync setting' });
       }
     },
-    [setBackgroundSyncEnabled]
+    [backgroundSyncEnabled, setBackgroundSyncEnabled, showSuccess, showError]
   );
 
   const handleNotificationsToggle = useCallback(
     async (value: boolean) => {
+      // Prevent unnecessary changes
+      if (notificationsEnabled === value) {
+        return; // No change needed
+      }
+
       try {
         await setPushNotifications(value);
-        showMessage(`Notifications ${value ? 'enabled' : 'disabled'}`);
+        showSuccess({
+          title: 'Notifications Updated',
+          description: `Notifications ${value ? 'enabled' : 'disabled'}`,
+        });
       } catch (error) {
         console.error('Error saving notification setting:', error);
-        showMessage('Failed to save notification setting');
+        showError({
+          title: 'Notification Error',
+          description: 'Failed to save notification setting',
+        });
       }
     },
-    [setPushNotifications]
+    [notificationsEnabled, setPushNotifications, showSuccess, showError]
   );
 
   const handleSyncIntervalChange = useCallback(
     async (interval: number) => {
+      // Prevent unnecessary changes
+      if (syncInterval === interval) {
+        return; // No change needed
+      }
+
       try {
         await setSyncIntervalMinutes(interval as any);
-        showMessage(`Sync interval set to ${interval} minutes`);
+        showSuccess({
+          title: 'Sync Interval Updated',
+          description: `Sync interval set to ${interval} minutes`,
+        });
       } catch (error) {
         console.error('Error saving sync interval:', error);
-        showMessage('Failed to save sync interval setting');
+        showError({ title: 'Sync Error', description: 'Failed to save sync interval setting' });
       }
     },
-    [setSyncIntervalMinutes]
+    [syncInterval, setSyncIntervalMinutes, showSuccess, showError]
   );
 
   const handleMessageScanCountChange = useCallback(
     async (count: number) => {
+      // Prevent unnecessary changes
+      if (messageScanCount === count) {
+        return; // No change needed
+      }
+
       try {
         await setMessageScanCount(count as any);
-        showMessage(`Message scan count set to ${count} messages`);
+        showSuccess({
+          title: 'Message Count Updated',
+          description: `Message scan count set to ${count} messages`,
+        });
       } catch (error) {
         console.error('Error saving message scan count:', error);
-        showMessage('Failed to save message scan count setting');
+        showError({
+          title: 'Message Count Error',
+          description: 'Failed to save message scan count setting',
+        });
       }
     },
-    [setMessageScanCount]
+    [messageScanCount, setMessageScanCount, showSuccess, showError]
   );
 
   const handleResetSyncTime = useCallback(() => {
     resetLastSyncTime();
-    showMessage('Last sync time reset');
-  }, [resetLastSyncTime]);
+    showSuccess({ title: 'Sync Reset', description: 'Last sync time reset' });
+  }, [resetLastSyncTime, showSuccess]);
 
   const handleFetchOnLaunchToggle = useCallback(
     async (value: boolean) => {
+      // Prevent unnecessary changes
+      if (fetchOnLaunch === value) {
+        return; // No change needed
+      }
+
       try {
         await setFetchOnLaunchEnabled(value);
-        showMessage(`Fetch on launch ${value ? 'enabled' : 'disabled'}`);
+        showSuccess({
+          title: 'Fetch on Launch Updated',
+          description: `Fetch on launch ${value ? 'enabled' : 'disabled'}`,
+        });
       } catch (error) {
         console.error('Error saving fetch on launch setting:', error);
-        showMessage('Failed to save fetch on launch setting');
+        showError({ title: 'Fetch Error', description: 'Failed to save fetch on launch setting' });
       }
     },
-    [setFetchOnLaunchEnabled]
+    [fetchOnLaunch, setFetchOnLaunchEnabled, showSuccess, showError]
   );
 
   const handleAutoApprovalToggle = useCallback(
     async (value: boolean) => {
+      // Prevent unnecessary changes
+      if (autoApproval === value) {
+        return; // No change needed
+      }
+
       try {
         await setAutoApprovalEnabled(value);
-        showMessage(`Auto approval ${value ? 'enabled' : 'disabled'}`);
+        showSuccess({
+          title: 'Auto Approval Updated',
+          description: `Auto approval ${value ? 'enabled' : 'disabled'}`,
+        });
       } catch (error) {
         console.error('Error saving auto approval setting:', error);
-        showMessage('Failed to save auto approval setting');
+        showError({
+          title: 'Auto Approval Error',
+          description: 'Failed to save auto approval setting',
+        });
       }
     },
-    [setAutoApprovalEnabled]
+    [autoApproval, setAutoApprovalEnabled, showSuccess, showError]
   );
 
   const handleCurrencyChange = useCallback(
@@ -160,16 +215,24 @@ export default function SettingsScreen() {
         try {
           const currency = CURRENCY_OPTIONS.find((c: any) => c.code === option.value);
           if (currency) {
+            // Prevent unnecessary changes
+            if (selectedCurrency?.code === currency.code) {
+              return; // No change needed
+            }
+
             await setCurrency(currency);
-            showMessage(`Currency format set to ${option.value}`);
+            showSuccess({
+              title: 'Currency Updated',
+              description: `Currency format set to ${option.value}`,
+            });
           }
         } catch (error) {
           console.error('Error saving currency setting:', error);
-          showMessage('Failed to save currency setting');
+          showError({ title: 'Currency Error', description: 'Failed to save currency setting' });
         }
       }
     },
-    [setCurrency]
+    [selectedCurrency, setCurrency, showSuccess, showError]
   );
 
   const handleResetData = useCallback(async () => {
@@ -184,32 +247,43 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               await resetAllData(db);
-              showMessage('All data has been reset successfully');
+              showSuccess({
+                title: 'Data Reset Complete',
+                description: 'All transactions, alerts, and notifications have been deleted',
+              });
             } catch (error) {
               console.error('Error resetting data:', error);
-              showMessage('Failed to reset data. Please try again.');
+              showError({
+                title: 'Reset Failed',
+                description: 'Unable to reset data. Please try again.',
+              });
             }
           },
         },
       ]
     );
-  }, [db]);
+  }, [db, showSuccess, showError]);
 
   const handleExportData = useCallback(() => {
-    showMessage('Export data functionality not implemented');
+    // These features should be disabled in UI instead of showing error toast
+    console.log('Export data feature not yet implemented');
   }, []);
 
   const handleImportData = useCallback(() => {
-    showMessage('Import data functionality not implemented');
+    // These features should be disabled in UI instead of showing error toast
+    console.log('Import data feature not yet implemented');
   }, []);
 
   const handleRefresh = async () => {
     try {
       await refreshSettings();
-      showMessage('Settings refreshed');
+      // Silent refresh - no toast needed for pull-to-refresh
     } catch (error) {
       console.error('Error refreshing settings:', error);
-      showMessage('Failed to refresh settings');
+      showError({
+        title: 'Refresh Failed',
+        description: 'Unable to refresh settings',
+      });
     }
   };
 

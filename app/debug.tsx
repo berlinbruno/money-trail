@@ -2,31 +2,26 @@ import {
   ConfigRecordsCard,
   DataManagementCard,
   DatabaseInfoCard,
+  NavigationCard,
   SystemInfoCard,
 } from '@/components/debug';
 import { APP_VERSION } from '@/constants/settingsConstants';
+import { useToastHelpers } from '@/contexts/ToastProvider';
 import {
   clearAllData,
-  generateTestData,
+  generateTestAlerts,
+  generateTestTransactions,
   getConfigRecords,
   getDbInfo,
 } from '@/lib/database/settingsQueries';
 import * as Device from 'expo-device';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, RefreshControl, ScrollView, ToastAndroid } from 'react-native';
-
-// Platform-specific message helper
-const showMessage = (message: string) => {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('Debug Info', message);
-  }
-};
+import { Alert, Platform, RefreshControl, ScrollView } from 'react-native';
 
 export default function DebugScreen() {
   const db = useSQLiteContext();
+  const { showSuccess, showError } = useToastHelpers();
   const [dbInfo, setDbInfo] = useState<{ table: string; count: number }[]>([]);
   const [configRecords, setConfigRecords] = useState<{ key: string; value: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +37,25 @@ export default function DebugScreen() {
     };
   }, []);
 
-  // Fetch DB information
+  // Fetch DB information (stable version without toast for initial load)
+  const fetchDbInfoSilent = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const counts = await getDbInfo(db);
+      setDbInfo(counts);
+
+      // Fetch config table records
+      const configResult = await getConfigRecords();
+      setConfigRecords(configResult);
+    } catch (error) {
+      console.error('Error fetching DB info:', error);
+      // Don't show toast on initial load - only log the error
+    } finally {
+      setIsLoading(false);
+    }
+  }, [db]);
+
+  // Fetch DB information (version with error toast for manual actions)
   const fetchDbInfo = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -52,35 +65,62 @@ export default function DebugScreen() {
       // Fetch config table records
       const configResult = await getConfigRecords();
       setConfigRecords(configResult);
-
-      showMessage('Database info updated');
     } catch (error) {
       console.error('Error fetching DB info:', error);
-      Alert.alert('Error', 'Failed to fetch database information');
+      showError({
+        title: 'Database Error',
+        description: 'Failed to fetch database information',
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [db]);
+  }, [db, showError]);
 
   // Show config detail - wrapped in useCallback for optimization
   const showConfigDetail = useCallback((config: { key: string; value: string }) => {
     Alert.alert(`Config: ${config.key}`, config.value, [{ text: 'Close', onPress: () => {} }]);
   }, []);
 
-  // Generate test data with optimized random selection
-  const handleGenerateTestData = useCallback(async () => {
+  // Generate test data handlers
+  const handleGenerateTestTransactions = useCallback(async () => {
     setIsLoading(true);
     try {
-      await generateTestData(db);
-      showMessage('Test data generated successfully');
+      await generateTestTransactions(db);
+      showSuccess({
+        title: 'Test Transactions Created',
+        description: 'Sample transaction data generated for testing',
+      });
       fetchDbInfo();
     } catch (error) {
-      console.error('Error generating test data:', error);
-      Alert.alert('Error', 'Failed to generate test data');
+      console.error('Error generating test transactions:', error);
+      showError({
+        title: 'Generation Failed',
+        description: 'Unable to create test transactions',
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [db, fetchDbInfo]);
+  }, [db, fetchDbInfo, showSuccess, showError]);
+
+  const handleGenerateTestAlerts = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      await generateTestAlerts(db);
+      showSuccess({
+        title: 'Test Alerts Created',
+        description: 'Sample alert data generated for testing',
+      });
+      fetchDbInfo();
+    } catch (error) {
+      console.error('Error generating test alerts:', error);
+      showError({
+        title: 'Generation Failed',
+        description: 'Unable to create test alerts',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [db, fetchDbInfo, showSuccess, showError]);
 
   // Optimized memory usage check
   const checkMemoryUsage = useCallback(async () => {
@@ -148,11 +188,17 @@ export default function DebugScreen() {
             setIsLoading(true);
             try {
               await clearAllData(db);
-              showMessage('Database records cleared and settings reset to defaults');
+              showSuccess({
+                title: 'Database Reset',
+                description: 'All data cleared and settings reset to defaults',
+              });
               fetchDbInfo();
             } catch (error) {
               console.error('Reset error:', error);
-              Alert.alert('Reset Failed', 'Could not reset database');
+              showError({
+                title: 'Reset Failed',
+                description: 'Unable to reset database. Please try again.',
+              });
             } finally {
               setIsLoading(false);
             }
@@ -162,28 +208,34 @@ export default function DebugScreen() {
     );
   };
 
+  // Manual refresh with silent operation
+  const handleManualRefresh = useCallback(async () => {
+    try {
+      await fetchDbInfo();
+      await checkMemoryUsage();
+      // No success toast for pull-to-refresh - it's a common action
+    } catch {
+      // Error already handled in fetchDbInfo if needed
+    }
+  }, [fetchDbInfo, checkMemoryUsage]);
+
   // Initialize data on mount
   useEffect(() => {
-    fetchDbInfo();
+    fetchDbInfoSilent();
     checkMemoryUsage();
-  }, [fetchDbInfo, checkMemoryUsage]);
+  }, [fetchDbInfoSilent, checkMemoryUsage]);
 
   return (
     <ScrollView
       className="flex-1"
-      refreshControl={
-        <RefreshControl
-          refreshing={isLoading}
-          onRefresh={() => {
-            fetchDbInfo();
-            checkMemoryUsage();
-          }}
-        />
-      }>
+      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleManualRefresh} />}>
+      <NavigationCard />
+
       <DatabaseInfoCard dbInfo={dbInfo} />
 
       <DataManagementCard
-        onGenerateTestData={handleGenerateTestData}
+        onGenerateTestTransactions={handleGenerateTestTransactions}
+        onGenerateTestAlerts={handleGenerateTestAlerts}
         onClearAllData={handleClearAllData}
       />
 

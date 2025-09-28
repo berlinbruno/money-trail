@@ -1,32 +1,31 @@
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
+import { useToastHelpers } from '@/contexts/ToastProvider';
+import type { AppLog, LogCategory, LogLevel } from '@/lib/database/loggingQueries';
 import {
+  clearAllLogs,
+  clearOldLogs,
   getAllLogs,
   getLogsByCategory,
   getLogsByLevel,
   getLogStatsByCategory,
-  clearAllLogs,
-  clearOldLogs,
-  type AppLog,
-  type LogCategory,
-  type LogLevel,
 } from '@/lib/database/loggingQueries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useSQLiteContext } from 'expo-sqlite';
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '@react-navigation/native';
+import { useSQLiteContext } from 'expo-sqlite';
 import {
-  Filter,
-  Trash2,
   AlertCircle,
-  Info,
   AlertTriangle,
   Bug,
-  Zap,
+  Filter,
+  Info,
   RefreshCw,
+  Trash2,
+  Zap,
 } from 'lucide-react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, TouchableOpacity, View } from 'react-native';
 
 const LOG_LEVEL_COLORS = {
   debug: 'bg-gray-100 text-gray-800',
@@ -59,6 +58,7 @@ const CATEGORY_COLORS = {
 export default function LogsScreen() {
   const theme = useTheme();
   const db = useSQLiteContext();
+  const { showSuccess, showError } = useToastHelpers();
   const [logs, setLogs] = useState<AppLog[]>([]);
   const [stats, setStats] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -66,40 +66,48 @@ export default function LogsScreen() {
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | 'all'>('all');
   const [selectedLevel, setSelectedLevel] = useState<LogLevel | 'all'>('all');
 
-  const loadLogs = useCallback(async () => {
-    try {
-      let logsResult: AppLog[];
+  const loadLogs = useCallback(
+    async (showLoader = true) => {
+      if (showLoader) setIsLoading(true);
+      try {
+        let logsResult: AppLog[];
 
-      if (selectedCategory !== 'all' && selectedLevel !== 'all') {
-        // Filter by both category and level (we need a custom query for this)
-        const allLogsResult = await getAllLogs(db, 100);
-        logsResult = allLogsResult.filter(
-          (log) => log.category === selectedCategory && log.log_level === selectedLevel
-        );
-      } else if (selectedCategory !== 'all') {
-        logsResult = await getLogsByCategory(db, selectedCategory, 100);
-      } else if (selectedLevel !== 'all') {
-        logsResult = await getLogsByLevel(db, selectedLevel, 100);
-      } else {
-        logsResult = await getAllLogs(db, 100);
+        if (selectedCategory !== 'all' && selectedLevel !== 'all') {
+          // Filter by both category and level (we need a custom query for this)
+          const allLogsResult = await getAllLogs(db, 100);
+          logsResult = allLogsResult.filter(
+            (log) => log.category === selectedCategory && log.log_level === selectedLevel
+          );
+        } else if (selectedCategory !== 'all') {
+          logsResult = await getLogsByCategory(db, selectedCategory, 100);
+        } else if (selectedLevel !== 'all') {
+          logsResult = await getLogsByLevel(db, selectedLevel, 100);
+        } else {
+          logsResult = await getAllLogs(db, 100);
+        }
+
+        const statsResult = await getLogStatsByCategory(db);
+
+        setLogs(logsResult);
+        setStats(statsResult);
+      } catch (error) {
+        console.error('Failed to load logs:', error);
+        showError({
+          title: 'Loading Failed',
+          description: 'Unable to load log data',
+        });
+      } finally {
+        if (showLoader) setIsLoading(false);
+        setIsRefreshing(false);
       }
-
-      const statsResult = await getLogStatsByCategory(db);
-
-      setLogs(logsResult);
-      setStats(statsResult);
-    } catch (error) {
-      console.error('Failed to load logs:', error);
-      Alert.alert('Error', 'Failed to load logs');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [db, selectedCategory, selectedLevel]);
+    },
+    [db, selectedCategory, selectedLevel, showError]
+  );
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
-    loadLogs();
+    loadLogs(false); // Don't double-set loading state
+    // Silent refresh - no toast needed for pull-to-refresh
   }, [loadLogs]);
 
   const handleClearAllLogs = useCallback(() => {
@@ -114,17 +122,23 @@ export default function LogsScreen() {
           onPress: async () => {
             try {
               await clearAllLogs(db);
-              await loadLogs();
-              Alert.alert('Success', 'All logs have been cleared');
+              await loadLogs(false); // Silent refresh
+              showSuccess({
+                title: 'Logs Cleared',
+                description: 'All log entries have been deleted',
+              });
             } catch (error) {
               console.error('Failed to clear logs:', error);
-              Alert.alert('Error', 'Failed to clear logs');
+              showError({
+                title: 'Clear Failed',
+                description: 'Unable to clear log entries',
+              });
             }
           },
         },
       ]
     );
-  }, [db, loadLogs]);
+  }, [db, loadLogs, showSuccess, showError]);
 
   const handleClearOldLogs = useCallback(() => {
     Alert.alert(
@@ -138,17 +152,23 @@ export default function LogsScreen() {
           onPress: async () => {
             try {
               await clearOldLogs(db, 50);
-              await loadLogs();
-              Alert.alert('Success', 'Old logs have been cleared');
+              await loadLogs(false); // Silent refresh
+              showSuccess({
+                title: 'Old Logs Cleared',
+                description: 'Kept only the most recent 50 entries',
+              });
             } catch (error) {
               console.error('Failed to clear old logs:', error);
-              Alert.alert('Error', 'Failed to clear old logs');
+              showError({
+                title: 'Clear Failed',
+                description: 'Unable to clear old log entries',
+              });
             }
           },
         },
       ]
     );
-  }, [db, loadLogs]);
+  }, [db, loadLogs, showSuccess, showError]);
 
   const handleLogDetail = useCallback((log: AppLog) => {
     let metadata = {};
@@ -175,9 +195,11 @@ export default function LogsScreen() {
     Alert.alert(`Log Entry Details`, details, [{ text: 'Close', onPress: () => {} }]);
   }, []);
 
+  // Load logs on mount and when filters change
   useEffect(() => {
-    loadLogs();
-  }, [loadLogs]);
+    loadLogs(false); // Silent initial load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory, selectedLevel]); // Safe to disable - loadLogs is stable
 
   const renderLogEntry = (log: AppLog, index: number) => {
     const LevelIcon = LOG_LEVEL_ICONS[log.log_level];
