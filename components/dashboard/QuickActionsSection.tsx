@@ -24,7 +24,6 @@ export function DashboardQuickActionsSection() {
       const result = await syncTransactions(db, {
         maxMessages: messageScanCount,
         defaultAccount: 'default',
-        requireApproval: true,
       });
       console.log('Manual SMS scan completed:', result);
     } catch (error) {
@@ -71,7 +70,12 @@ export function DashboardQuickActionsSection() {
               <Text>Background</Text>
             </TouchableOpacity>
           </Link>
-          <View className="mx-1 flex-1" />
+          <Link asChild href={'/logs'}>
+            <TouchableOpacity className="mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary">
+              <MessageCircleMore color={theme.colors.text} />
+              <Text>Logs</Text>
+            </TouchableOpacity>
+          </Link>
         </View>
       </CardContent>
     </Card>

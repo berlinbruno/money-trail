@@ -21,7 +21,15 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.berlinbruno.moneytrail",
-      "permissions": ["READ_SMS", "RECEIVE_SMS", "VIBRATE", "WAKE_LOCK", "FOREGROUND_SERVICE"]
+      "permissions": [
+        "READ_SMS",
+        "RECEIVE_SMS",
+        "VIBRATE",
+        "WAKE_LOCK",
+        "FOREGROUND_SERVICE",
+        "READ_PHONE_STATE",
+        "RECEIVE_WAP_PUSH"
+      ]
     },
     "plugins": ["expo-router", "expo-sqlite", "expo-background-task"],
     "experiments": {

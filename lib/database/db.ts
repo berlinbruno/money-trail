@@ -12,6 +12,10 @@ export async function openDB() {
 
 export async function initializeTables(db: SQLite.SQLiteDatabase) {
   try {
+    // Migration: Drop old tables if they exist (replaced by app_logs)
+    await db.execAsync(`DROP TABLE IF EXISTS config`);
+    await db.execAsync(`DROP TABLE IF EXISTS task_execution_logs`);
+
     // Create alerts table
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS alerts (
@@ -28,13 +32,31 @@ export async function initializeTables(db: SQLite.SQLiteDatabase) {
       )
     `);
 
-    // Create config table
+    // Create generic application logs table for system-wide logging
     await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS config (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      CREATE TABLE IF NOT EXISTS app_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        log_key TEXT NOT NULL,
+        category TEXT NOT NULL CHECK(category IN ('task_execution', 'sms_processing', 'transaction', 'database', 'auth', 'notification', 'system', 'error', 'debug')),
+        log_level TEXT NOT NULL CHECK(log_level IN ('debug', 'info', 'warn', 'error', 'critical')),
+        status TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        message TEXT,
+        details TEXT,
+        metadata TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Create index for better query performance
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_app_logs_category_timestamp 
+      ON app_logs (category, timestamp DESC)
+    `);
+
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_app_logs_level_timestamp 
+      ON app_logs (log_level, timestamp DESC)
     `);
 
     // Create notifications table

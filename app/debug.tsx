@@ -138,7 +138,7 @@ export default function DebugScreen() {
   const handleClearAllData = async () => {
     Alert.alert(
       'Confirm Data Reset',
-      'This will delete ALL data from the database tables, but keep the table structure. This action cannot be undone.',
+      'This will delete ALL transaction, alert, and notification records, and reset all settings to their default values. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -148,7 +148,7 @@ export default function DebugScreen() {
             setIsLoading(true);
             try {
               await clearAllData(db);
-              showMessage('Database records cleared successfully');
+              showMessage('Database records cleared and settings reset to defaults');
               fetchDbInfo();
             } catch (error) {
               console.error('Reset error:', error);

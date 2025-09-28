@@ -96,6 +96,24 @@ export async function resetLastSyncTime(): Promise<void> {
   }
 }
 
+export async function getFetchOnLaunch(): Promise<boolean> {
+  const value = await getSettingsValue('fetch_on_launch');
+  return value === 'true';
+}
+
+export async function setFetchOnLaunch(enabled: boolean) {
+  await setSettingsValue('fetch_on_launch', enabled.toString());
+}
+
+export async function getAutoApproval(): Promise<boolean> {
+  const value = await getSettingsValue('auto_approval');
+  return value === 'true';
+}
+
+export async function setAutoApproval(enabled: boolean) {
+  await setSettingsValue('auto_approval', enabled.toString());
+}
+
 // Initialize default settings configuration values if not present
 export async function initializeAppConfig() {
   console.log('Initializing app configuration...');
@@ -108,6 +126,8 @@ export async function initializeAppConfig() {
       { key: 'message_scan_count', value: '200' }, // Default 200 messages
       { key: 'currency_format', value: 'INR' },
       { key: 'push_notification', value: 'true' },
+      { key: 'fetch_on_launch', value: 'true' }, // Fetch messages when app launches
+      { key: 'auto_approval', value: 'false' }, // Auto approve transactions
     ];
 
     for (const { key, value } of settingsDefaults) {
@@ -180,6 +200,25 @@ export async function resetSettingsOnly(): Promise<void> {
 }
 
 /**
+ * Reset settings to default values instead of deleting them
+ * This ensures the app continues to work with sensible defaults
+ */
+export async function resetSettingsToDefaults(): Promise<void> {
+  try {
+    // Clear existing settings first
+    await clearSettingsData();
+
+    // Re-initialize with defaults
+    await initializeAppConfig();
+
+    console.log('Successfully reset settings to defaults');
+  } catch (error) {
+    console.error('Error resetting settings to defaults:', error);
+    throw error;
+  }
+}
+
+/**
  * Get database information including table names and record counts
  */
 export async function getDbInfo(db: SQLiteDatabase): Promise<{ table: string; count: number }[]> {
@@ -224,9 +263,7 @@ export async function clearAllData(db: SQLiteDatabase): Promise<void> {
       await db.runAsync('PRAGMA foreign_keys = OFF');
 
       // Define allowed table names for security
-      const allowedTables = ['transactions', 'alerts', 'notifications', 'config'];
-
-      // Delete all records from each table using safe table names
+      const allowedTables = ['transactions', 'alerts', 'notifications', 'app_logs']; // Delete all records from each table using safe table names
       for (const { name } of tableResults) {
         if (allowedTables.includes(name)) {
           // Use explicit table names for better security
@@ -240,8 +277,8 @@ export async function clearAllData(db: SQLiteDatabase): Promise<void> {
             case 'notifications':
               await db.runAsync('DELETE FROM notifications');
               break;
-            case 'config':
-              await db.runAsync('DELETE FROM config');
+            case 'app_logs':
+              await db.runAsync('DELETE FROM app_logs');
               break;
             default:
               console.warn(`Skipping unknown table: ${name}`);
@@ -276,8 +313,8 @@ export async function clearAllData(db: SQLiteDatabase): Promise<void> {
       console.warn('VACUUM failed, but data clearing was successful:', vacuumError);
     }
 
-    // Also clear settings from AsyncStorage
-    await clearSettingsData();
+    // Reset settings to defaults instead of clearing them completely
+    await resetSettingsToDefaults();
   } catch (error) {
     console.error('Error clearing all data:', error);
     throw error;

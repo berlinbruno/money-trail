@@ -2,8 +2,8 @@ import {
   BackgroundTaskSummaryCard,
   PerformanceMetricsCard,
   RegisteredTasksCard,
-  TaskExecutionHistoryCard,
 } from '@/components/background';
+import { getRecentTaskExecutionLogs } from '@/lib/database/loggingQueries';
 import {
   DEFAULT_TASK_CONFIG,
   getTaskConfig,
@@ -24,9 +24,7 @@ initializeBackgroundTask(promise);
 export default function BackgroundTaskScreen() {
   const db = useSQLiteContext();
   const [registeredTasks, setRegisteredTasks] = useState<TaskManager.TaskManagerTask[]>([]);
-  const [taskHistory, setTaskHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [lastExecutionTime, setLastExecutionTime] = useState<string | null>(null);
   const [taskConfig, setTaskConfig] = useState({ ...DEFAULT_TASK_CONFIG });
   const [performanceMetrics, setPerformanceMetrics] = useState({
     avgExecutionTime: 0,
@@ -45,64 +43,6 @@ export default function BackgroundTaskScreen() {
     }
   }, []);
 
-  const loadTaskHistory = useCallback(async () => {
-    try {
-      // Get task execution history from config table if it exists
-      const result = await db.getAllAsync<{ key: string; value: string }>(
-        `SELECT * FROM config 
-         WHERE key LIKE 'task_execution_%' 
-         ORDER BY key DESC 
-         LIMIT 10`
-      );
-
-      if (result && result.length > 0) {
-        const history = result.map((item) => {
-          try {
-            return JSON.parse(item.value);
-          } catch {
-            return { timestamp: item.value, status: 'Unknown' };
-          }
-        });
-        setTaskHistory(history);
-
-        // Set last execution time
-        if (history.length > 0 && history[0].timestamp) {
-          setLastExecutionTime(new Date(history[0].timestamp).toLocaleString());
-        }
-
-        // Calculate performance metrics
-        if (history.length > 0) {
-          const successfulRuns = history.filter((run) => run.status === 'Completed').length;
-          const totalRuns = history.length;
-          const successRate = totalRuns > 0 ? (successfulRuns / totalRuns) * 100 : 100;
-
-          // Calculate average execution time for successful runs
-          const executionTimes = history
-            .filter((run) => run.executionTimeMs && run.status === 'Completed')
-            .map((run) => run.executionTimeMs as number);
-
-          const avgExecutionTime =
-            executionTimes.length > 0
-              ? executionTimes.reduce((sum, time) => sum + time, 0) / executionTimes.length
-              : 0;
-
-          // Calculate total messages processed
-          const totalMessages = history.reduce((sum, run) => sum + (run.messageCount || 0), 0);
-
-          setPerformanceMetrics({
-            avgExecutionTime,
-            successRate,
-            totalRuns,
-            totalMessages,
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error loading task history:', error);
-    }
-  }, [db]);
-
-  // Load task configuration
   const loadTaskConfig = useCallback(async () => {
     try {
       const config = await getTaskConfig();
@@ -112,14 +52,61 @@ export default function BackgroundTaskScreen() {
     }
   }, []);
 
+  const loadPerformanceMetrics = useCallback(async () => {
+    try {
+      const logs = await getRecentTaskExecutionLogs(db);
+      const taskLogs = logs.filter((log) => log.category === 'task_execution');
+
+      if (taskLogs.length === 0) {
+        return;
+      }
+
+      // Calculate metrics from logs
+      const successfulRuns = taskLogs.filter((log) => log.log_level !== 'error').length;
+      const totalRuns = taskLogs.length;
+      const successRate = totalRuns > 0 ? (successfulRuns / totalRuns) * 100 : 100;
+
+      // Extract execution times and message counts from log details
+      let totalExecutionTime = 0;
+      let totalMessages = 0;
+      let validExecutions = 0;
+
+      taskLogs.forEach((log) => {
+        try {
+          const details = JSON.parse(log.details || '{}');
+          if (details.executionTimeMs) {
+            totalExecutionTime += details.executionTimeMs;
+            validExecutions++;
+          }
+          if (details.messageCount) {
+            totalMessages += details.messageCount;
+          }
+        } catch {
+          // Ignore parsing errors
+        }
+      });
+
+      const avgExecutionTime = validExecutions > 0 ? totalExecutionTime / validExecutions : 0;
+
+      setPerformanceMetrics({
+        avgExecutionTime: Math.round(avgExecutionTime),
+        successRate: Math.round(successRate * 100) / 100,
+        totalRuns,
+        totalMessages,
+      });
+    } catch (error) {
+      console.error('Error loading performance metrics:', error);
+    }
+  }, [db]);
+
   const refreshAllData = useCallback(async () => {
     setIsLoading(true);
     try {
-      await Promise.all([loadRegisteredTasks(), loadTaskHistory(), loadTaskConfig()]);
+      await Promise.all([loadRegisteredTasks(), loadTaskConfig(), loadPerformanceMetrics()]);
     } finally {
       setIsLoading(false);
     }
-  }, [loadRegisteredTasks, loadTaskHistory, loadTaskConfig]);
+  }, [loadRegisteredTasks, loadTaskConfig, loadPerformanceMetrics]);
 
   useEffect(() => {
     // Resolve when inner app is mounted
@@ -154,19 +141,12 @@ export default function BackgroundTaskScreen() {
       refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refreshAllData} />}>
       <BackgroundTaskSummaryCard
         registeredTasks={registeredTasks}
-        lastExecutionTime={lastExecutionTime}
         taskConfig={taskConfig}
-        taskHistoryLength={taskHistory.length}
+        lastExecutionTime={null}
+        taskHistoryLength={0}
       />
-
-      <PerformanceMetricsCard
-        performanceMetrics={performanceMetrics}
-        taskHistoryLength={taskHistory.length}
-      />
-
+      <PerformanceMetricsCard performanceMetrics={performanceMetrics} taskHistoryLength={0} />
       <RegisteredTasksCard registeredTasks={registeredTasks} />
-
-      <TaskExecutionHistoryCard taskHistory={taskHistory} />
     </ScrollView>
   );
 }

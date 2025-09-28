@@ -1,10 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSettingsValue, setSettingsValue } from '@/utils/asyncStorageHelpers';
 import { useColorScheme } from 'nativewind';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Appearance, AppState } from 'react-native';
 
 // Constants
-const THEME_STORAGE_KEY = '@moneytrail_theme';
+const THEME_STORAGE_KEY = 'app_theme'; // Use consistent key with asyncStorageHelpers
 const THEME_OPTIONS = ['light', 'dark', 'system'] as const;
 
 // Types
@@ -77,14 +77,14 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     try {
       setIsThemeLoading(true);
 
-      const storedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+      const storedTheme = await getSettingsValue(THEME_STORAGE_KEY);
 
       if (storedTheme && THEME_OPTIONS.includes(storedTheme as ThemeType)) {
         setThemeState(storedTheme as ThemeType);
       } else {
         // First time app launch - detect system theme and save as default
         setThemeState('system');
-        await AsyncStorage.setItem(THEME_STORAGE_KEY, 'system');
+        await setSettingsValue(THEME_STORAGE_KEY, 'system');
       }
     } catch (error) {
       console.error('Error loading theme from storage:', error);
@@ -98,7 +98,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   // Save theme to storage
   const saveThemeToStorage = useCallback(async (newTheme: ThemeType) => {
     try {
-      await AsyncStorage.setItem(THEME_STORAGE_KEY, newTheme);
+      await setSettingsValue(THEME_STORAGE_KEY, newTheme);
     } catch (error) {
       console.error('Error saving theme to storage:', error);
       throw error;

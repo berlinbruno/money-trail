@@ -4,15 +4,19 @@ import {
   SYNC_INTERVALS,
 } from '@/constants/settingsConstants';
 import {
+  getAutoApproval,
   getBackSync,
   getCurrencyFormat,
+  getFetchOnLaunch,
   getLastSyncTime,
   getMessageScanCount,
   getPushNotification,
   getSyncInterval,
   resetLastSyncTime as resetLastSyncTimeQuery,
+  setAutoApproval,
   setBackSync,
   setCurrencyFormat,
+  setFetchOnLaunch,
   setMessageScanCount as setMessageScanCountQuery,
   setPushNotification,
   setSyncInterval,
@@ -33,6 +37,10 @@ interface SettingsState {
   messageScanCount: MessageScanCountType;
   lastSyncTime: Date | null;
 
+  // App behavior settings
+  fetchOnLaunch: boolean;
+  autoApproval: boolean;
+
   // Currency settings
   selectedCurrency: CurrencyType;
 
@@ -49,6 +57,10 @@ interface SettingsActions {
   setSyncIntervalMinutes: (interval: SyncIntervalType) => Promise<void>;
   setMessageScanCount: (count: MessageScanCountType) => Promise<void>;
   resetLastSyncTime: () => Promise<void>;
+
+  // App behavior actions
+  setFetchOnLaunchEnabled: (enabled: boolean) => Promise<void>;
+  setAutoApprovalEnabled: (enabled: boolean) => Promise<void>;
 
   // Currency actions
   setCurrency: (currency: CurrencyType) => Promise<void>;
@@ -77,6 +89,10 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const [messageScanCount, setMessageScanCountState] = useState<MessageScanCountType>(200);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
+  // App behavior state
+  const [fetchOnLaunch, setFetchOnLaunchState] = useState(true);
+  const [autoApproval, setAutoApprovalState] = useState(false);
+
   // Currency state
   const [selectedCurrency, setSelectedCurrencyState] = useState<CurrencyType>(CURRENCY_OPTIONS[0]);
 
@@ -99,6 +115,8 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
           currencyCode,
           notificationsEnabled,
           lastSync,
+          fetchOnLaunchEnabled,
+          autoApprovalEnabled,
         ] = await Promise.all([
           getBackSync(),
           getSyncInterval(),
@@ -106,6 +124,8 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
           getCurrencyFormat(),
           getPushNotification(),
           getLastSyncTime(),
+          getFetchOnLaunch(),
+          getAutoApproval(),
         ]);
 
         // Update all state
@@ -117,6 +137,8 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         );
         setPushNotificationsState(notificationsEnabled);
         setLastSyncTime(lastSync);
+        setFetchOnLaunchState(fetchOnLaunchEnabled);
+        setAutoApprovalState(autoApprovalEnabled);
 
         // Initialize background task configuration on first load
         if (!isRefresh) {
@@ -262,6 +284,27 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     }
   }, []);
 
+  // App behavior actions
+  const setFetchOnLaunchEnabled = useCallback(async (enabled: boolean) => {
+    try {
+      await setFetchOnLaunch(enabled);
+      setFetchOnLaunchState(enabled);
+    } catch (error) {
+      console.error('Error setting fetch on launch:', error);
+      throw error;
+    }
+  }, []);
+
+  const setAutoApprovalEnabled = useCallback(async (enabled: boolean) => {
+    try {
+      await setAutoApproval(enabled);
+      setAutoApprovalState(enabled);
+    } catch (error) {
+      console.error('Error setting auto approval:', error);
+      throw error;
+    }
+  }, []);
+
   // General actions
   const refreshSettings = useCallback(async () => {
     await loadSettings(true); // Pass true to indicate this is a refresh, not initial load
@@ -273,6 +316,8 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     syncInterval,
     messageScanCount,
     lastSyncTime,
+    fetchOnLaunch,
+    autoApproval,
     selectedCurrency,
     pushNotificationsEnabled,
     isLoading,
@@ -282,6 +327,8 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     setSyncIntervalMinutes,
     setMessageScanCount,
     resetLastSyncTime,
+    setFetchOnLaunchEnabled,
+    setAutoApprovalEnabled,
     setCurrency,
     setPushNotifications,
     refreshSettings,

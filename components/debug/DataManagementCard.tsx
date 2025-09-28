@@ -22,10 +22,10 @@ export const DataManagementCard: React.FC<DataManagementCardProps> = ({
           <Text>Generate Test Data</Text>
         </Button>
         <Button variant="destructive" onPress={onClearAllData}>
-          <Text>Clear All Records</Text>
+          <Text>Reset All Data</Text>
         </Button>
         <Text className="mt-1 text-center text-xs italic text-destructive">
-          (Preserves table structure)
+          (Clears records & resets settings to defaults)
         </Text>
       </CardContent>
     </Card>

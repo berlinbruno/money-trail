@@ -2,7 +2,7 @@ import { NewTransaction, TransactionCategory, TransactionSource } from '@/types/
 import { getSmsHash } from '@/utils/cryptoUtils';
 import { SQLiteDatabase } from 'expo-sqlite';
 import SmsAndroid from 'react-native-get-sms-android';
-import { getLastSyncTime, setLastSyncTime } from '../database/settingsQueries';
+import { getAutoApproval, getLastSyncTime, setLastSyncTime } from '../database/settingsQueries';
 import { insertTransaction } from '../database/transactionQueries';
 import { parseTransactionFromSms } from './parser';
 
@@ -115,7 +115,7 @@ export async function insertSmsTransaction(
   db: SQLiteDatabase,
   sms: { address: string; body: string; date: number },
   defaultAccount = 'default',
-  approval: 0 | 1 = 1,
+  forceApproval?: 0 | 1,
   source: TransactionSource = 'sms'
 ): Promise<NewTransaction | null> {
   const parsed = parseTransactionFromSms(sms.body);
@@ -127,6 +127,17 @@ export async function insertSmsTransaction(
   ]);
   if (existing) return null;
 
+  // Determine approval status
+  let pendingApproval: 0 | 1;
+  if (forceApproval !== undefined) {
+    // Use forced approval value
+    pendingApproval = forceApproval;
+  } else {
+    // Check auto-approval setting
+    const autoApproval = await getAutoApproval();
+    pendingApproval = autoApproval ? 0 : 1;
+  }
+
   const transaction: NewTransaction = {
     title: sms.address,
     amount: parsed.amount,
@@ -136,7 +147,7 @@ export async function insertSmsTransaction(
     account: defaultAccount,
     mode: 'other',
     created_at: new Date().toISOString(),
-    pending_approval: approval,
+    pending_approval: pendingApproval,
     source,
     sms_hash: smsHash,
   };
@@ -152,12 +163,12 @@ export async function insertSmsBatch(
   db: SQLiteDatabase,
   messages: { address: string; body: string; date: number }[],
   defaultAccount = 'default',
-  approval: 0 | 1 = 1,
+  forceApproval?: 0 | 1,
   source: TransactionSource = 'sms'
 ) {
   const results: NewTransaction[] = [];
   for (const sms of messages) {
-    const inserted = await insertSmsTransaction(db, sms, defaultAccount, approval, source);
+    const inserted = await insertSmsTransaction(db, sms, defaultAccount, forceApproval, source);
     if (inserted) results.push(inserted);
   }
   return results;
@@ -171,11 +182,11 @@ export async function syncTransactions(
   options: {
     maxMessages?: number;
     defaultAccount?: string;
-    requireApproval?: boolean;
+    forceApproval?: 0 | 1; // Override auto-approval setting if needed
   } = {}
 ): Promise<SyncResult> {
   const startTime = Date.now();
-  const { maxMessages = 200, defaultAccount = 'default', requireApproval = true } = options;
+  const { maxMessages = 200, defaultAccount = 'default', forceApproval } = options;
 
   try {
     // Get last sync time
@@ -185,6 +196,7 @@ export async function syncTransactions(
     console.log('Starting SMS sync...', {
       lastSync: lastSync?.toISOString(),
       maxMessages,
+      forceApproval: forceApproval !== undefined ? forceApproval : 'auto',
     });
 
     // Fetch messages
@@ -207,12 +219,12 @@ export async function syncTransactions(
       };
     }
 
-    // Process messages with improved error tracking
+    // Process messages with auto-approval handling
     const results = await insertSmsBatch(
       db,
       messages,
       defaultAccount,
-      requireApproval ? 1 : 0,
+      forceApproval, // Will use auto-approval setting if undefined
       'sms'
     );
 
@@ -220,6 +232,13 @@ export async function syncTransactions(
     if (results.length > 0) {
       await setLastSyncTime(now);
       console.log('Updated last sync time:', now.toISOString());
+
+      // Log approval status for debugging
+      const autoApproval =
+        forceApproval !== undefined ? forceApproval === 0 : await getAutoApproval();
+      console.log(
+        `Inserted ${results.length} transactions with ${autoApproval ? 'auto-approval' : 'manual approval required'}`
+      );
     }
 
     // Calculate sync statistics

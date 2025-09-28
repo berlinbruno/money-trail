@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSettingsValue, setSettingsValue } from '@/utils/asyncStorageHelpers';
 import * as BackgroundTask from 'expo-background-task';
 import { openDatabaseAsync } from 'expo-sqlite';
 import * as TaskManager from 'expo-task-manager';
@@ -17,40 +17,63 @@ export const DEFAULT_TASK_CONFIG = {
   enabled: true,
   intervalMinutes: 120, // Default 2 hours (matches settings default)
   messageScanCount: 200, // Default 200 messages (matches settings default)
-  requiresWifi: false,
   runOnAppLaunch: true,
 };
 
-// Task configuration storage key
-const TASK_CONFIG_KEY = '@money_trail_settings:taskConfig';
-
-/**
- * Get task configuration from AsyncStorage or return defaults
- */
-export const getTaskConfig = async () => {
-  try {
-    const configStr = await AsyncStorage.getItem(TASK_CONFIG_KEY);
-    if (configStr) {
-      return { ...DEFAULT_TASK_CONFIG, ...JSON.parse(configStr) };
-    }
-  } catch (error) {
-    console.error('Error retrieving task config:', error);
-  }
-  return DEFAULT_TASK_CONFIG;
+// Task configuration storage keys - reuse existing settings where possible
+const TASK_CONFIG_KEYS = {
+  enabled: 'back_sync', // Reuse existing back_sync setting
+  intervalMinutes: 'sync_interval', // Reuse existing sync_interval setting
+  messageScanCount: 'message_scan_count', // Reuse existing message_scan_count setting
+  runOnAppLaunch: 'fetch_on_launch', // Reuse existing fetch_on_launch setting
 };
 
 /**
- * Save task configuration to AsyncStorage
+ * Get task configuration from settings or return defaults
+ */
+export async function getTaskConfig(): Promise<typeof DEFAULT_TASK_CONFIG> {
+  try {
+    // Get individual task config values using the settings helpers
+    const enabled = await getSettingsValue(TASK_CONFIG_KEYS.enabled);
+    const intervalMinutes = await getSettingsValue(TASK_CONFIG_KEYS.intervalMinutes);
+    const messageScanCount = await getSettingsValue(TASK_CONFIG_KEYS.messageScanCount);
+    const runOnAppLaunch = await getSettingsValue(TASK_CONFIG_KEYS.runOnAppLaunch);
+
+    return {
+      enabled: enabled ? enabled === 'true' : DEFAULT_TASK_CONFIG.enabled,
+      intervalMinutes: intervalMinutes
+        ? parseInt(intervalMinutes, 10)
+        : DEFAULT_TASK_CONFIG.intervalMinutes,
+      messageScanCount: messageScanCount
+        ? parseInt(messageScanCount, 10)
+        : DEFAULT_TASK_CONFIG.messageScanCount,
+      runOnAppLaunch: runOnAppLaunch
+        ? runOnAppLaunch === 'true'
+        : DEFAULT_TASK_CONFIG.runOnAppLaunch,
+    };
+  } catch (error) {
+    console.error('Error retrieving task configuration:', error);
+    return DEFAULT_TASK_CONFIG;
+  }
+}
+
+/**
+ * Save task configuration to settings
  */
 export const saveTaskConfig = async (config: typeof DEFAULT_TASK_CONFIG) => {
   try {
-    await AsyncStorage.setItem(
-      TASK_CONFIG_KEY,
-      JSON.stringify({ ...DEFAULT_TASK_CONFIG, ...config })
-    );
+    const finalConfig = { ...DEFAULT_TASK_CONFIG, ...config };
+
+    await Promise.all([
+      setSettingsValue(TASK_CONFIG_KEYS.enabled, finalConfig.enabled.toString()),
+      setSettingsValue(TASK_CONFIG_KEYS.intervalMinutes, finalConfig.intervalMinutes.toString()),
+      setSettingsValue(TASK_CONFIG_KEYS.messageScanCount, finalConfig.messageScanCount.toString()),
+      setSettingsValue(TASK_CONFIG_KEYS.runOnAppLaunch, finalConfig.runOnAppLaunch.toString()),
+    ]);
+
     return true;
   } catch (error) {
-    console.error('Error saving task config:', error);
+    console.error('Error saving task configuration:', error);
     return false;
   }
 };
@@ -105,7 +128,7 @@ export const executeTask = async (db: any): Promise<TaskExecutionLog> => {
     const result = await syncTransactions(db, {
       maxMessages: messageScanCount,
       defaultAccount: 'default',
-      requireApproval: true,
+      forceApproval: 1,
     });
 
     // Update execution log with sync results

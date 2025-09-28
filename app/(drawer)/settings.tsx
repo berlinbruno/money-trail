@@ -1,5 +1,6 @@
 import {
   AboutCard,
+  AppBehaviorCard,
   AppearanceCard,
   CurrencyCard,
   DataManagementCard,
@@ -36,6 +37,8 @@ export default function SettingsScreen() {
     syncInterval,
     messageScanCount,
     lastSyncTime,
+    fetchOnLaunch,
+    autoApproval,
     selectedCurrency,
     pushNotificationsEnabled: notificationsEnabled,
     isLoading,
@@ -45,6 +48,8 @@ export default function SettingsScreen() {
     setSyncIntervalMinutes,
     setMessageScanCount,
     resetLastSyncTime,
+    setFetchOnLaunchEnabled,
+    setAutoApprovalEnabled,
     setCurrency,
     setPushNotifications,
     refreshSettings,
@@ -123,6 +128,32 @@ export default function SettingsScreen() {
     showMessage('Last sync time reset');
   }, [resetLastSyncTime]);
 
+  const handleFetchOnLaunchToggle = useCallback(
+    async (value: boolean) => {
+      try {
+        await setFetchOnLaunchEnabled(value);
+        showMessage(`Fetch on launch ${value ? 'enabled' : 'disabled'}`);
+      } catch (error) {
+        console.error('Error saving fetch on launch setting:', error);
+        showMessage('Failed to save fetch on launch setting');
+      }
+    },
+    [setFetchOnLaunchEnabled]
+  );
+
+  const handleAutoApprovalToggle = useCallback(
+    async (value: boolean) => {
+      try {
+        await setAutoApprovalEnabled(value);
+        showMessage(`Auto approval ${value ? 'enabled' : 'disabled'}`);
+      } catch (error) {
+        console.error('Error saving auto approval setting:', error);
+        showMessage('Failed to save auto approval setting');
+      }
+    },
+    [setAutoApprovalEnabled]
+  );
+
   const handleCurrencyChange = useCallback(
     async (option: Option) => {
       if (option) {
@@ -197,6 +228,13 @@ export default function SettingsScreen() {
         onSyncIntervalChange={handleSyncIntervalChange}
         onMessageScanCountChange={handleMessageScanCountChange}
         onResetSyncTime={handleResetSyncTime}
+      />
+
+      <AppBehaviorCard
+        fetchOnLaunch={fetchOnLaunch}
+        autoApproval={autoApproval}
+        onFetchOnLaunchToggle={handleFetchOnLaunchToggle}
+        onAutoApprovalToggle={handleAutoApprovalToggle}
       />
 
       <CurrencyCard selectedCurrency={selectedCurrency} onCurrencyChange={handleCurrencyChange} />
