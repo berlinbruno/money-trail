@@ -2,7 +2,7 @@ import { useTheme } from '@react-navigation/native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ArrowUpDown, CheckCheck, Filter } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, RefreshControl, View } from 'react-native';
+import { RefreshControl, View } from 'react-native';
 import { SwipeListView } from 'react-native-swipe-list-view';
 
 import FilterForm from '@/components/transaction/FilterForm';
@@ -10,6 +10,7 @@ import SortForm from '@/components/transaction/SortForm';
 import TransactionCard from '@/components/transaction/TransactionCard';
 import TransactionForm from '@/components/transaction/TransactionForm';
 import { Button } from '@/components/ui/button';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
 import { useToastHelpers } from '@/contexts/ToastProvider';
@@ -46,6 +47,11 @@ export default function TransactionApprovalScreen() {
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction>();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showApproveAllDialog, setShowApproveAllDialog] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
+  const [transactionToApprove, setTransactionToApprove] = useState<string | null>(null);
   const [filterState, setFilterState] = useState<FilterState>({
     search: '',
     type: 'all',
@@ -98,83 +104,78 @@ export default function TransactionApprovalScreen() {
 
   const handleDeleteTransaction = (id: string) => {
     if (!id) return;
-    Alert.alert('Confirm Delete', 'Are you sure you want to delete this transaction?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteTransaction(db, id);
-            await fetchTransactions(false); // Silent refresh
-            showSuccess({
-              title: 'Transaction Deleted',
-              description: 'Transaction has been removed',
-            });
-          } catch (err) {
-            console.error('Failed to delete transaction:', err);
-            showError({
-              title: 'Delete Failed',
-              description: 'Unable to delete transaction',
-            });
-          }
-        },
-      },
-    ]);
+    setTransactionToDelete(id);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteTransaction = async () => {
+    if (!transactionToDelete) return;
+
+    try {
+      await deleteTransaction(db, transactionToDelete);
+      await fetchTransactions(false); // Silent refresh
+      setTransactionToDelete(null);
+      showSuccess({
+        title: 'Transaction Deleted',
+        description: 'Transaction has been removed',
+      });
+    } catch (err) {
+      console.error('Failed to delete transaction:', err);
+      showError({
+        title: 'Delete Failed',
+        description: 'Unable to delete transaction',
+      });
+      throw err; // Let ConfirmationDialog handle the error
+    }
   };
 
   const handleApproveTransaction = (id: string) => {
     if (!id) return;
+    setTransactionToApprove(id);
+    setShowApproveDialog(true);
+  };
 
-    Alert.alert('Approve Transaction', 'Do you want to mark this transaction as approved?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Approve',
-        style: 'default',
-        onPress: async () => {
-          try {
-            await updateTransactionFlag(db, id, 0);
-            await fetchTransactions(false); // Silent refresh
-            showSuccess({
-              title: 'Transaction Approved',
-              description: 'Transaction has been approved',
-            });
-          } catch (err) {
-            console.error('Failed to approve transaction:', err);
-            showError({
-              title: 'Approval Failed',
-              description: 'Unable to approve transaction',
-            });
-          }
-        },
-      },
-    ]);
+  const confirmApproveTransaction = async () => {
+    if (!transactionToApprove) return;
+
+    try {
+      await updateTransactionFlag(db, transactionToApprove, 0);
+      await fetchTransactions(false); // Silent refresh
+      setTransactionToApprove(null);
+      showSuccess({
+        title: 'Transaction Approved',
+        description: 'Transaction has been approved',
+      });
+    } catch (err) {
+      console.error('Failed to approve transaction:', err);
+      showError({
+        title: 'Approval Failed',
+        description: 'Unable to approve transaction',
+      });
+      throw err; // Let ConfirmationDialog handle the error
+    }
   };
 
   const handleApproveAllTransactions = () => {
-    Alert.alert('Approve All Transactions', 'Do you want to mark all transactions as approved?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Approve All',
-        style: 'default',
-        onPress: async () => {
-          try {
-            await updateAllTransactionFlags(db, 0);
-            await fetchTransactions(false); // Silent refresh
-            showSuccess({
-              title: 'All Transactions Approved',
-              description: 'All pending transactions have been approved',
-            });
-          } catch (err) {
-            console.error('Failed to approve all transactions:', err);
-            showError({
-              title: 'Approval Failed',
-              description: 'Unable to approve all transactions',
-            });
-          }
-        },
-      },
-    ]);
+    setShowApproveAllDialog(true);
+  };
+
+  const confirmApproveAllTransactions = async () => {
+    try {
+      await updateAllTransactionFlags(db, 0);
+      await fetchTransactions(false); // Silent refresh
+      showSuccess({
+        title: 'All Transactions Approved',
+        description: 'All pending transactions have been approved',
+      });
+    } catch (err) {
+      console.error('Failed to approve all transactions:', err);
+      showError({
+        title: 'Approval Failed',
+        description: 'Unable to approve all transactions',
+      });
+      throw err; // Let ConfirmationDialog handle the error
+    }
   };
 
   // Initialize date preset once
@@ -328,6 +329,40 @@ export default function TransactionApprovalScreen() {
           <Text>Sort</Text>
         </Button>
       </View>
+
+      {/* Delete Transaction Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Delete Transaction"
+        description="Are you sure you want to delete this transaction? This action cannot be undone."
+        confirmText="Delete"
+        confirmVariant="destructive"
+        loadingText="Deleting..."
+        onConfirm={confirmDeleteTransaction}
+      />
+
+      {/* Approve Transaction Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showApproveDialog}
+        onOpenChange={setShowApproveDialog}
+        title="Approve Transaction"
+        description="Do you want to mark this transaction as approved?"
+        confirmText="Approve"
+        loadingText="Approving..."
+        onConfirm={confirmApproveTransaction}
+      />
+
+      {/* Approve All Transactions Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showApproveAllDialog}
+        onOpenChange={setShowApproveAllDialog}
+        title="Approve All Transactions"
+        description="Do you want to mark all transactions as approved? This action will approve all pending transactions in the current filter view."
+        confirmText="Approve All"
+        loadingText="Approving all..."
+        onConfirm={confirmApproveAllTransactions}
+      />
     </View>
   );
 }

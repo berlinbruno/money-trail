@@ -65,7 +65,11 @@ const AlertForm: React.FC<AlertFormProps> = ({
   const handleSave = useCallback(() => {
     if (!isValid) return;
 
-    setInternalLoading(true);
+    // Only set internal loading if no external loading is provided
+    if (externalLoading === undefined) {
+      setInternalLoading(true);
+    }
+
     const amt = parseFloat(threshold.trim());
     const timestamp = new Date().toISOString();
 
@@ -81,11 +85,27 @@ const AlertForm: React.FC<AlertFormProps> = ({
           created_at: timestamp,
         });
       }
+
+      // Only reset internal loading if no external loading is provided
+      if (externalLoading === undefined) {
+        setInternalLoading(false);
+      }
     } catch (error) {
       console.error('Error saving alert:', error);
-      setInternalLoading(false);
+      if (externalLoading === undefined) {
+        setInternalLoading(false);
+      }
     }
-  }, [alert, category, threshold, isValid, onSubmit, currentAlertTypeFrequency, isEditMode]);
+  }, [
+    alert,
+    category,
+    threshold,
+    isValid,
+    onSubmit,
+    currentAlertTypeFrequency,
+    isEditMode,
+    externalLoading,
+  ]);
 
   const renderOptions = <T extends string>(
     options: readonly T[],

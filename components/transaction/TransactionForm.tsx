@@ -44,7 +44,7 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Sync state on edit
+  // Sync state on edit - only when transaction changes, not when user changes type
   useEffect(() => {
     // Reset loading state when transaction changes
     setIsLoading(false);
@@ -56,10 +56,16 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
       setCategory(transaction.category);
       setMode(transaction.mode ?? 'other');
       setDate(transaction.date ? new Date(transaction.date) : new Date());
-    } else {
+    }
+  }, [transaction]); // Remove 'type' dependency to allow type changes during editing
+
+  // Separate effect to handle category reset when type changes for new transactions
+  useEffect(() => {
+    if (!transaction) {
+      // Only auto-set category for new transactions
       setCategory(type === 'credit' ? CREDIT_CATEGORIES[0] : DEBIT_CATEGORIES[0]);
     }
-  }, [transaction, type]);
+  }, [type, transaction]);
 
   const isValid = useMemo(() => {
     const amt = parseFloat(amount.trim());
@@ -165,7 +171,9 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
           <Label>Type *</Label>
           {renderOptions<TransactionType>(TRANSACTION_TYPE, type, (val) => {
             setType(val);
-            setCategory(val === 'credit' ? CREDIT_CATEGORIES[0] : DEBIT_CATEGORIES[0]);
+            // When type changes, update category to first valid option for new type
+            const newCategory = val === 'credit' ? CREDIT_CATEGORIES[0] : DEBIT_CATEGORIES[0];
+            setCategory(newCategory);
           })}
         </View>
 

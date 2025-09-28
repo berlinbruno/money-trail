@@ -5,7 +5,7 @@ import { TouchableOpacity, View } from 'react-native';
 
 interface ConfigRecordsCardProps {
   configRecords: { key: string; value: string }[];
-  onConfigDetail: (config: { key: string; value: string }) => void;
+  onConfigDetail?: (config: { key: string; value: string }) => void;
 }
 
 export const ConfigRecordsCard: React.FC<ConfigRecordsCardProps> = ({
@@ -18,7 +18,7 @@ export const ConfigRecordsCard: React.FC<ConfigRecordsCardProps> = ({
     <Card className="m-2">
       <CardHeader>
         <CardTitle>Config Records</CardTitle>
-        <CardDescription>(Tap on a record to see full details)</CardDescription>
+        {onConfigDetail && <CardDescription>(Tap on a record to see full details)</CardDescription>}
       </CardHeader>
       <CardContent>
         {/* Header Row */}
@@ -28,21 +28,24 @@ export const ConfigRecordsCard: React.FC<ConfigRecordsCardProps> = ({
         </View>
 
         {/* Data Rows */}
-        {configRecords.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            className="flex-row border-b border-border"
-            onPress={() => onConfigDetail(item)}>
-            <View className="flex-1 p-2">
-              <Text className="font-medium">{item.key}</Text>
-            </View>
-            <View className="flex-1 p-2">
-              <Text className="text-muted-foreground" numberOfLines={2} ellipsizeMode="tail">
-                {item.value}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ))}
+        {configRecords.map((item, index) => {
+          const RowComponent = onConfigDetail ? TouchableOpacity : View;
+          return (
+            <RowComponent
+              key={index}
+              className="flex-row border-b border-border"
+              {...(onConfigDetail && { onPress: () => onConfigDetail(item) })}>
+              <View className="flex-1 p-2">
+                <Text className="font-medium">{item.key}</Text>
+              </View>
+              <View className="flex-1 p-2">
+                <Text className="text-muted-foreground" numberOfLines={2} ellipsizeMode="tail">
+                  {item.value}
+                </Text>
+              </View>
+            </RowComponent>
+          );
+        })}
       </CardContent>
     </Card>
   );

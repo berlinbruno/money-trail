@@ -7,6 +7,7 @@ import {
   NotificationCard,
   SyncSettingsCard,
 } from '@/components/settings';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { type Option } from '@/components/ui/select';
 import { APP_VERSION, CURRENCY_OPTIONS } from '@/constants/settingsConstants';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -14,12 +15,13 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useToastHelpers } from '@/contexts/ToastProvider';
 import { resetAllData } from '@/lib/database/settingsQueries';
 import { useSQLiteContext } from 'expo-sqlite';
-import React, { useCallback, useMemo } from 'react';
-import { Alert, RefreshControl, ScrollView } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { RefreshControl, ScrollView } from 'react-native';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
   const { showSuccess, showError } = useToastHelpers();
+  const [showResetDataDialog, setShowResetDataDialog] = useState(false);
 
   // Theme context
   const { theme: selectedTheme, setTheme } = useTheme();
@@ -235,33 +237,25 @@ export default function SettingsScreen() {
     [selectedCurrency, setCurrency, showSuccess, showError]
   );
 
-  const handleResetData = useCallback(async () => {
-    Alert.alert(
-      'Reset All Data',
-      'This will delete all transactions, alerts, and notifications. Your settings will be preserved. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await resetAllData(db);
-              showSuccess({
-                title: 'Data Reset Complete',
-                description: 'All transactions, alerts, and notifications have been deleted',
-              });
-            } catch (error) {
-              console.error('Error resetting data:', error);
-              showError({
-                title: 'Reset Failed',
-                description: 'Unable to reset data. Please try again.',
-              });
-            }
-          },
-        },
-      ]
-    );
+  const handleResetData = useCallback(() => {
+    setShowResetDataDialog(true);
+  }, []);
+
+  const confirmResetData = useCallback(async () => {
+    try {
+      await resetAllData(db);
+      showSuccess({
+        title: 'Data Reset Complete',
+        description: 'All transactions, alerts, and notifications have been deleted',
+      });
+      setShowResetDataDialog(false);
+    } catch (error) {
+      console.error('Error resetting data:', error);
+      showError({
+        title: 'Reset Failed',
+        description: 'Unable to reset data. Please try again.',
+      });
+    }
   }, [db, showSuccess, showError]);
 
   const handleExportData = useCallback(() => {
@@ -325,6 +319,18 @@ export default function SettingsScreen() {
       />
 
       <AboutCard appVersion={appVersion} />
+
+      {/* Reset Data Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showResetDataDialog}
+        onOpenChange={setShowResetDataDialog}
+        title="Reset All Data"
+        description="This will delete all transactions, alerts, and notifications. Your settings will be preserved. This action cannot be undone."
+        confirmText="Reset"
+        confirmVariant="destructive"
+        loadingText="Resetting..."
+        onConfirm={confirmResetData}
+      />
     </ScrollView>
   );
 }

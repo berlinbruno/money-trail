@@ -36,6 +36,7 @@ export default function AlertCategoryCard({
   label,
 }: Props) {
   const { selectedCurrency } = useSettings();
+
   const totalCurrentValue = alerts.reduce((sum, alert) => sum + (alert.current_value ?? 0), 0);
   const totalThreshold = alerts.reduce((sum, alert) => sum + alert.threshold, 0);
   const progressRatio = totalThreshold ? (totalCurrentValue / totalThreshold) * 100 : 0;

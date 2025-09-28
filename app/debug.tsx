@@ -4,6 +4,7 @@ import {
   DatabaseInfoCard,
   SystemInfoCard,
 } from '@/components/debug';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { APP_VERSION } from '@/constants/settingsConstants';
 import { useToastHelpers } from '@/contexts/ToastProvider';
 import {
@@ -16,7 +17,7 @@ import {
 import * as Device from 'expo-device';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, RefreshControl, ScrollView } from 'react-native';
+import { Platform, RefreshControl, ScrollView } from 'react-native';
 
 export default function DebugScreen() {
   const db = useSQLiteContext();
@@ -74,11 +75,6 @@ export default function DebugScreen() {
       setIsLoading(false);
     }
   }, [db, showError]);
-
-  // Show config detail - wrapped in useCallback for optimization
-  const showConfigDetail = useCallback((config: { key: string; value: string }) => {
-    Alert.alert(`Config: ${config.key}`, config.value, [{ text: 'Close', onPress: () => {} }]);
-  }, []);
 
   // Generate test data handlers
   const handleGenerateTestTransactions = useCallback(async () => {
@@ -174,38 +170,28 @@ export default function DebugScreen() {
   }, [deviceInfo]);
 
   // Clear all data
-  const handleClearAllData = async () => {
-    Alert.alert(
-      'Confirm Data Reset',
-      'This will delete ALL transaction, alert, and notification records, and reset all settings to their default values. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            setIsLoading(true);
-            try {
-              await clearAllData(db);
-              showSuccess({
-                title: 'Database Reset',
-                description: 'All data cleared and settings reset to defaults',
-              });
-              fetchDbInfo();
-            } catch (error) {
-              console.error('Reset error:', error);
-              showError({
-                title: 'Reset Failed',
-                description: 'Unable to reset database. Please try again.',
-              });
-            } finally {
-              setIsLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
+  const [showClearDialog, setShowClearDialog] = useState(false);
+
+  const handleClearAllData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      await clearAllData(db);
+      showSuccess({
+        title: 'Database Reset',
+        description: 'All data cleared and settings reset to defaults',
+      });
+      fetchDbInfo();
+      setShowClearDialog(false);
+    } catch (error) {
+      console.error('Reset error:', error);
+      showError({
+        title: 'Reset Failed',
+        description: 'Unable to reset database. Please try again.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [db, showSuccess, showError, fetchDbInfo]);
 
   // Manual refresh with silent operation
   const handleManualRefresh = useCallback(async () => {
@@ -233,12 +219,24 @@ export default function DebugScreen() {
       <DataManagementCard
         onGenerateTestTransactions={handleGenerateTestTransactions}
         onGenerateTestAlerts={handleGenerateTestAlerts}
-        onClearAllData={handleClearAllData}
+        onClearAllData={() => setShowClearDialog(true)}
       />
 
-      <ConfigRecordsCard configRecords={configRecords} onConfigDetail={showConfigDetail} />
+      <ConfigRecordsCard configRecords={configRecords} />
 
       <SystemInfoCard memoryUsage={memoryUsage} appVersion={appVersion} />
+
+      {/* Clear All Data Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showClearDialog}
+        onOpenChange={setShowClearDialog}
+        title="Confirm Data Reset"
+        description="This will delete ALL transaction, alert, and notification records, and reset all settings to their default values. This action cannot be undone."
+        confirmText="Reset"
+        confirmVariant="destructive"
+        loadingText="Resetting all data..."
+        onConfirm={handleClearAllData}
+      />
     </ScrollView>
   );
 }

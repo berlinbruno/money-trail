@@ -12,48 +12,52 @@ export async function insertAlertNotifications(
 
   const currencySymbol = await getCurrencySymbol();
 
-  // Use transaction for better performance
-  await db.withTransactionAsync(async () => {
-    for (const alert of alerts) {
-      if (alert.progress < 50) continue; // skip minor progress
+  // Process alerts without explicit transaction wrapper to avoid conflicts
+  // Individual runAsync calls are atomic enough for this use case
+  for (const alert of alerts) {
+    if (alert.progress < 50) continue; // skip minor progress
 
-      const cappedProgress = Math.min(alert.progress, 100);
-      let message = '';
-      let severity: INotificationRow['severity'] = 'medium';
-      const formattedThreshold = formatAmountWithSymbol(alert.threshold, currencySymbol);
+    const cappedProgress = Math.min(alert.progress, 100);
+    let message = '';
+    let severity: INotificationRow['severity'] = 'medium';
+    const formattedThreshold = formatAmountWithSymbol(alert.threshold, currencySymbol);
 
-      if (alert.type === 'income') {
-        if (cappedProgress >= 100) {
-          message = `Goal Achieved: You've reached ${formattedThreshold} in income for "${alert.category}" (${cappedProgress}%).`;
-          severity = 'success';
-        } else if (cappedProgress >= 85) {
-          message = `Great! You're at ${cappedProgress}% of your income goal ${formattedThreshold} for "${alert.category}".`;
-          severity = 'medium';
-        } else {
-          message = `You're at ${cappedProgress}% of your ${formattedThreshold} income goal for "${alert.category}".`;
-          severity = 'low';
-        }
+    if (alert.type === 'income') {
+      if (cappedProgress >= 100) {
+        message = `Goal Achieved: You've reached ${formattedThreshold} in income for "${alert.category}" (${cappedProgress}%).`;
+        severity = 'success';
+      } else if (cappedProgress >= 85) {
+        message = `Great! You're at ${cappedProgress}% of your income goal ${formattedThreshold} for "${alert.category}".`;
+        severity = 'medium';
       } else {
-        // spending alerts
-        if (cappedProgress >= 100) {
-          message = `Overspent: You've exceeded your ${formattedThreshold} limit for "${alert.category}" (${cappedProgress}%).`;
-          severity = 'critical';
-        } else if (cappedProgress >= 85) {
-          message = `Warning: You're at ${cappedProgress}% of your ${formattedThreshold} spending limit for "${alert.category}".`;
-          severity = 'high';
-        } else {
-          message = `You've used ${cappedProgress}% of your ${formattedThreshold} spending limit for "${alert.category}".`;
-          severity = 'medium';
-        }
+        message = `You're at ${cappedProgress}% of your ${formattedThreshold} income goal for "${alert.category}".`;
+        severity = 'low';
       }
+    } else {
+      // spending alerts
+      if (cappedProgress >= 100) {
+        message = `Overspent: You've exceeded your ${formattedThreshold} limit for "${alert.category}" (${cappedProgress}%).`;
+        severity = 'critical';
+      } else if (cappedProgress >= 85) {
+        message = `Warning: You're at ${cappedProgress}% of your ${formattedThreshold} spending limit for "${alert.category}".`;
+        severity = 'high';
+      } else {
+        message = `You've used ${cappedProgress}% of your ${formattedThreshold} spending limit for "${alert.category}".`;
+        severity = 'medium';
+      }
+    }
 
+    try {
       await db.runAsync(
         `INSERT INTO notifications (type, title, message, severity, is_read)
          VALUES (?, ?, ?, ?, 0);`,
         ['alert', alert.type === 'income' ? 'Income Alert' : 'Spending Alert', message, severity]
       );
+    } catch (error) {
+      // Log individual insert errors but continue processing other alerts
+      console.warn('Failed to insert notification for alert:', alert.id, error);
     }
-  });
+  }
 }
 
 export async function getAlertsWithProgress(db: SQLiteDatabase): Promise<IAlertRow[]> {

@@ -1,9 +1,9 @@
 import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { clearAllNotifications } from '@/lib/database/notificationQueries';
 import { INotificationRow } from '@/types/Common';
 import { useSQLiteContext } from 'expo-sqlite';
-import React, { useCallback } from 'react';
-import { Alert } from 'react-native';
+import React, { useCallback, useState } from 'react';
 import { Button } from '../ui/button';
 import { Text } from '../ui/text';
 import { NotificationCard } from './NotificationCard';
@@ -24,30 +24,24 @@ export function NotificationSection({
   maxVisible = 3,
 }: NotificationSectionProps) {
   const db = useSQLiteContext();
+  const [showClearAllDialog, setShowClearAllDialog] = useState(false);
 
   // Limit notifications to maxVisible count (most recent first)
   const visibleNotifications = notifications.slice(0, maxVisible);
 
-  const handleClearAll = useCallback(async () => {
+  const handleClearAll = useCallback(() => {
+    setShowClearAllDialog(true);
+  }, []);
+
+  const confirmClearAll = useCallback(async () => {
     try {
-      Alert.alert(
-        'Clear All Notifications',
-        'Are you sure you want to mark all notifications as read?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Clear All',
-            style: 'destructive',
-            onPress: async () => {
-              await clearAllNotifications(db);
-              onClearAll?.();
-            },
-          },
-        ]
-      );
+      await clearAllNotifications(db);
+      onClearAll?.();
+      setShowClearAllDialog(false);
     } catch (err) {
       console.error('Failed to clear notifications:', err);
-      Alert.alert('Error', 'Unable to clear notifications. Please try again.');
+      // Could add toast error here if ToastProvider is available
+      setShowClearAllDialog(false);
     }
   }, [db, onClearAll]);
 
@@ -77,6 +71,17 @@ export function NotificationSection({
           />
         ))}
       </CardFooter>
+
+      {/* Clear All Notifications Dialog */}
+      <ConfirmationDialog
+        open={showClearAllDialog}
+        onOpenChange={setShowClearAllDialog}
+        title="Clear All Notifications"
+        description="Are you sure you want to mark all notifications as read? This action cannot be undone."
+        confirmText="Clear All"
+        loadingText="Clearing..."
+        onConfirm={confirmClearAll}
+      />
     </Card>
   );
 }

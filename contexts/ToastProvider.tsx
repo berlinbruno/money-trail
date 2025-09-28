@@ -96,7 +96,7 @@ const ToastGroup: React.FC<ToastGroupProps> = ({ toasts, onDismiss }) => {
       style={{
         bottom: 16,
         right: 16,
-        minWidth: SCREEN_WIDTH * 0.8,
+        minWidth: SCREEN_WIDTH * 0.9,
         maxWidth: SCREEN_WIDTH * 0.9,
       }}>
       {toasts.map((toast, index) => (
