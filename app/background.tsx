@@ -151,7 +151,8 @@ export default function BackgroundTaskScreen() {
     return () => {
       sub.remove();
     };
-  }, [refreshAllData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Safe to disable - we only want this to run once on mount
 
   return (
     <ScrollView

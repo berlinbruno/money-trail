@@ -2,7 +2,6 @@ import {
   ConfigRecordsCard,
   DataManagementCard,
   DatabaseInfoCard,
-  NavigationCard,
   SystemInfoCard,
 } from '@/components/debug';
 import { APP_VERSION } from '@/constants/settingsConstants';
@@ -229,8 +228,6 @@ export default function DebugScreen() {
     <ScrollView
       className="flex-1"
       refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleManualRefresh} />}>
-      <NavigationCard />
-
       <DatabaseInfoCard dbInfo={dbInfo} />
 
       <DataManagementCard
