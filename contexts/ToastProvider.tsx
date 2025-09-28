@@ -1,6 +1,6 @@
 import { Toast, type ToastVariant } from '@/components/ui/toast';
 import type { LucideIcon } from 'lucide-react-native';
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Dimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -18,9 +18,10 @@ const DISMISS_THRESHOLD = SCREEN_WIDTH * 0.3;
 interface AnimatedToastProps {
   toast: ToastItem;
   onDismiss: () => void;
+  isTopmost: boolean; // New prop to determine if this toast is the frontmost
 }
 
-const AnimatedToast: React.FC<AnimatedToastProps> = ({ toast, onDismiss }) => {
+const AnimatedToast: React.FC<AnimatedToastProps> = ({ toast, onDismiss, isTopmost }) => {
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
 
@@ -28,8 +29,11 @@ const AnimatedToast: React.FC<AnimatedToastProps> = ({ toast, onDismiss }) => {
     onDismiss();
   }, [onDismiss]);
 
+  // Only enable gestures for the topmost toast
   const panGesture = Gesture.Pan()
+    .enabled(isTopmost) // Conditionally enable gesture
     .onUpdate((event) => {
+      if (!isTopmost) return; // Extra safety check
       translateX.value = event.translationX;
 
       // Reduce opacity as user swipes
@@ -37,6 +41,7 @@ const AnimatedToast: React.FC<AnimatedToastProps> = ({ toast, onDismiss }) => {
       opacity.value = 1 - Math.min(progress * 0.7, 0.7);
     })
     .onEnd((event) => {
+      if (!isTopmost) return; // Extra safety check
       const shouldDismiss = Math.abs(event.translationX) > DISMISS_THRESHOLD;
 
       if (shouldDismiss) {
@@ -59,7 +64,7 @@ const AnimatedToast: React.FC<AnimatedToastProps> = ({ toast, onDismiss }) => {
   }));
 
   return (
-    <View className="mb-3 w-full">
+    <View className="w-full">
       <GestureDetector gesture={panGesture}>
         <Animated.View style={animatedStyle} className="relative w-full">
           <Toast
@@ -94,8 +99,24 @@ const ToastGroup: React.FC<ToastGroupProps> = ({ toasts, onDismiss }) => {
         minWidth: SCREEN_WIDTH * 0.8,
         maxWidth: SCREEN_WIDTH * 0.9,
       }}>
-      {toasts.map((toast) => (
-        <AnimatedToast key={toast.id} toast={toast} onDismiss={() => onDismiss(toast.id)} />
+      {toasts.map((toast, index) => (
+        <View
+          key={toast.id}
+          style={{
+            position: 'absolute',
+            // Stacked card effect: each toast shows only a small portion behind the previous
+            bottom: index * 12, // Small 12px offset to show just the top edge
+            right: 0,
+            width: '100%',
+            // Bottom toast has highest z-index, decreasing upwards
+            zIndex: 5 - index, // First toast (bottom): zIndex 5, decreasing to 1 for fifth toast
+          }}>
+          <AnimatedToast
+            toast={toast}
+            onDismiss={() => onDismiss(toast.id)}
+            isTopmost={index === 0} // First toast in array is topmost (highest z-index = 5)
+          />
+        </View>
       ))}
     </View>
   );
@@ -155,10 +176,11 @@ interface ToastProviderProps {
 
 export const ToastProvider: React.FC<ToastProviderProps> = ({
   children,
-  maxToasts = 3,
+  maxToasts = 5,
   defaultDuration = 4000,
 }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hideToast = useCallback((id: string) => {
     setToasts((prev) => {
@@ -169,6 +191,33 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({
       return prev.filter((t) => t.id !== id);
     });
   }, []);
+
+  // Effect to manage timing for the topmost toast only
+  useEffect(() => {
+    // Clear existing timer
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // If there are toasts, set timer for the topmost one
+    if (toasts.length > 0) {
+      const topmostToast = toasts[0]; // First in array = topmost (highest z-index)
+      if (topmostToast.duration && topmostToast.duration > 0) {
+        timerRef.current = setTimeout(() => {
+          hideToast(topmostToast.id);
+        }, topmostToast.duration);
+      }
+    }
+
+    // Cleanup on unmount or when toasts change
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [toasts, hideToast]);
 
   const showToast = useCallback(
     (options: ToastOptions): string => {
@@ -193,16 +242,9 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({
         return newToasts.slice(-maxToasts);
       });
 
-      // Auto dismiss if duration is set
-      if (newToast.duration && newToast.duration > 0) {
-        setTimeout(() => {
-          hideToast(id);
-        }, newToast.duration);
-      }
-
       return id;
     },
-    [defaultDuration, maxToasts, hideToast]
+    [defaultDuration, maxToasts]
   );
 
   const hideAllToasts = useCallback(() => {

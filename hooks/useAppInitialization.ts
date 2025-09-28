@@ -1,4 +1,8 @@
 import { initializeBackgroundTask } from '@/lib/backgroundTaskSetup';
+import {
+  getAlertsWithProgress,
+  insertAlertNotifications,
+} from '@/lib/database/notificationQueries';
 import { getFetchOnLaunch, getMessageScanCount } from '@/lib/database/settingsQueries';
 import { syncTransactions } from '@/lib/sms/sync';
 import { initializeAppPermissions } from '@/utils/permissionInitializer';
@@ -23,6 +27,17 @@ export function useAppInitialization() {
 
         // Initialize permissions
         await initializeAppPermissions();
+
+        // Initialize alerts and notifications
+        console.log('Initializing alert notifications...');
+        try {
+          const alertsData = await getAlertsWithProgress(db);
+          await insertAlertNotifications(db, alertsData);
+          console.log('Alert notifications initialized successfully');
+        } catch (error) {
+          console.error('Failed to initialize alert notifications:', error);
+          // Continue with app initialization even if notifications fail
+        }
 
         // Check if fetch on launch is enabled
         const fetchOnLaunch = await getFetchOnLaunch();

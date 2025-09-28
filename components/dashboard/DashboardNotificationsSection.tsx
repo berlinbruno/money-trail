@@ -19,7 +19,6 @@ export function DashboardNotificationsSection({
       onMarkedRead={onMarkedRead}
       onClearAll={onClearAll}
       title="Notifications"
-      variant="compact"
     />
   );
 }

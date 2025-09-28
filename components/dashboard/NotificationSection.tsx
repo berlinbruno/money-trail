@@ -13,7 +13,6 @@ export interface NotificationSectionProps {
   onMarkedRead: (id: number) => void;
   onClearAll?: () => void;
   title?: string;
-  variant?: 'compact' | 'full';
   maxVisible?: number;
 }
 
@@ -22,7 +21,6 @@ export function NotificationSection({
   onMarkedRead,
   onClearAll,
   title = 'Notifications',
-  variant = 'full',
   maxVisible = 3,
 }: NotificationSectionProps) {
   const db = useSQLiteContext();
@@ -70,13 +68,12 @@ export function NotificationSection({
           <Text>Clear All</Text>
         </Button>
       </CardHeader>
-      <CardFooter className="flex-grow flex-col items-start gap-0.5 pt-0">
+      <CardFooter className="flex-col items-start gap-0.5 pt-0">
         {visibleNotifications.map((notification) => (
           <NotificationCard
             key={notification.id}
             notification={notification}
             onMarkedRead={onMarkedRead}
-            variant={variant}
           />
         ))}
       </CardFooter>

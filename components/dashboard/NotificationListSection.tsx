@@ -19,7 +19,6 @@ export function NotificationListSection({
       onMarkedRead={onMarkedRead}
       onClearAll={onClearAll}
       title="Notifications"
-      variant="full"
     />
   );
 }
