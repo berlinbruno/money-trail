@@ -58,8 +58,8 @@ jobs:
       - name: Read App Name and Version
         id: app-info
         run: |
-          APP_NAME=$(jq -r '.expo.name' app.json)
-          APP_VERSION=$(jq -r '.expo.version' app.json)
+          APP_NAME=$(node -e "const config = require('./app.config.js'); console.log(config.expo.name)")
+          APP_VERSION=$(node -e "const config = require('./app.config.js'); console.log(config.expo.version)")
           echo "app_name=${APP_NAME}" >> $GITHUB_OUTPUT
           echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
           echo "Generated APK base name: ${APP_NAME}-${APP_VERSION}"

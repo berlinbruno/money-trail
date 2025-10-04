@@ -10,9 +10,9 @@ Money Trail is a React Native Expo app for automatic expense tracking via SMS pa
 
 - **SMS Collection**: `react-native-get-sms-android` fetches finance-related SMS using regex patterns
 - **Transaction Parsing**: `utils/transactions/transactionParser.ts` extracts amounts, types (debit/credit), and metadata from SMS text
-- **Background Processing**: `lib/sms/backgroundTask.ts` handles automatic SMS sync via Expo Background Tasks every 10 minutes
+- **Background Processing**: `lib/sms/backgroundTask.ts` handles automatic SMS sync via Expo Background Tasks
 - **SMS Sync Logic**: `lib/sms/sync.ts` orchestrates transaction processing and categorization
-- **Deduplication**: Uses MD5 hashing (`utils/cryptoUtils.ts` with expo-crypto fallback) of SMS content to prevent duplicate transactions
+- **Deduplication**: Uses MD5 hashing (`utils/cryptoUtils.ts`) of SMS content to prevent duplicate transactions
 
 ### Navigation Structure
 
@@ -23,6 +23,8 @@ Stack (Root Layout)
     │   ├── index.tsx (Dashboard)
     │   ├── transactions.tsx
     │   └── insights.tsx
+    ├── alerts.tsx
+    ├── approveTransaction.tsx
     └── settings.tsx
 ```
 
@@ -31,14 +33,14 @@ Stack (Root Layout)
 - **Location**: `assets/database/app.db` (bundled), accessed via `expo-sqlite`
 - **WAL Mode**: Enabled for better concurrency (`PRAGMA journal_mode = WAL`)
 - **Key Tables**: transactions, notifications, alerts, config, app_logs
-- **Queries**: Organized in `lib/database/` with separate files per domain (`transactionQueries.ts`, `dashboardQueries.ts`, `loggingQueries.ts`, etc.)
+- **Queries**: Organized in `lib/database/` with separate files per domain
 - **Initialization**: Automatic table creation via `initializeDatabase()` function
-- **Sync Configuration**: Stores sync intervals in minutes (10, 15, 30, 60) for better UX
-- **Connection Management**: `DatabaseConnectionManager` for handling concurrent access and background task isolation
+- **Sync Configuration**: Stores sync intervals and app settings in `config` table
 
 ### State Management Patterns
 
 - **Database Context**: `useSQLiteContext()` hook provides direct SQLite access throughout components
+- **Dialog System**: Unified `useDialog()` hook with centralized dialog management (`DialogProvider`) for both confirmation and permission dialogs
 - **Toast System**: Unified `useToast()` hook with simplified `showToast()` API across all components
 - **Local Component State**: `useState` for UI state, `useCallback` for database operations
 - **Data Fetching**: Async functions with Promise.all for parallel queries on dashboard
@@ -49,25 +51,28 @@ Stack (Root Layout)
 
 ```bash
 npm run dev          # Start Expo dev server
-# Then press 'a' for Android emulator or scan QR for physical device
-```
-
-### Code Quality Tools
-
-```bash
-npm run lint         # ESLint check
-npm run lint:fix     # Auto-fix linting issues
-npm run format       # Prettier formatting
 npm run type-check   # TypeScript compilation check
+npm run format       # Prettier formatting
+npm run lint:fix     # Auto-fix linting issues
 ```
 
 ### Building & Deployment
 
-- **EAS Build**: Configured in `eas.json` for Android-only deployment
-- **Package**: `com.berlinbruno.moneytrail`
-- **Permissions**: SMS access, background tasks, wake lock for continuous SMS monitoring
+- **Platform**: Android-only React Native Expo app
+- **Key Permissions**: SMS access, background tasks, wake lock
 
 ## Key Patterns & Conventions
+
+### Dialog System
+
+- **Provider**: `contexts/DialogProvider.tsx` provides centralized dialog management
+- **Usage**: `const { showConfirmationDialog, showPermissionDialog } = useDialog()` hook across all components
+- **Confirmation Dialogs**: `showConfirmationDialog({title, description, onConfirm, ...})` for user confirmations
+- **Permission Dialogs**: `showPermissionDialog({title, description, showSettingsButton, ...})` for permission requests
+- **SMS Permissions**: `checkSMSPermissionWithDialog()` and `requestSMSPermissionWithDialog()` for SMS access
+- **Components**: Reusable `ConfirmationDialog` and `PermissionDialog` components in `components/dialogs/`
+- **Type Safety**: Full TypeScript support with proper interfaces and error handling
+- **Best Practices**: Use centralized dialogs instead of individual component state management
 
 ### Toast System
 
@@ -79,25 +84,23 @@ npm run type-check   # TypeScript compilation check
 
 ### Folder Organization
 
-- **lib/database/**: All database operations and queries (moved from `lib/db/`)
-- **lib/sms/**: SMS processing pipeline (`backgroundTask.ts`, `sync.ts`, `parser.ts`)
-- **utils/transactions/**: Transaction-specific utilities (`transactionParser.ts`, `filterUtils.ts`)
-- **utils/finance/**: Financial calculations and insights (`insightsUtils.ts`)
-- **utils/formatters.ts**: Consolidated formatting utilities
-- **utils/classNameHelpers.ts**: TailwindCSS class merging utility (`cn` function)
-- **utils/permissionInitializer.ts**: App permission initialization at startup
-- **utils/asyncStorageHelpers.ts**: AsyncStorage wrapper for settings
-- **utils/dateQueryHelpers.ts**: SQLite date formatting utilities
-- **utils/systemThemeHelpers.ts**: System theme detection utilities
-- **utils/cryptoUtils.ts**: MD5 hashing with expo-crypto fallback for SMS deduplication
-- **contexts/ToastProvider.tsx**: Unified toast notification system with simplified API
-- **contexts/AppProvider.tsx**: Unified context provider combining theme and settings
+- **lib/database/**: All database operations and queries
+- **lib/sms/**: SMS processing pipeline (`backgroundTask.ts`, `sync.ts`)
+- **utils/transactions/**: Transaction-specific utilities
+- **utils/finance/**: Financial calculations and insights
+- **utils/**: Core utilities (formatters, crypto, permissions, etc.)
+- **contexts/**: React context providers (DialogProvider, ToastProvider, AppProvider)
+- **components/ui/**: Reusable UI primitives
+- **components/dialogs/**: Centralized dialog components
+- **components/{domain}/**: Feature-specific components
+- **types/**: TypeScript type definitions
 
 ### Component Organization
 
-- **UI Components**: `components/ui/` - Reusable UI primitives from `react-native-reusables`
-- **Feature Components**: `components/{domain}/` - Domain-specific components (dashboard, transaction, alert, insights)
-- **Styling**: TailwindCSS via NativeWind with dark/light theme support
+- **UI Components**: `components/ui/` - Reusable UI primitives
+- **Dialog Components**: `components/dialogs/` - Centralized dialog management
+- **Feature Components**: `components/{domain}/` - Domain-specific components
+- **Styling**: TailwindCSS via NativeWind with theme support
 
 ### Type Definitions
 
@@ -107,90 +110,65 @@ npm run type-check   # TypeScript compilation check
 
 ### Database Patterns
 
-- **Query Functions**: Return typed results, handle errors gracefully
-- **Batch Operations**: Use transactions for multiple related database operations
-- **Config Storage**: Key-value storage in `config` table for app settings and sync state
+- **Query Functions**: Return typed results with proper error handling
+- **Transactions**: Use database transactions for related operations
+- **Config Storage**: App settings and sync state in `config` table
+- **Type Safety**: Full TypeScript support for all database operations
 
 ### SMS Processing Specifics
 
-- **Finance Regex**: Comprehensive pattern matching banking keywords, UPI apps, and amount formats
-- **Category Mapping**: Automatic categorization based on merchant/description keywords
-- **Hash-based Deduplication**: Prevents processing same SMS multiple times
-- **Background Sync**: Configurable intervals with error logging and performance metrics
+- **Finance Regex**: Pattern matching for banking keywords and UPI apps
+- **Category Mapping**: Automatic categorization based on merchant/description
+- **Deduplication**: MD5 hash-based prevention of duplicate processing
+- **Background Sync**: Configurable intervals with comprehensive logging
 
 ## Critical Integration Points
 
-### Permissions Flow
+### Permissions & Performance
 
-- **App Launch**: `utils/permissionUtils.ts` requests SMS permissions
-- **Error Handling**: User-friendly alerts for permission denials
-- **Background Tasks**: Require persistent permissions for SMS access
-
-### Performance Considerations
-
-- **SMS Filtering**: Use targeted regex to minimize irrelevant message processing
-- **Database Indexing**: Ensure `sms_hash` and transaction dates are indexed
-- **Memory Management**: Batch process large SMS collections to avoid memory issues
-- **Background Limits**: Respect Android background execution limits
+- **SMS Access**: Required for transaction parsing functionality
+- **Background Tasks**: Enable automatic SMS processing
+- **Database Optimization**: Indexed queries for performance
+- **Memory Management**: Efficient SMS batch processing
 
 ## Common Development Tasks
 
-### Adding New Transaction Categories
+**Best Practices**:
 
-1. Update `constants/transactionConstants.ts` with new category
-2. Modify `categorizeTransaction()` in `lib/sms/sync.ts`
-3. Update type definitions in `types/Transaction.ts`
+- Use `useCallback` for dialog handlers to prevent re-renders
+- Include loading states with `loadingText`
+- Handle errors by throwing in `onConfirm`
+- Use appropriate `confirmVariant` for destructive actions
 
-### SMS Parser Improvements
+### Transaction Management
 
-- Test with `utils/transactions/transactionParser.ts` functions
-- Focus on `parseTransactionFromSms()` for single transactions
-- Handle multi-transaction SMS with `parseMultipleTransactionsFromSms()`
-- Background task logic is in `lib/sms/backgroundTask.ts`
+**Adding Categories**: Update `constants/transactionConstants.ts` and `lib/sms/sync.ts`
 
-### Dashboard Data Sources
+**SMS Parser**: Modify `utils/transactions/transactionParser.ts` for new patterns
 
-- Add new KPI calculations in `lib/database/dashboardQueries.ts`
-- Update dashboard components in `components/dashboard/`
-- Follow pattern of parallel data fetching with `Promise.all`
+**Dashboard Data**: Add KPI calculations in `lib/database/dashboardQueries.ts`
 
-### Financial Insights & Analytics
+### Background Tasks
 
-- Calculation functions in `utils/finance/insightsUtils.ts`
-- Chart data processing and trend analysis
-- Category breakdown and spending pattern detection
+**Debugging**: Check registration status and monitor logs in `config` table
 
-### Background Task Debugging
-
-- Check task registration status via `TaskManager.isTaskRegisteredAsync()`
-- Monitor execution logs stored in `config` table
-- Test task execution with `executeTask()` function directly
-- Background task implementation in `lib/sms/backgroundTask.ts`
+**Testing**: Use `executeTask()` function in `lib/sms/backgroundTask.ts`
 
 ## File Organization Best Practices
 
 ### Import Path Patterns
 
-- **Database Operations**: `@/lib/database/{queryFile}` (e.g., `@/lib/database/transactionQueries`)
-- **SMS Processing**: `@/lib/sms/{module}` (e.g., `@/lib/sms/sync`, `@/lib/sms/backgroundTask`)
-- **Utilities**: `@/utils/{category}/{file}` (e.g., `@/utils/transactions/transactionParser`, `@/utils/finance/insightsUtils`)
-- **Formatters**: `@/utils/formatters` (consolidated formatting utilities)
-- **Class Names**: `@/utils/classNameHelpers` (TailwindCSS class merging with `cn` function)
-- **Permissions**: `@/utils/permissionUtils`, `@/utils/permissionInitializer` (permission handling and initialization)
-- **Storage**: `@/utils/asyncStorageHelpers` (AsyncStorage wrapper for settings)
-- **Theme**: `@/utils/systemThemeHelpers` (system theme detection utilities)
-- **Database Helpers**: `@/utils/dateQueryHelpers` (SQLite date formatting utilities)
-- **Crypto**: `@/utils/cryptoUtils` (MD5 hashing with expo-crypto fallback)
-- **Toast System**: `@/contexts/ToastProvider` (unified toast notifications with `useToast` hook)
-- **UI Components**: `@/components/ui/{component}`
-- **Feature Components**: `@/components/{domain}/{component}`
+- **Database**: `@/lib/database/{queryFile}`
+- **SMS Processing**: `@/lib/sms/{module}`
+- **Utilities**: `@/utils/{category}/{file}`
+- **Contexts**: `@/contexts/{Provider}`
+- **Components**: `@/components/{category}/{component}`
+- **Types**: `@/types/{Type}`
 
 ### Code Organization Principles
 
-- **Feature-based Folders**: Group related functionality together
+- **Feature-based Structure**: Group related functionality together
 - **Single Responsibility**: Each file has a clear, focused purpose
-- **Consistent Imports**: Use absolute imports with @ alias throughout
-- **Type Safety**: Leverage TypeScript interfaces from `types/` folder
-- **Database Consistency**: All queries use minute-based sync intervals
-- **Context Consolidation**: Unified providers in `contexts/AppProvider.tsx`
-- **Toast Consistency**: Use `showToast()` for all user notifications with concise, actionable messages
+- **TypeScript First**: Full type safety throughout the application
+- **Centralized State**: Unified context providers for shared functionality
+- **Consistent Patterns**: Use established hooks and patterns across components
