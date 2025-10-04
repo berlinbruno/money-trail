@@ -25,11 +25,11 @@ This project uses environment variables to manage configuration values like proj
 
 ## Environment Variables
 
-| Variable                      | Description                           | Default                      |
-| ----------------------------- | ------------------------------------- | ---------------------------- |
-| `EXPO_PUBLIC_EAS_PROJECT_ID`  | EAS Project ID for builds and updates | Required                     |
-| `EXPO_PUBLIC_OWNER`           | Expo account owner                    | `berlinbruno`                |
-| `EXPO_PUBLIC_ANDROID_PACKAGE` | Android package name                  | `com.berlinbruno.moneytrail` |
+| Variable                      | Description                           | Default  |
+| ----------------------------- | ------------------------------------- | -------- |
+| `EXPO_PUBLIC_EAS_PROJECT_ID`  | EAS Project ID for builds and updates | Required |
+| `EXPO_PUBLIC_OWNER`           | Expo account owner                    | Required |
+| `EXPO_PUBLIC_ANDROID_PACKAGE` | Android package name                  | Required |
 
 ## Static Configuration
 
