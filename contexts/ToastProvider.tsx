@@ -23,6 +23,7 @@ interface AnimatedToastProps {
 
 const AnimatedToast: React.FC<AnimatedToastProps> = ({ toast, onDismiss, isTopmost }) => {
   const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
   const opacity = useSharedValue(1);
 
   const handleDismiss = useCallback(() => {
@@ -35,31 +36,51 @@ const AnimatedToast: React.FC<AnimatedToastProps> = ({ toast, onDismiss, isTopmo
     .onUpdate((event) => {
       if (!isTopmost) return; // Extra safety check
       translateX.value = event.translationX;
+      translateY.value = event.translationY;
 
-      // Reduce opacity as user swipes
-      const progress = Math.abs(event.translationX) / DISMISS_THRESHOLD;
+      // Reduce opacity as user swipes (based on total distance)
+      const totalDistance = Math.sqrt(
+        event.translationX * event.translationX + event.translationY * event.translationY
+      );
+      const progress = totalDistance / DISMISS_THRESHOLD;
       opacity.value = 1 - Math.min(progress * 0.7, 0.7);
     })
     .onEnd((event) => {
       if (!isTopmost) return; // Extra safety check
-      const shouldDismiss = Math.abs(event.translationX) > DISMISS_THRESHOLD;
+
+      // Check if swipe distance exceeds threshold in any direction
+      const horizontalDismiss = Math.abs(event.translationX) > DISMISS_THRESHOLD;
+      const verticalDismiss = Math.abs(event.translationY) > DISMISS_THRESHOLD;
+      const shouldDismiss = horizontalDismiss || verticalDismiss;
 
       if (shouldDismiss) {
-        // Animate out
-        const targetX = event.translationX > 0 ? SCREEN_WIDTH : -SCREEN_WIDTH;
+        // Animate out in the direction of the swipe
+        let targetX = 0;
+        let targetY = 0;
+
+        if (horizontalDismiss) {
+          targetX = event.translationX > 0 ? SCREEN_WIDTH : -SCREEN_WIDTH;
+          targetY = event.translationY; // Maintain vertical position
+        } else if (verticalDismiss) {
+          targetX = event.translationX; // Maintain horizontal position
+          targetY = event.translationY > 0 ? 800 : -800; // Animate up or down
+        }
+
         translateX.value = withTiming(targetX, { duration: 200 });
+        translateY.value = withTiming(targetY, { duration: 200 });
         opacity.value = withTiming(0, { duration: 200 }, () => {
           runOnJS(handleDismiss)();
         });
       } else {
-        // Snap back
+        // Snap back to original position
         translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
         opacity.value = withSpring(1);
       }
     });
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
+    transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
     opacity: opacity.value,
   }));
 
@@ -94,8 +115,8 @@ const ToastGroup: React.FC<ToastGroupProps> = ({ toasts, onDismiss }) => {
       className="absolute z-50"
       pointerEvents="box-none"
       style={{
-        bottom: 16,
-        right: 16,
+        top: 60, // Account for status bar and some padding
+        right: 8,
         minWidth: SCREEN_WIDTH * 0.9,
         maxWidth: SCREEN_WIDTH * 0.9,
       }}>
@@ -105,11 +126,11 @@ const ToastGroup: React.FC<ToastGroupProps> = ({ toasts, onDismiss }) => {
           style={{
             position: 'absolute',
             // Stacked card effect: each toast shows only a small portion behind the previous
-            bottom: index * 12, // Small 12px offset to show just the top edge
+            top: index * 12, // Small 12px offset to show just the bottom edge
             right: 0,
             width: '100%',
-            // Bottom toast has highest z-index, decreasing upwards
-            zIndex: 5 - index, // First toast (bottom): zIndex 5, decreasing to 1 for fifth toast
+            // Top toast has highest z-index, decreasing downwards
+            zIndex: 5 - index, // First toast (top): zIndex 5, decreasing to 1 for fifth toast
           }}>
           <AnimatedToast
             toast={toast}
@@ -124,7 +145,7 @@ const ToastGroup: React.FC<ToastGroupProps> = ({ toasts, onDismiss }) => {
 
 // Convenience hooks for different positions and variants
 
-export type ToastPosition = 'bottom-right';
+export type ToastPosition = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
 
 export interface ToastItem {
   id: string;
@@ -229,7 +250,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({
         title: options.title,
         description: options.description,
         icon: options.icon,
-        position: 'bottom-right', // Always bottom-right
+        position: 'top-right', // Always top-right
         duration: options.duration ?? defaultDuration,
         dismissible: options.dismissible ?? true,
         onDismiss: options.onDismiss,
@@ -268,7 +289,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({
       }}>
       {children}
 
-      {/* Toast Container - positioned absolutely at bottom-right */}
+      {/* Toast Container - positioned absolutely at top-right */}
       <View
         style={{
           position: 'absolute',
@@ -290,7 +311,7 @@ export const useToastHelpers = () => {
   const { showToast } = useToast();
 
   return {
-    // Variant-based methods (position is always bottom-right)
+    // Variant-based methods (position is always top-right)
     showSuccess: (options: Omit<ToastOptions, 'variant'>) =>
       showToast({ ...options, variant: 'default' }),
     showError: (options: Omit<ToastOptions, 'variant'>) =>

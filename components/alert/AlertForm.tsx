@@ -11,7 +11,7 @@ import { capitalizeFirstLetter } from '@/utils/formatterUtils';
 import { useTheme } from '@react-navigation/native';
 import { Loader2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -131,44 +131,53 @@ const AlertForm: React.FC<AlertFormProps> = ({
   );
 
   return (
-    <View>
-      <View className="mb-3">
-        <Label>Amount *</Label>
-        <Input
-          placeholder="e.g. 10000"
-          keyboardType="numeric"
-          value={threshold}
-          onChangeText={setThreshold}
-        />
-      </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        <View className="flex-1">
+          <View className="mb-3">
+            <Label>Amount *</Label>
+            <Input
+              placeholder="e.g. 10000"
+              keyboardType="numeric"
+              value={threshold}
+              onChangeText={setThreshold}
+            />
+          </View>
 
-      <View className="mb-3">
-        <Label>Category *</Label>
-        {availableCategories.length === 0 ? (
-          <Text className="text-red-500">No categories available</Text>
-        ) : (
-          renderOptions(availableCategories, category, setCategory)
-        )}
-      </View>
+          <View className="mb-3">
+            <Label>Category *</Label>
+            {availableCategories.length === 0 ? (
+              <Text className="text-red-500">No categories available</Text>
+            ) : (
+              renderOptions(availableCategories, category, setCategory)
+            )}
+          </View>
 
-      <View className="mt-6 flex-row justify-around gap-2">
-        <Button className="flex-[2]" onPress={handleSave} disabled={!isValid || isLoading}>
-          {isLoading ? (
-            <View className="flex-row items-center">
-              <View className="mr-2 animate-spin">
-                <Loader2 size={16} color={theme.colors.text} />
-              </View>
-              <Text className="text-primary-foreground">Saving...</Text>
-            </View>
-          ) : (
-            <Text>Save</Text>
-          )}
-        </Button>
-        <Button variant="secondary" className="flex-1" onPress={onClose} disabled={isLoading}>
-          <Text>Cancel</Text>
-        </Button>
-      </View>
-    </View>
+          <View className="mt-6 flex-row justify-around gap-2">
+            <Button className="flex-[2]" onPress={handleSave} disabled={!isValid || isLoading}>
+              {isLoading ? (
+                <View className="flex-row items-center">
+                  <View className="mr-2 animate-spin">
+                    <Loader2 size={16} color={theme.colors.text} />
+                  </View>
+                  <Text className="text-primary-foreground">Saving...</Text>
+                </View>
+              ) : (
+                <Text>Save</Text>
+              )}
+            </Button>
+            <Button variant="secondary" className="flex-1" onPress={onClose} disabled={isLoading}>
+              <Text>Cancel</Text>
+            </Button>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 

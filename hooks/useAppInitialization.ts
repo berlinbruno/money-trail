@@ -1,9 +1,10 @@
-import { initializeBackgroundTask } from '@/lib/backgroundTaskSetup';
 import { initializeTables } from '@/lib/database/db';
 import {
   getAlertsWithProgress,
   insertAlertNotifications,
 } from '@/lib/database/notificationQueries';
+import { getFetchOnLaunch } from '@/lib/database/settingsQueries';
+import { initializeBackgroundTask } from '@/lib/sms/backgroundTask';
 import { syncTransactions } from '@/lib/sms/sync';
 import { initializeAppPermissions } from '@/utils/permissionInitializer';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -31,12 +32,18 @@ export const useAppInitialization = () => {
       await initializeAppPermissions();
 
       // Initialize background task
-      await initializeBackgroundTask();
+      const promise = Promise.resolve();
+      await initializeBackgroundTask(promise);
 
-      // Start SMS sync first
-      setTimeout(() => {
-        syncTransactions(db).catch(console.error);
-      }, 100);
+      // Check if SMS fetch on launch is enabled
+      const fetchOnLaunchEnabled = await getFetchOnLaunch();
+
+      // Start SMS sync only if fetch on launch is enabled
+      if (fetchOnLaunchEnabled) {
+        setTimeout(() => {
+          syncTransactions(db).catch(console.error);
+        }, 100);
+      }
 
       // Start alert notifications after a small delay to avoid transaction conflicts
       setTimeout(async () => {

@@ -223,7 +223,7 @@ export default function LineChartSection({ timeSeriesData, rangeLabel }: LineCha
           backgroundColor={theme.colors.background}
           fontStyle={{ color: theme.colors.text }}
           activeFontStyle={{
-            color: theme.dark ? theme.colors.background : theme.colors.primary,
+            color: theme.colors.background,
             fontWeight: '600',
           }}
         />

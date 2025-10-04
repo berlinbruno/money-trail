@@ -20,7 +20,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@react-navigation/native';
 import { Loader2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, ScrollView, TouchableOpacity, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -150,84 +157,93 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
   );
 
   return (
-    <View>
-      <View className="mb-3">
-        <Label>Amount *</Label>
-        <Input
-          placeholder="e.g. 1200"
-          keyboardType="numeric"
-          value={amount}
-          onChangeText={setAmount}
-        />
-      </View>
-
-      <View className="mb-3">
-        <Label>Title *</Label>
-        <Input placeholder="e.g. Grocery shopping" value={title} onChangeText={setTitle} />
-      </View>
-
-      <View className="mb-3 flex-row flex-wrap gap-3">
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         <View className="flex-1">
-          <Label>Type *</Label>
-          {renderOptions<TransactionType>(TRANSACTION_TYPE, type, (val) => {
-            setType(val);
-            // When type changes, update category to first valid option for new type
-            const newCategory = val === 'credit' ? CREDIT_CATEGORIES[0] : DEBIT_CATEGORIES[0];
-            setCategory(newCategory);
-          })}
-        </View>
-
-        <View className="flex-1">
-          <Label>Date *</Label>
-          <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-            <Text className="py-2 text-sm">{date.toDateString()}</Text>
-          </TouchableOpacity>
-          {showDatePicker && (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display="default"
-              onChange={(event, selectedDate) => {
-                if (Platform.OS === 'android') setShowDatePicker(false);
-                if (selectedDate) setDate(selectedDate);
-              }}
+          <View className="mb-3">
+            <Label>Amount *</Label>
+            <Input
+              placeholder="e.g. 1200"
+              keyboardType="numeric"
+              value={amount}
+              onChangeText={setAmount}
             />
-          )}
-        </View>
-      </View>
+          </View>
 
-      <View className="mb-3">
-        <Label>Category *</Label>
-        {renderOptions<TransactionCategory>(
-          type === 'credit' ? CREDIT_CATEGORIES : DEBIT_CATEGORIES,
-          category,
-          setCategory
-        )}
-      </View>
+          <View className="mb-3">
+            <Label>Title *</Label>
+            <Input placeholder="e.g. Grocery shopping" value={title} onChangeText={setTitle} />
+          </View>
 
-      <View className="mb-3">
-        <Label>Mode *</Label>
-        {renderOptions<TransactionMode>(TRANSACTION_MODES, mode, setMode)}
-      </View>
-
-      <View className="mt-6 flex-row justify-around gap-2">
-        <Button className="flex-[2]" onPress={handleSubmit} disabled={!isValid || isLoading}>
-          {isLoading ? (
-            <View className="flex-row items-center">
-              <View className="mr-2 animate-spin">
-                <Loader2 size={16} color={theme.colors.text} />
-              </View>
-              <Text className="text-primary-foreground">Saving...</Text>
+          <View className="mb-3 flex-row flex-wrap gap-3">
+            <View className="flex-1">
+              <Label>Type *</Label>
+              {renderOptions<TransactionType>(TRANSACTION_TYPE, type, (val) => {
+                setType(val);
+                // When type changes, update category to first valid option for new type
+                const newCategory = val === 'credit' ? CREDIT_CATEGORIES[0] : DEBIT_CATEGORIES[0];
+                setCategory(newCategory);
+              })}
             </View>
-          ) : (
-            <Text>Save</Text>
-          )}
-        </Button>
-        <Button variant="secondary" className="flex-1" onPress={onCancel} disabled={isLoading}>
-          <Text>Cancel</Text>
-        </Button>
-      </View>
-    </View>
+
+            <View className="flex-1">
+              <Label>Date *</Label>
+              <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                <Text className="py-2 text-sm">{date.toDateString()}</Text>
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={date}
+                  mode="date"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    if (Platform.OS === 'android') setShowDatePicker(false);
+                    if (selectedDate) setDate(selectedDate);
+                  }}
+                />
+              )}
+            </View>
+          </View>
+
+          <View className="mb-3">
+            <Label>Category *</Label>
+            {renderOptions<TransactionCategory>(
+              type === 'credit' ? CREDIT_CATEGORIES : DEBIT_CATEGORIES,
+              category,
+              setCategory
+            )}
+          </View>
+
+          <View className="mb-3">
+            <Label>Mode *</Label>
+            {renderOptions<TransactionMode>(TRANSACTION_MODES, mode, setMode)}
+          </View>
+
+          <View className="mt-6 flex-row justify-around gap-2">
+            <Button className="flex-[2]" onPress={handleSubmit} disabled={!isValid || isLoading}>
+              {isLoading ? (
+                <View className="flex-row items-center">
+                  <View className="mr-2 animate-spin">
+                    <Loader2 size={16} color={theme.colors.text} />
+                  </View>
+                  <Text className="text-primary-foreground">Saving...</Text>
+                </View>
+              ) : (
+                <Text>Save</Text>
+              )}
+            </Button>
+            <Button variant="secondary" className="flex-1" onPress={onCancel} disabled={isLoading}>
+              <Text>Cancel</Text>
+            </Button>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
