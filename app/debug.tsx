@@ -4,8 +4,8 @@ import {
   DatabaseInfoCard,
   SystemInfoCard,
 } from '@/components/debug';
-import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { APP_VERSION } from '@/constants/settingsConstants';
+import { useDialog } from '@/contexts/DialogProvider';
 import { useToast } from '@/contexts/ToastProvider';
 import {
   clearAllData,
@@ -22,6 +22,7 @@ import { Platform, RefreshControl, ScrollView } from 'react-native';
 export default function DebugScreen() {
   const db = useSQLiteContext();
   const { showToast } = useToast();
+  const { showConfirmationDialog } = useDialog();
   const [dbInfo, setDbInfo] = useState<{ table: string; count: number }[]>([]);
   const [configRecords, setConfigRecords] = useState<{ key: string; value: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -155,22 +156,27 @@ export default function DebugScreen() {
   }, [deviceInfo]);
 
   // Clear all data
-  const [showClearDialog, setShowClearDialog] = useState(false);
-
-  const handleClearAllData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      await clearAllData(db);
-      showToast('Database reset complete');
-      fetchDbInfo();
-      setShowClearDialog(false);
-    } catch (error) {
-      console.error('Reset error:', error);
-      showToast('Database reset failed');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [db, showToast, fetchDbInfo]);
+  const handleClearAllData = useCallback(() => {
+    showConfirmationDialog({
+      title: 'Confirm Data Reset',
+      description:
+        'This will delete ALL transaction, alert, and notification records, and reset all settings to their default values. This action cannot be undone.',
+      confirmText: 'Reset',
+      confirmVariant: 'destructive',
+      loadingText: 'Resetting all data...',
+      onConfirm: async () => {
+        try {
+          await clearAllData(db);
+          showToast('Database reset complete');
+          fetchDbInfo();
+        } catch (error) {
+          console.error('Reset error:', error);
+          showToast('Database reset failed');
+          throw error; // Let the dialog handle the error state
+        }
+      },
+    });
+  }, [db, showToast, fetchDbInfo, showConfirmationDialog]);
 
   // Manual refresh with silent operation
   const handleManualRefresh = useCallback(async () => {
@@ -198,24 +204,12 @@ export default function DebugScreen() {
       <DataManagementCard
         onGenerateTestTransactions={handleGenerateTestTransactions}
         onGenerateTestAlerts={handleGenerateTestAlerts}
-        onClearAllData={() => setShowClearDialog(true)}
+        onClearAllData={handleClearAllData}
       />
 
       <ConfigRecordsCard configRecords={configRecords} />
 
       <SystemInfoCard memoryUsage={memoryUsage} appVersion={appVersion} />
-
-      {/* Clear All Data Confirmation Dialog */}
-      <ConfirmationDialog
-        open={showClearDialog}
-        onOpenChange={setShowClearDialog}
-        title="Confirm Data Reset"
-        description="This will delete ALL transaction, alert, and notification records, and reset all settings to their default values. This action cannot be undone."
-        confirmText="Reset"
-        confirmVariant="destructive"
-        loadingText="Resetting all data..."
-        onConfirm={handleClearAllData}
-      />
     </ScrollView>
   );
 }

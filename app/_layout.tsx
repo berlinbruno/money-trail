@@ -1,3 +1,4 @@
+import { PermissionDialog } from '@/components/dialogs';
 import { ThemedContent } from '@/components/layout/ThemedContent';
 import { AppProvider } from '@/contexts/AppProvider';
 import { ToastProvider } from '@/contexts/ToastProvider';
@@ -19,12 +20,23 @@ export { ErrorBoundary } from 'expo-router';
 
 function AppContent() {
   // Initialize app-level services
-  useAppInitialization();
+  const { permissionDialogProps, showPermissionDialog, setShowPermissionDialog } =
+    useAppInitialization();
 
   return (
     <AppProvider>
       <ToastProvider>
         <ThemedContent />
+        {permissionDialogProps && (
+          <PermissionDialog
+            open={showPermissionDialog}
+            onOpenChange={setShowPermissionDialog}
+            title={permissionDialogProps.title}
+            description={permissionDialogProps.description}
+            showSettingsButton={permissionDialogProps.showSettingsButton}
+            isBlocking={permissionDialogProps.isBlocking}
+          />
+        )}
       </ToastProvider>
     </AppProvider>
   );

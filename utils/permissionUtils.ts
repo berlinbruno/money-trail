@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, Linking, PermissionsAndroid, Platform } from 'react-native';
+import { Linking, PermissionsAndroid, Platform } from 'react-native';
 
 // Storage key for permission request history
 const PERMISSION_REQUEST_HISTORY_KEY = 'permission_request_history';
@@ -18,8 +18,28 @@ export const PERMISSION_FRIENDLY_NAMES: Record<string, string> = {
   // Add other permissions as needed
 };
 
-// Critical permissions that are required for core app functionality
-export const CRITICAL_PERMISSIONS = [PermissionsAndroid.PERMISSIONS.READ_SMS];
+// Optional permissions that enhance functionality but aren't required
+export const OPTIONAL_PERMISSIONS = [PermissionsAndroid.PERMISSIONS.READ_SMS];
+
+// Critical permissions that are required for core app functionality (currently none)
+export const CRITICAL_PERMISSIONS: string[] = [];
+
+// Permission descriptions for user understanding
+export const PERMISSION_DESCRIPTIONS: Record<string, string> = {
+  'android.permission.READ_SMS':
+    'Automatically track expenses from banking SMS messages. Without this, you can still manually add transactions.',
+};
+
+// Interface for permission results with detailed information
+export interface PermissionResult {
+  granted: string[];
+  denied: string[];
+  hasOptionalDenied: boolean;
+  hasCriticalDenied: boolean;
+  deniedOptionalNames: string[];
+  deniedCriticalNames: string[];
+  canProceed: boolean;
+}
 
 /**
  * Get permission request history from storage
@@ -77,21 +97,26 @@ export async function checkPermission(permission: string): Promise<boolean> {
 
 /**
  * Request multiple permissions with proper handling
- * @returns Promise resolving to object with granted and denied permissions
+ * @returns Promise resolving to detailed permission results
  */
-export async function requestAppPermissions(): Promise<{ granted: string[]; denied: string[] }> {
+export async function requestAppPermissions(): Promise<PermissionResult> {
   if (Platform.OS !== 'android') {
     return {
-      granted: CRITICAL_PERMISSIONS as string[],
+      granted: [...CRITICAL_PERMISSIONS, ...OPTIONAL_PERMISSIONS],
       denied: [],
+      hasOptionalDenied: false,
+      hasCriticalDenied: false,
+      deniedOptionalNames: [],
+      deniedCriticalNames: [],
+      canProceed: true,
     };
   }
 
-  const permissions = CRITICAL_PERMISSIONS;
+  const allPermissions = [...CRITICAL_PERMISSIONS, ...OPTIONAL_PERMISSIONS];
   const granted: string[] = [];
   const denied: string[] = [];
 
-  for (const permission of permissions) {
+  for (const permission of allPermissions) {
     try {
       // Check if already granted
       const isGranted = await PermissionsAndroid.check(permission as any);
@@ -104,15 +129,9 @@ export async function requestAppPermissions(): Promise<{ granted: string[]; deni
       // Update history before requesting
       await updatePermissionHistory(permission);
 
-      // Create a rationale for the permission
-      const rationale = {
-        title: `${PERMISSION_FRIENDLY_NAMES[permission] || 'Permission'} Required`,
-        message: `Money Trail needs access to ${PERMISSION_FRIENDLY_NAMES[permission] || 'this feature'} to function properly.`,
-        buttonPositive: 'Grant Permission',
-      };
-
-      // Request the permission
-      const result = await PermissionsAndroid.request(permission as any, rationale);
+      // Request the permission without custom rationale to avoid built-in dialogs
+      // Our custom dialog will handle the explanation
+      const result = await PermissionsAndroid.request(permission as any);
 
       if (result === PermissionsAndroid.RESULTS.GRANTED) {
         granted.push(permission);
@@ -125,51 +144,105 @@ export async function requestAppPermissions(): Promise<{ granted: string[]; deni
     }
   }
 
-  return { granted, denied };
+  // Analyze results
+  const hasOptionalDenied = denied.some((p) => OPTIONAL_PERMISSIONS.includes(p as any));
+  const hasCriticalDenied = denied.some((p) => CRITICAL_PERMISSIONS.includes(p as any));
+  const deniedOptionalNames = denied
+    .filter((p) => OPTIONAL_PERMISSIONS.includes(p as any))
+    .map((p) => PERMISSION_FRIENDLY_NAMES[p] || p);
+  const deniedCriticalNames = denied
+    .filter((p) => CRITICAL_PERMISSIONS.includes(p as any))
+    .map((p) => PERMISSION_FRIENDLY_NAMES[p] || p);
+
+  return {
+    granted,
+    denied,
+    hasOptionalDenied,
+    hasCriticalDenied,
+    deniedOptionalNames,
+    deniedCriticalNames,
+    canProceed: !hasCriticalDenied, // App can proceed if no critical permissions denied
+  };
 }
 
 /**
  * Open application settings
  */
-export function openAppSettings(): void {
-  Linking.openSettings().catch((err) => {
-    console.error('Could not open settings:', err);
-    Alert.alert(
-      'Unable to Open Settings',
-      'Please open your device settings manually and grant the required permissions for Money Trail.'
-    );
-  });
+export function openAppSettings(): Promise<boolean> {
+  return Linking.openSettings()
+    .then(() => true)
+    .catch((err) => {
+      console.error('Could not open settings:', err);
+      return false;
+    });
 }
 
 /**
- * Handle denied permissions with appropriate UI feedback
+ * Create permission dialog props for use with alert dialog components
  * @param results Permission results from requestAppPermissions
+ * @returns Dialog configuration or null if no action needed
+ */
+export function createPermissionDialogProps(results: PermissionResult): {
+  title: string;
+  description: string;
+  showSettingsButton: boolean;
+  isBlocking: boolean;
+} | null {
+  if (results.canProceed && !results.hasOptionalDenied) {
+    return null; // No dialog needed, all permissions granted
+  }
+
+  if (!results.canProceed) {
+    // Critical permissions denied - blocking dialog
+    return {
+      title: 'Critical Permissions Required',
+      description: `Money Trail requires ${results.deniedCriticalNames.join(', ')} to function properly. Without these permissions, the app cannot work correctly.`,
+      showSettingsButton: true,
+      isBlocking: true,
+    };
+  }
+
+  if (results.hasOptionalDenied && results.deniedOptionalNames.length > 0) {
+    // Optional permissions denied - informational dialog
+    const smsPermissionDenied = results.denied.includes(PermissionsAndroid.PERMISSIONS.READ_SMS);
+
+    if (smsPermissionDenied) {
+      return {
+        title: 'Limited Functionality',
+        description:
+          'Without SMS access, Money Trail cannot automatically track transactions from banking messages. You can still manually add transactions and use all other features.',
+        showSettingsButton: true,
+        isBlocking: false,
+      };
+    }
+
+    return {
+      title: 'Some Features Limited',
+      description: `Some features related to ${results.deniedOptionalNames.join(', ')} will be limited. You can still use the core functionality of the app.`,
+      showSettingsButton: true,
+      isBlocking: false,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Check if SMS permission is granted
+ * @returns Promise resolving to boolean indicating if SMS permission is available
+ */
+export async function hasSMSPermission(): Promise<boolean> {
+  return checkPermission(PermissionsAndroid.PERMISSIONS.READ_SMS);
+}
+
+/**
+ * Handle denied permissions with appropriate UI feedback (legacy function for compatibility)
+ * @deprecated Use createPermissionDialogProps instead for better UX with alert dialogs
  */
 export function handlePermissionResults(results: { granted: string[]; denied: string[] }): void {
-  const { denied } = results;
-
-  if (denied.length === 0) return;
-
-  const hasCriticalDenied = denied.some((p) => CRITICAL_PERMISSIONS.includes(p as any));
-  const deniedNames = denied.map((p) => PERMISSION_FRIENDLY_NAMES[p] || p).join(', ');
-
-  if (hasCriticalDenied) {
-    Alert.alert(
-      'Critical Permissions Denied',
-      `Money Trail requires ${deniedNames} to function properly. Without these permissions, some core features will not work.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Open Settings',
-          onPress: openAppSettings,
-        },
-      ]
-    );
-  } else {
-    Alert.alert(
-      'Some Permissions Denied',
-      `Some features related to ${deniedNames} may be limited.`,
-      [{ text: 'OK', style: 'default' }]
-    );
-  }
+  // Legacy function - now just logs the results
+  console.log('Permission results:', results);
+  console.warn(
+    'handlePermissionResults is deprecated. Use createPermissionDialogProps for better UX.'
+  );
 }

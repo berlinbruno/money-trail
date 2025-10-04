@@ -5,11 +5,11 @@ import { Dimensions, FlatList, RefreshControl, View } from 'react-native';
 import { PieChart } from 'react-native-gifted-charts';
 
 import { AlertCategoryCard, AlertForm } from '@/components/alert';
-import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Label } from '@/components/ui/label';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
 import { ALERT_LABELS, ALERT_TYPE_FREQUENCY_MAP } from '@/constants/alertsConstants';
+import { useDialog } from '@/contexts/DialogProvider';
 import { useToast } from '@/contexts/ToastProvider';
 import {
   createAlert,
@@ -39,12 +39,11 @@ export default function AlertDashboardScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFormSubmitting, setIsFormSubmitting] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [alertToDelete, setAlertToDelete] = useState<string | null>(null);
 
   const theme = useTheme();
   const db = useSQLiteContext();
   const { showToast } = useToast();
+  const { showConfirmationDialog } = useDialog();
   const screenWidth = Dimensions.get('window').width;
   const pieChartRadius = screenWidth / 5;
 
@@ -113,26 +112,31 @@ export default function AlertDashboardScreen() {
     setModalVisible(true);
   };
 
-  const handleDeleteAlert = (alertId: string) => {
-    if (!alertId) return;
-    setAlertToDelete(alertId);
-    setShowDeleteDialog(true);
-  };
+  const handleDeleteAlert = useCallback(
+    (alertId: string) => {
+      if (!alertId) return;
 
-  const confirmDeleteAlert = async () => {
-    if (!alertToDelete) return;
-
-    try {
-      await deleteAlert(db, alertToDelete);
-      await loadAlerts(false); // Silent refresh
-      setAlertToDelete(null);
-      showToast('Alert deleted');
-    } catch (error) {
-      console.error('Failed to delete alert:', error);
-      showToast('Failed to delete alert');
-      throw error; // Let ConfirmationDialog handle the error
-    }
-  };
+      showConfirmationDialog({
+        title: 'Delete Alert',
+        description: 'Are you sure you want to delete this alert? This action cannot be undone.',
+        confirmText: 'Delete',
+        confirmVariant: 'destructive',
+        loadingText: 'Deleting...',
+        onConfirm: async () => {
+          try {
+            await deleteAlert(db, alertId);
+            await loadAlerts(false); // Silent refresh
+            showToast('Alert deleted successfully');
+          } catch (error) {
+            console.error('Failed to delete alert:', error);
+            showToast('Failed to delete alert');
+            throw error; // Let the dialog handle the error state
+          }
+        },
+      });
+    },
+    [db, loadAlerts, showToast, showConfirmationDialog]
+  );
 
   const handleSubmitAlert = async (alert: NewAlert | EditAlert) => {
     setIsFormSubmitting(true);
@@ -282,18 +286,6 @@ export default function AlertDashboardScreen() {
           />
         )}
       </BaseModal>
-
-      {/* Delete Alert Confirmation Dialog */}
-      <ConfirmationDialog
-        open={showDeleteDialog}
-        onOpenChange={setShowDeleteDialog}
-        title="Delete Alert"
-        description={'Are you sure you want to delete this alert? This action cannot be undone.'}
-        confirmText="Delete"
-        confirmVariant="destructive"
-        loadingText="Deleting..."
-        onConfirm={confirmDeleteAlert}
-      />
     </View>
   );
 }

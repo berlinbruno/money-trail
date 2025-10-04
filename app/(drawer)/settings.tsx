@@ -7,21 +7,21 @@ import {
   NotificationCard,
   SyncSettingsCard,
 } from '@/components/settings';
-import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { type Option } from '@/components/ui/select';
 import { APP_VERSION, CURRENCY_OPTIONS } from '@/constants/settingsConstants';
+import { useDialog } from '@/contexts/DialogProvider';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/contexts/ToastProvider';
 import { resetAllData } from '@/lib/database/settingsQueries';
 import { useSQLiteContext } from 'expo-sqlite';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { RefreshControl, ScrollView } from 'react-native';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
   const { showToast } = useToast();
-  const [showResetDataDialog, setShowResetDataDialog] = useState(false);
+  const { showConfirmationDialog } = useDialog();
 
   // Theme context
   const { theme: selectedTheme, setTheme } = useTheme();
@@ -79,8 +79,11 @@ export default function SettingsScreen() {
       }
 
       try {
-        await setBackgroundSyncEnabled(value);
-        showToast(`Background sync ${value ? 'enabled' : 'disabled'}`);
+        const success = await setBackgroundSyncEnabled(value);
+        if (success) {
+          showToast(`Background sync ${value ? 'enabled' : 'disabled'}`);
+        }
+        // If success is false, permission dialog was shown, no toast needed
       } catch (error) {
         console.error('Error saving background sync setting:', error);
         showToast('Failed to save background sync setting');
@@ -156,8 +159,11 @@ export default function SettingsScreen() {
       }
 
       try {
-        await setFetchOnLaunchEnabled(value);
-        showToast(`Fetch on launch ${value ? 'enabled' : 'disabled'}`);
+        const success = await setFetchOnLaunchEnabled(value);
+        if (success) {
+          showToast(`Fetch on launch ${value ? 'enabled' : 'disabled'}`);
+        }
+        // If success is false, permission dialog was shown, no toast needed
       } catch (error) {
         console.error('Error saving fetch on launch setting:', error);
         showToast('Failed to save fetch on launch setting');
@@ -208,19 +214,25 @@ export default function SettingsScreen() {
   );
 
   const handleResetData = useCallback(() => {
-    setShowResetDataDialog(true);
-  }, []);
-
-  const confirmResetData = useCallback(async () => {
-    try {
-      await resetAllData(db);
-      showToast('All transactions, alerts, and notifications have been deleted');
-      setShowResetDataDialog(false);
-    } catch (error) {
-      console.error('Error resetting data:', error);
-      showToast('Unable to reset data. Please try again.');
-    }
-  }, [db, showToast]);
+    showConfirmationDialog({
+      title: 'Reset All Data',
+      description:
+        'This will delete all transactions, alerts, and notifications. Your settings will be preserved. This action cannot be undone.',
+      confirmText: 'Reset',
+      confirmVariant: 'destructive',
+      loadingText: 'Resetting...',
+      onConfirm: async () => {
+        try {
+          await resetAllData(db);
+          showToast('All transactions, alerts, and notifications have been deleted');
+        } catch (error) {
+          console.error('Error resetting data:', error);
+          showToast('Unable to reset data. Please try again.');
+          throw error; // Let the dialog handle the error state
+        }
+      },
+    });
+  }, [db, showToast, showConfirmationDialog]);
 
   const handleExportData = useCallback(() => {
     // These features should be disabled in UI instead of showing error toast
@@ -280,18 +292,6 @@ export default function SettingsScreen() {
       />
 
       <AboutCard appVersion={appVersion} />
-
-      {/* Reset Data Confirmation Dialog */}
-      <ConfirmationDialog
-        open={showResetDataDialog}
-        onOpenChange={setShowResetDataDialog}
-        title="Reset All Data"
-        description="This will delete all transactions, alerts, and notifications. Your settings will be preserved. This action cannot be undone."
-        confirmText="Reset"
-        confirmVariant="destructive"
-        loadingText="Resetting..."
-        onConfirm={confirmResetData}
-      />
     </ScrollView>
   );
 }

@@ -29,6 +29,7 @@ export async function getRecentTransactions(db: SQLiteDatabase, limit = 5): Prom
       date
     FROM transactions
     WHERE pending_approval = 0
+      AND date >= date('now', '-7 days')
     ORDER BY date DESC, id DESC
     LIMIT ?;
   `;

@@ -1,9 +1,9 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import Modal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
+import { useDialog } from '@/contexts/DialogProvider';
 import { useToast } from '@/contexts/ToastProvider';
 import type { AppLog, LogCategory, LogLevel } from '@/lib/database/loggingQueries';
 import {
@@ -51,18 +51,13 @@ export default function LogsScreen() {
   const theme = useTheme();
   const db = useSQLiteContext();
   const { showToast } = useToast();
+  const { showConfirmationDialog } = useDialog();
   const [logs, setLogs] = useState<AppLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | 'all'>('all');
   const [selectedLevel, setSelectedLevel] = useState<LogLevel | 'all'>('all');
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    title: string;
-    description: string;
-    onConfirm: () => Promise<void>;
-  }>({ open: false, title: '', description: '', onConfirm: async () => {} });
 
   const loadLogs = useCallback(
     async (showLoader = true) => {
@@ -103,30 +98,34 @@ export default function LogsScreen() {
   }, [loadLogs]);
 
   const handleClearAllLogs = useCallback(() => {
-    setConfirmDialog({
-      open: true,
+    showConfirmationDialog({
       title: 'Clear All Logs',
       description: 'Are you sure you want to delete all log entries? This action cannot be undone.',
+      confirmText: 'Clear All',
+      confirmVariant: 'destructive',
+      loadingText: 'Clearing...',
       onConfirm: async () => {
         await clearAllLogs(db);
         await loadLogs(false); // Silent refresh
         showToast('All logs cleared');
       },
     });
-  }, [db, loadLogs, showToast]);
+  }, [db, loadLogs, showToast, showConfirmationDialog]);
 
   const handleClearOldLogs = useCallback(() => {
-    setConfirmDialog({
-      open: true,
+    showConfirmationDialog({
       title: 'Clear Old Logs',
       description: 'This will keep only the most recent 50 log entries and delete the rest.',
+      confirmText: 'Clear Old',
+      confirmVariant: 'destructive',
+      loadingText: 'Clearing...',
       onConfirm: async () => {
         await clearOldLogs(db, 50);
         await loadLogs(false); // Silent refresh
         showToast('Old logs cleared');
       },
     });
-  }, [db, loadLogs, showToast]);
+  }, [db, loadLogs, showToast, showConfirmationDialog]);
 
   const [logDetailModal, setLogDetailModal] = useState<{
     visible: boolean;
@@ -197,7 +196,7 @@ export default function LogsScreen() {
   };
 
   const renderFilters = () => (
-    <Card className="mb-4">
+    <Card className="mb-2">
       <CardHeader>
         <CardTitle className="flex-row items-center gap-2">
           <Filter size={20} color={theme.colors.text} />
@@ -266,7 +265,7 @@ export default function LogsScreen() {
   );
 
   const renderActions = () => (
-    <Card className="mb-4">
+    <Card className="mb-2">
       <CardHeader>
         <CardTitle>Actions</CardTitle>
       </CardHeader>
@@ -296,13 +295,12 @@ export default function LogsScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-background"
-      contentContainerStyle={{ padding: 16 }}
+      className="p-2"
       refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}>
       {renderFilters()}
       {renderActions()}
 
-      <Card>
+      <Card className="mb-2">
         <CardHeader>
           <CardTitle>
             Log Entries ({logs.length}){selectedCategory !== 'all' && ` - ${selectedCategory}`}
@@ -321,21 +319,6 @@ export default function LogsScreen() {
           )}
         </CardContent>
       </Card>
-
-      {/* Confirmation Dialog */}
-      <ConfirmationDialog
-        open={confirmDialog.open}
-        onOpenChange={(open) =>
-          setConfirmDialog({ open, title: '', description: '', onConfirm: async () => {} })
-        }
-        title={confirmDialog.title}
-        description={confirmDialog.description}
-        confirmText="Confirm"
-        cancelText="Cancel"
-        confirmVariant="destructive"
-        onConfirm={confirmDialog.onConfirm}
-        loadingText="Processing..."
-      />
 
       {/* Log Detail Modal */}
       <Modal

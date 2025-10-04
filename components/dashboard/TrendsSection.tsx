@@ -13,7 +13,7 @@ export function DashboardTrendsSection({ monthlyTrends }: TrendsSectionProps) {
   }
 
   return (
-    <Card className="mb-4">
+    <Card className="mb-2">
       <CardHeader>
         <CardTitle>Trends</CardTitle>
       </CardHeader>

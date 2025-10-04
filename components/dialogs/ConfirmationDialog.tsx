@@ -10,9 +10,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from './alert-dialog';
-import { Button } from './button';
-import { Text } from './text';
+} from '../ui/alert-dialog';
+import { Button } from '../ui/button';
+import { Text } from '../ui/text';
 
 export interface ConfirmationDialogProps {
   open: boolean;

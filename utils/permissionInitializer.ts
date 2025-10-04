@@ -1,10 +1,11 @@
-import { Alert } from 'react-native';
+import type { PermissionResult } from './permissionUtils';
 
 /**
  * Initialize app permissions at startup
  * Handles permission requests and error scenarios gracefully
+ * @returns Permission results for UI handling
  */
-export async function initializeAppPermissions(): Promise<void> {
+export async function initializeAppPermissions(): Promise<PermissionResult | null> {
   try {
     // Dynamic import for permission utilities to avoid circular dependencies
     const permissionUtils = await import('./permissionUtils');
@@ -12,13 +13,20 @@ export async function initializeAppPermissions(): Promise<void> {
     // Request all required app permissions
     const results = await permissionUtils.requestAppPermissions();
 
-    // Handle any denied permissions with appropriate UI feedback
-    permissionUtils.handlePermissionResults(results);
+    // Return results for the caller to handle UI
+    return results;
   } catch (error) {
     console.warn('Permission request error:', error);
-    Alert.alert(
-      'Permission Error',
-      'There was an error requesting permissions. Some features may not work properly.'
-    );
+
+    // Return a safe default that allows the app to continue
+    return {
+      granted: [],
+      denied: [],
+      hasOptionalDenied: false,
+      hasCriticalDenied: false,
+      deniedOptionalNames: [],
+      deniedCriticalNames: [],
+      canProceed: true,
+    };
   }
 }

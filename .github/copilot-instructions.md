@@ -30,14 +30,16 @@ Stack (Root Layout)
 
 - **Location**: `assets/database/app.db` (bundled), accessed via `expo-sqlite`
 - **WAL Mode**: Enabled for better concurrency (`PRAGMA journal_mode = WAL`)
-- **Key Tables**: transactions, notifications, alerts, config
-- **Queries**: Organized in `lib/database/` with separate files per domain (`transactionQueries.ts`, `dashboardQueries.ts`, etc.)
+- **Key Tables**: transactions, notifications, alerts, config, app_logs
+- **Queries**: Organized in `lib/database/` with separate files per domain (`transactionQueries.ts`, `dashboardQueries.ts`, `loggingQueries.ts`, etc.)
 - **Initialization**: Automatic table creation via `initializeDatabase()` function
 - **Sync Configuration**: Stores sync intervals in minutes (10, 15, 30, 60) for better UX
+- **Connection Management**: `DatabaseConnectionManager` for handling concurrent access and background task isolation
 
 ### State Management Patterns
 
 - **Database Context**: `useSQLiteContext()` hook provides direct SQLite access throughout components
+- **Toast System**: Unified `useToast()` hook with simplified `showToast()` API across all components
 - **Local Component State**: `useState` for UI state, `useCallback` for database operations
 - **Data Fetching**: Async functions with Promise.all for parallel queries on dashboard
 
@@ -67,6 +69,14 @@ npm run type-check   # TypeScript compilation check
 
 ## Key Patterns & Conventions
 
+### Toast System
+
+- **Provider**: `contexts/ToastProvider.tsx` provides unified toast notifications
+- **Usage**: `const { showToast } = useToast()` hook across all components
+- **API**: Simplified `showToast('message')` or `showToast({message, duration, position})`
+- **Implementation**: Native Android `ToastAndroid` with fallback console logging
+- **Best Practices**: Concise, actionable messages; success confirmations; error notifications
+
 ### Folder Organization
 
 - **lib/database/**: All database operations and queries (moved from `lib/db/`)
@@ -79,6 +89,8 @@ npm run type-check   # TypeScript compilation check
 - **utils/asyncStorageHelpers.ts**: AsyncStorage wrapper for settings
 - **utils/dateQueryHelpers.ts**: SQLite date formatting utilities
 - **utils/systemThemeHelpers.ts**: System theme detection utilities
+- **utils/cryptoUtils.ts**: MD5 hashing with expo-crypto fallback for SMS deduplication
+- **contexts/ToastProvider.tsx**: Unified toast notification system with simplified API
 - **contexts/AppProvider.tsx**: Unified context provider combining theme and settings
 
 ### Component Organization
@@ -168,6 +180,8 @@ npm run type-check   # TypeScript compilation check
 - **Storage**: `@/utils/asyncStorageHelpers` (AsyncStorage wrapper for settings)
 - **Theme**: `@/utils/systemThemeHelpers` (system theme detection utilities)
 - **Database Helpers**: `@/utils/dateQueryHelpers` (SQLite date formatting utilities)
+- **Crypto**: `@/utils/cryptoUtils` (MD5 hashing with expo-crypto fallback)
+- **Toast System**: `@/contexts/ToastProvider` (unified toast notifications with `useToast` hook)
 - **UI Components**: `@/components/ui/{component}`
 - **Feature Components**: `@/components/{domain}/{component}`
 
@@ -179,3 +193,4 @@ npm run type-check   # TypeScript compilation check
 - **Type Safety**: Leverage TypeScript interfaces from `types/` folder
 - **Database Consistency**: All queries use minute-based sync intervals
 - **Context Consolidation**: Unified providers in `contexts/AppProvider.tsx`
+- **Toast Consistency**: Use `showToast()` for all user notifications with concise, actionable messages

@@ -3,6 +3,7 @@ import {
   MESSAGE_SCAN_COUNTS,
   SYNC_INTERVALS,
 } from '@/constants/settingsConstants';
+import { useDialog } from '@/contexts/DialogProvider';
 import {
   getAutoApproval,
   getBackSync,
@@ -22,6 +23,7 @@ import {
   setSyncInterval,
 } from '@/lib/database/settingsQueries';
 import { updateTaskConfiguration } from '@/lib/sms/backgroundTask';
+import { hasSMSPermission } from '@/utils/permissionUtils';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -47,19 +49,22 @@ interface SettingsState {
   // Notification settings
   pushNotificationsEnabled: boolean;
 
+  // Permission status
+  hasSMSAccess: boolean;
+
   // Loading states
   isLoading: boolean;
 }
 
 interface SettingsActions {
   // Sync actions
-  setBackgroundSyncEnabled: (enabled: boolean) => Promise<void>;
+  setBackgroundSyncEnabled: (enabled: boolean) => Promise<boolean>;
   setSyncIntervalMinutes: (interval: SyncIntervalType) => Promise<void>;
   setMessageScanCount: (count: MessageScanCountType) => Promise<void>;
   resetLastSyncTime: () => Promise<void>;
 
   // App behavior actions
-  setFetchOnLaunchEnabled: (enabled: boolean) => Promise<void>;
+  setFetchOnLaunchEnabled: (enabled: boolean) => Promise<boolean>;
   setAutoApprovalEnabled: (enabled: boolean) => Promise<void>;
 
   // Currency actions
@@ -82,6 +87,7 @@ interface SettingsProviderProps {
 
 export function SettingsProvider({ children }: SettingsProviderProps) {
   const db = useSQLiteContext();
+  const { showPermissionDialog } = useDialog();
 
   // Sync state
   const [backgroundSyncEnabled, setBackgroundSyncState] = useState(false);
@@ -98,6 +104,9 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
 
   // Notification state
   const [pushNotificationsEnabled, setPushNotificationsState] = useState(false);
+
+  // Permission state
+  const [hasSMSAccess, setHasSMSAccess] = useState(false);
 
   // Loading state
   const [isLoading, setIsLoading] = useState(false);
@@ -117,6 +126,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
           lastSync,
           fetchOnLaunchEnabled,
           autoApprovalEnabled,
+          smsAccess,
         ] = await Promise.all([
           getBackSync(),
           getSyncInterval(),
@@ -126,10 +136,11 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
           getLastSyncTime(),
           getFetchOnLaunch(),
           getAutoApproval(),
+          hasSMSPermission(),
         ]);
 
         // Update all state
-        setBackgroundSyncState(syncEnabled);
+        setBackgroundSyncState(syncEnabled && smsAccess); // Disable if no SMS access
         setSyncIntervalState(syncIntervalMinutes as SyncIntervalType); // Already in minutes
         setMessageScanCountState(messageScanCountValue as MessageScanCountType);
         setSelectedCurrencyState(
@@ -137,8 +148,9 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         );
         setPushNotificationsState(notificationsEnabled);
         setLastSyncTime(lastSync);
-        setFetchOnLaunchState(fetchOnLaunchEnabled);
+        setFetchOnLaunchState(fetchOnLaunchEnabled && smsAccess); // Disable if no SMS access
         setAutoApprovalState(autoApprovalEnabled);
+        setHasSMSAccess(smsAccess);
 
         // Initialize background task configuration on first load
         if (!isRefresh) {
@@ -171,8 +183,20 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
 
   // Sync actions
   const setBackgroundSyncEnabled = useCallback(
-    async (enabled: boolean) => {
+    async (enabled: boolean): Promise<boolean> => {
       try {
+        // Check SMS permission before enabling
+        if (enabled && !hasSMSAccess) {
+          showPermissionDialog({
+            title: 'SMS Permission Required',
+            description:
+              'Background sync requires SMS access to automatically track transactions from banking messages. Please grant SMS permission in app settings to enable this feature.',
+            showSettingsButton: true,
+            isBlocking: false,
+          });
+          return false; // Return false to indicate operation failed
+        }
+
         await setBackSync(enabled);
         setBackgroundSyncState(enabled);
 
@@ -188,12 +212,14 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         } else {
           console.log(`Background sync ${enabled ? 'enabled' : 'disabled'}`);
         }
+
+        return true; // Return true to indicate success
       } catch (error) {
         console.error('Error setting background sync:', error);
         throw error;
       }
     },
-    [db, syncInterval]
+    [db, syncInterval, hasSMSAccess, showPermissionDialog]
   );
 
   const setSyncIntervalMinutes = useCallback(
@@ -285,15 +311,32 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   }, []);
 
   // App behavior actions
-  const setFetchOnLaunchEnabled = useCallback(async (enabled: boolean) => {
-    try {
-      await setFetchOnLaunch(enabled);
-      setFetchOnLaunchState(enabled);
-    } catch (error) {
-      console.error('Error setting fetch on launch:', error);
-      throw error;
-    }
-  }, []);
+  const setFetchOnLaunchEnabled = useCallback(
+    async (enabled: boolean): Promise<boolean> => {
+      try {
+        // Check SMS permission before enabling
+        if (enabled && !hasSMSAccess) {
+          showPermissionDialog({
+            title: 'SMS Permission Required',
+            description:
+              'Fetch on launch requires SMS access to automatically track transactions when the app starts. Please grant SMS permission in app settings to enable this feature.',
+            showSettingsButton: true,
+            isBlocking: false,
+          });
+          return false; // Return false to indicate operation failed
+        }
+
+        await setFetchOnLaunch(enabled);
+        setFetchOnLaunchState(enabled);
+
+        return true; // Return true to indicate success
+      } catch (error) {
+        console.error('Error setting fetch on launch:', error);
+        throw error;
+      }
+    },
+    [hasSMSAccess, showPermissionDialog]
+  );
 
   const setAutoApprovalEnabled = useCallback(async (enabled: boolean) => {
     try {
@@ -320,6 +363,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     autoApproval,
     selectedCurrency,
     pushNotificationsEnabled,
+    hasSMSAccess,
     isLoading,
 
     // Actions

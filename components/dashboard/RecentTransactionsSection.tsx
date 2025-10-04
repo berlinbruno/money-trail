@@ -22,7 +22,7 @@ export function DashboardRecentTransactionsSection({
   return (
     <Card className="mb-2">
       <CardHeader>
-        <CardTitle>Recent Transactions</CardTitle>
+        <CardTitle>Recent Transactions (Last 7 Days)</CardTitle>
       </CardHeader>
       <CardContent>
         {recentTransactions.map((transaction) => (

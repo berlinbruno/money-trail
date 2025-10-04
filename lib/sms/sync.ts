@@ -616,30 +616,71 @@ export async function syncTransactions(
     maxMessages?: number;
     defaultAccount?: string;
     forceApproval?: 0 | 1; // Override auto-approval setting if needed
+    retryAttempts?: number; // Number of retry attempts for database operations
   } = {}
 ): Promise<SyncResult> {
   const startTime = Date.now();
-  const { maxMessages = 200, defaultAccount = 'default', forceApproval } = options;
+  const {
+    maxMessages = 200,
+    defaultAccount = 'default',
+    forceApproval,
+    retryAttempts = 3,
+  } = options;
   const syncKey = `sync_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 
-  try {
-    // Log sync start
-    await logInfo(
-      db,
-      'sms_processing',
-      'SMS sync started',
-      `Starting SMS sync with maxMessages: ${maxMessages}`,
-      {
-        sync_key: syncKey,
-        max_messages: maxMessages,
-        default_account: defaultAccount,
-        force_approval: forceApproval,
-        start_time: new Date().toISOString(),
+  // Retry mechanism for database operations
+  const retryDatabaseOperation = async <T>(
+    operation: () => Promise<T>,
+    operationName: string,
+    attempts = retryAttempts
+  ): Promise<T> => {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+
+        // Check if it's a database busy error
+        if (errorMessage.includes('database is locked') || errorMessage.includes('SQLITE_BUSY')) {
+          if (attempt < attempts) {
+            console.log(
+              `Database busy, retrying ${operationName} (attempt ${attempt}/${attempts})`
+            );
+            // Exponential backoff: 100ms, 200ms, 400ms
+            await new Promise((resolve) => setTimeout(resolve, 100 * Math.pow(2, attempt - 1)));
+            continue;
+          }
+        }
+
+        // If not a retry-able error or max attempts reached, throw
+        throw error;
       }
+    }
+    throw new Error(`Failed after ${attempts} attempts`);
+  };
+
+  try {
+    // Log sync start with retry mechanism
+    await retryDatabaseOperation(
+      () =>
+        logInfo(
+          db,
+          'sms_processing',
+          'SMS sync started',
+          `Starting SMS sync with maxMessages: ${maxMessages}`,
+          {
+            sync_key: syncKey,
+            max_messages: maxMessages,
+            default_account: defaultAccount,
+            force_approval: forceApproval,
+            start_time: new Date().toISOString(),
+          }
+        ),
+      'log sync start'
     );
 
-    // Get last sync time
-    const lastSync = await getLastSyncTime();
+    // Get last sync time with retry
+    const lastSync = await retryDatabaseOperation(() => getLastSyncTime(), 'get last sync time');
     const now = new Date();
 
     console.log('Starting SMS sync...', {
@@ -680,13 +721,17 @@ export async function syncTransactions(
       };
     }
 
-    // Process messages with auto-approval handling
-    const results = await insertSmsBatch(
-      db,
-      messages,
-      defaultAccount,
-      forceApproval, // Will use auto-approval setting if undefined
-      'sms'
+    // Process messages with auto-approval handling and retry mechanism
+    const results = await retryDatabaseOperation(
+      () =>
+        insertSmsBatch(
+          db,
+          messages,
+          defaultAccount,
+          forceApproval, // Will use auto-approval setting if undefined
+          'sms'
+        ),
+      'insert SMS batch'
     );
 
     // Update last sync time if any messages were processed successfully

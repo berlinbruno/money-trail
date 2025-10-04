@@ -4,9 +4,9 @@ import SortForm from '@/components/transaction/SortForm';
 import TransactionCard from '@/components/transaction/TransactionCard';
 import TransactionForm from '@/components/transaction/TransactionForm';
 import { Button } from '@/components/ui/button';
-import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
+import { useDialog } from '@/contexts/DialogProvider';
 import { useToast } from '@/contexts/ToastProvider';
 import { useTheme } from '@react-navigation/native';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -36,6 +36,7 @@ export default function TransactionListScreen() {
   const db = useSQLiteContext();
   const theme = useTheme();
   const { showToast } = useToast();
+  const { showConfirmationDialog } = useDialog();
 
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -45,8 +46,6 @@ export default function TransactionListScreen() {
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction>();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
   const [filterState, setFilterState] = useState<FilterState>({
     search: '',
     type: 'all',
@@ -93,26 +92,32 @@ export default function TransactionListScreen() {
     }
   };
 
-  const handleDeleteTransaction = (id: string) => {
-    if (!id) return;
-    setTransactionToDelete(id);
-    setShowDeleteDialog(true);
-  };
+  const handleDeleteTransaction = useCallback(
+    (id: string) => {
+      if (!id) return;
 
-  const confirmDeleteTransaction = async () => {
-    if (!transactionToDelete) return;
-
-    try {
-      await deleteTransaction(db, transactionToDelete);
-      await fetchTransactions(false); // Silent refresh
-      setTransactionToDelete(null);
-      showToast('Transaction has been removed');
-    } catch (err) {
-      console.error('Failed to delete transaction:', err);
-      showToast('Unable to delete transaction');
-      throw err; // Let ConfirmationDialog handle the error
-    }
-  };
+      showConfirmationDialog({
+        title: 'Delete Transaction',
+        description:
+          'Are you sure you want to delete this transaction? This action cannot be undone.',
+        confirmText: 'Delete',
+        confirmVariant: 'destructive',
+        loadingText: 'Deleting...',
+        onConfirm: async () => {
+          try {
+            await deleteTransaction(db, id);
+            await fetchTransactions(false); // Silent refresh
+            showToast('Transaction has been removed');
+          } catch (err) {
+            console.error('Failed to delete transaction:', err);
+            showToast('Unable to delete transaction');
+            throw err; // Let the dialog handle the error state
+          }
+        },
+      });
+    },
+    [db, fetchTransactions, showToast, showConfirmationDialog]
+  );
 
   // Initialize date preset once
   useEffect(() => {
@@ -218,20 +223,6 @@ export default function TransactionListScreen() {
           onClose={() => setShowSortModal(false)}
         />
       </BaseModal>
-
-      {/* Delete Transaction Confirmation Dialog */}
-      <ConfirmationDialog
-        open={showDeleteDialog}
-        onOpenChange={setShowDeleteDialog}
-        title="Delete Transaction"
-        description={
-          'Are you sure you want to delete this transaction? This action cannot be undone.'
-        }
-        confirmText="Delete"
-        confirmVariant="destructive"
-        loadingText="Deleting..."
-        onConfirm={confirmDeleteTransaction}
-      />
 
       {/* Bottom Toolbar */}
       <View className="flex-row items-center justify-evenly border-t border-border bg-background">

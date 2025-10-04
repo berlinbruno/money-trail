@@ -98,7 +98,7 @@ export async function resetLastSyncTime(): Promise<void> {
 
 export async function getFetchOnLaunch(): Promise<boolean> {
   const value = await getSettingsValue('fetch_on_launch');
-  return value === 'false';
+  return value === 'true';
 }
 
 export async function setFetchOnLaunch(enabled: boolean) {
@@ -107,7 +107,7 @@ export async function setFetchOnLaunch(enabled: boolean) {
 
 export async function getAutoApproval(): Promise<boolean> {
   const value = await getSettingsValue('auto_approval');
-  return value === 'false';
+  return value === 'true';
 }
 
 export async function setAutoApproval(enabled: boolean) {
@@ -173,6 +173,9 @@ export async function resetAllData(db: SQLiteDatabase): Promise<void> {
 
       // Commit transaction
       await db.runAsync('COMMIT');
+
+      // Reset last sync time after successful database operation
+      await resetLastSyncTime();
 
       console.log('Successfully reset all user data (preserving settings)');
     } catch (innerError) {
@@ -315,6 +318,9 @@ export async function clearAllData(db: SQLiteDatabase): Promise<void> {
 
     // Reset settings to defaults instead of clearing them completely
     await resetSettingsToDefaults();
+
+    // Reset last sync time
+    await resetLastSyncTime();
   } catch (error) {
     console.error('Error clearing all data:', error);
     throw error;

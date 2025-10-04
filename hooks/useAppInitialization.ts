@@ -3,10 +3,11 @@ import {
   getAlertsWithProgress,
   insertAlertNotifications,
 } from '@/lib/database/notificationQueries';
-import { getFetchOnLaunch } from '@/lib/database/settingsQueries';
+import { getFetchOnLaunch, setBackSync, setFetchOnLaunch } from '@/lib/database/settingsQueries';
 import { initializeBackgroundTask } from '@/lib/sms/backgroundTask';
 import { syncTransactions } from '@/lib/sms/sync';
 import { initializeAppPermissions } from '@/utils/permissionInitializer';
+import { createPermissionDialogProps, hasSMSPermission } from '@/utils/permissionUtils';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -19,6 +20,13 @@ export const useAppInitialization = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [permissionDialogProps, setPermissionDialogProps] = useState<{
+    title: string;
+    description: string;
+    showSettingsButton: boolean;
+    isBlocking: boolean;
+  } | null>(null);
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
 
   const initializeApp = useCallback(async () => {
     try {
@@ -28,18 +36,43 @@ export const useAppInitialization = () => {
       // Initialize database
       await initializeTables(db);
 
-      // Request permissions
-      await initializeAppPermissions();
+      // Request permissions and handle results
+      const permissionResults = await initializeAppPermissions();
 
-      // Initialize background task
+      if (permissionResults) {
+        const dialogProps = createPermissionDialogProps(permissionResults);
+        if (dialogProps) {
+          setPermissionDialogProps(dialogProps);
+          setShowPermissionDialog(true);
+        }
+
+        // App can continue if critical permissions not denied
+        if (!permissionResults.canProceed) {
+          setError('Critical permissions required to continue');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Check SMS permission and disable SMS-dependent features if not available
+      const hasSMSAccess = await hasSMSPermission();
+
+      if (!hasSMSAccess) {
+        console.log('SMS permission not granted - disabling SMS-dependent features');
+        // Disable background sync and fetch on launch since they require SMS access
+        await setBackSync(false);
+        await setFetchOnLaunch(false);
+      }
+
+      // Initialize background task (will respect the SMS permission settings)
       const promise = Promise.resolve();
       await initializeBackgroundTask(promise);
 
-      // Check if SMS fetch on launch is enabled
+      // Check if SMS fetch on launch is enabled and SMS permission is available
       const fetchOnLaunchEnabled = await getFetchOnLaunch();
 
-      // Start SMS sync only if fetch on launch is enabled
-      if (fetchOnLaunchEnabled) {
+      // Start SMS sync only if fetch on launch is enabled AND SMS permission is granted
+      if (fetchOnLaunchEnabled && hasSMSAccess) {
         setTimeout(() => {
           syncTransactions(db).catch(console.error);
         }, 100);
@@ -73,5 +106,8 @@ export const useAppInitialization = () => {
     isLoading,
     error,
     retry: initializeApp,
+    permissionDialogProps,
+    showPermissionDialog,
+    setShowPermissionDialog,
   };
 };
