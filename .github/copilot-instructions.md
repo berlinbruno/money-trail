@@ -35,7 +35,7 @@ Stack (Root Layout)
 - **Key Tables**: transactions, notifications, alerts, config, app_logs
 - **Queries**: Organized in `lib/database/` with separate files per domain
 - **Initialization**: Automatic table creation via `initializeDatabase()` function
-- **Sync Configuration**: Stores sync intervals and app settings in `config` table
+- **Sync Configuration**: Stores sync intervals and app settings in `app_logs` table
 
 ### State Management Patterns
 
@@ -112,7 +112,7 @@ npm run lint:fix     # Auto-fix linting issues
 
 - **Query Functions**: Return typed results with proper error handling
 - **Transactions**: Use database transactions for related operations
-- **Config Storage**: App settings and sync state in `config` table
+- **Config Storage**: App settings and sync state in `app_logs` table
 - **Type Safety**: Full TypeScript support for all database operations
 
 ### SMS Processing Specifics
@@ -150,7 +150,7 @@ npm run lint:fix     # Auto-fix linting issues
 
 ### Background Tasks
 
-**Debugging**: Check registration status and monitor logs in `config` table
+**Debugging**: Check registration status and monitor logs in `app_logs` table
 
 **Testing**: Use `executeTask()` function in `lib/sms/backgroundTask.ts`
 
