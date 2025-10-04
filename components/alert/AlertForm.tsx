@@ -59,8 +59,18 @@ const AlertForm: React.FC<AlertFormProps> = ({
 
   const isValid = useMemo(() => {
     const amt = parseFloat(threshold.trim());
-    return !isNaN(amt) && amt > 0 && !!category && availableCategories?.includes(category);
-  }, [threshold, category, availableCategories]);
+    const isAmountValid = !isNaN(amt) && amt > 0;
+    const isCategoryValid =
+      !!category &&
+      (isEditMode || // In edit mode, allow existing category
+        availableCategories?.includes(category)); // In create mode, category must be in available list
+
+    // Check if values have changed from original (only in edit mode)
+    const hasChanges =
+      isEditMode && alert ? amt !== alert.threshold || category !== alert.category : true; // Always allow save in create mode
+
+    return isAmountValid && isCategoryValid && hasChanges;
+  }, [threshold, category, availableCategories, isEditMode, alert]);
 
   const handleSave = useCallback(() => {
     if (!isValid) return;
@@ -165,10 +175,12 @@ const AlertForm: React.FC<AlertFormProps> = ({
                   <View className="mr-2 animate-spin">
                     <Loader2 size={16} color={theme.colors.text} />
                   </View>
-                  <Text className="text-primary-foreground">Saving...</Text>
+                  <Text className="text-primary-foreground">
+                    {isEditMode ? 'Updating...' : 'Saving...'}
+                  </Text>
                 </View>
               ) : (
-                <Text>Save</Text>
+                <Text>{isEditMode ? 'Update' : 'Save'}</Text>
               )}
             </Button>
             <Button variant="secondary" className="flex-1" onPress={onClose} disabled={isLoading}>

@@ -7,7 +7,7 @@ import { useToastHelpers } from '@/contexts/ToastProvider';
 import { getRecentTaskExecutionLogs } from '@/lib/database/loggingQueries';
 import {
   DEFAULT_TASK_CONFIG,
-  getTaskConfig,
+  getTaskStatus,
   initializeBackgroundTask,
 } from '@/lib/sms/backgroundTask';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -28,6 +28,7 @@ export default function BackgroundTaskScreen() {
   const [registeredTasks, setRegisteredTasks] = useState<TaskManager.TaskManagerTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [taskConfig, setTaskConfig] = useState({ ...DEFAULT_TASK_CONFIG });
+  const [lastExecutionTime, setLastExecutionTime] = useState<string | null>(null);
   const [performanceMetrics, setPerformanceMetrics] = useState({
     avgExecutionTime: 0,
     successRate: 100,
@@ -36,66 +37,72 @@ export default function BackgroundTaskScreen() {
   });
   const appState = useRef(AppState.currentState);
 
-  const loadRegisteredTasks = useCallback(async () => {
+  const loadTaskStatus = useCallback(async () => {
     try {
-      const tasks = await TaskManager.getRegisteredTasksAsync();
-      setRegisteredTasks(tasks);
+      const taskStatus = await getTaskStatus();
+      setRegisteredTasks(
+        taskStatus.registeredTasks.length > 0
+          ? taskStatus.registeredTasks
+          : await TaskManager.getRegisteredTasksAsync()
+      );
+      setTaskConfig(taskStatus.config);
     } catch (error) {
-      console.error('Error loading registered tasks:', error);
+      console.error('Error loading task status:', error);
       showError({
-        title: 'Task Loading Failed',
-        description: 'Unable to load background task information',
-      });
-    }
-  }, [showError]);
-
-  const loadTaskConfig = useCallback(async () => {
-    try {
-      const config = await getTaskConfig();
-      setTaskConfig(config);
-    } catch (error) {
-      console.error('Error loading task config:', error);
-      showError({
-        title: 'Config Loading Failed',
-        description: 'Unable to load task configuration',
+        title: 'Task Status Loading Failed',
+        description: 'Unable to load background task status',
       });
     }
   }, [showError]);
 
   const loadPerformanceMetrics = useCallback(async () => {
     try {
+      // Get task execution logs for metrics
       const logs = await getRecentTaskExecutionLogs(db);
       const taskLogs = logs.filter((log) => log.category === 'task_execution');
 
+      // Set last execution time from most recent log
+      if (taskLogs.length > 0) {
+        const lastLog = taskLogs[0];
+        setLastExecutionTime(new Date(lastLog.timestamp).toLocaleString());
+      } else {
+        setLastExecutionTime(null);
+      }
+
       if (taskLogs.length === 0) {
+        setPerformanceMetrics({
+          avgExecutionTime: 0,
+          successRate: 100,
+          totalRuns: 0,
+          totalMessages: 0,
+        });
         return;
       }
 
       // Calculate metrics from logs
-      const successfulRuns = taskLogs.filter((log) => log.log_level !== 'error').length;
-      const totalRuns = taskLogs.length;
-      const successRate = totalRuns > 0 ? (successfulRuns / totalRuns) * 100 : 100;
-
-      // Extract execution times and message counts from log details
+      let successfulRuns = 0;
       let totalExecutionTime = 0;
       let totalMessages = 0;
       let validExecutions = 0;
 
+      successfulRuns = taskLogs.filter((log) => log.log_level !== 'error').length;
       taskLogs.forEach((log) => {
         try {
-          const details = JSON.parse(log.details || '{}');
-          if (details.executionTimeMs) {
-            totalExecutionTime += details.executionTimeMs;
+          const metadata = log.metadata ? JSON.parse(log.metadata) : {};
+          if (metadata.executionTimeMs || metadata.execution_time_ms) {
+            totalExecutionTime += metadata.executionTimeMs || metadata.execution_time_ms;
             validExecutions++;
           }
-          if (details.messageCount) {
-            totalMessages += details.messageCount;
+          if (metadata.messageCount || metadata.messages_processed) {
+            totalMessages += metadata.messageCount || metadata.messages_processed;
           }
         } catch {
           // Ignore parsing errors
         }
       });
 
+      const totalRuns = taskLogs.length;
+      const successRate = totalRuns > 0 ? (successfulRuns / totalRuns) * 100 : 100;
       const avgExecutionTime = validExecutions > 0 ? totalExecutionTime / validExecutions : 0;
 
       setPerformanceMetrics({
@@ -116,7 +123,7 @@ export default function BackgroundTaskScreen() {
   const refreshAllData = useCallback(async () => {
     setIsLoading(true);
     try {
-      await Promise.all([loadRegisteredTasks(), loadTaskConfig(), loadPerformanceMetrics()]);
+      await Promise.all([loadTaskStatus(), loadPerformanceMetrics()]);
       // Silent refresh - no toast needed for pull-to-refresh
     } catch (error) {
       console.error('Error refreshing data:', error);
@@ -124,7 +131,7 @@ export default function BackgroundTaskScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [loadRegisteredTasks, loadTaskConfig, loadPerformanceMetrics]);
+  }, [loadTaskStatus, loadPerformanceMetrics]);
 
   useEffect(() => {
     // Resolve when inner app is mounted
@@ -161,10 +168,9 @@ export default function BackgroundTaskScreen() {
       <BackgroundTaskSummaryCard
         registeredTasks={registeredTasks}
         taskConfig={taskConfig}
-        lastExecutionTime={null}
-        taskHistoryLength={0}
+        lastExecutionTime={lastExecutionTime}
       />
-      <PerformanceMetricsCard performanceMetrics={performanceMetrics} taskHistoryLength={0} />
+      <PerformanceMetricsCard performanceMetrics={performanceMetrics} />
       <RegisteredTasksCard registeredTasks={registeredTasks} />
     </ScrollView>
   );

@@ -1,6 +1,8 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import Modal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
 import { useToastHelpers } from '@/contexts/ToastProvider';
 import type { AppLog, LogCategory, LogLevel } from '@/lib/database/loggingQueries';
@@ -10,29 +12,19 @@ import {
   getAllLogs,
   getLogsByCategory,
   getLogsByLevel,
-  getLogStatsByCategory,
 } from '@/lib/database/loggingQueries';
 import { useTheme } from '@react-navigation/native';
 import { useSQLiteContext } from 'expo-sqlite';
-import {
-  AlertCircle,
-  AlertTriangle,
-  Bug,
-  Filter,
-  Info,
-  RefreshCw,
-  Trash2,
-  Zap,
-} from 'lucide-react-native';
+import { AlertCircle, AlertTriangle, Bug, Filter, Info, Trash2, Zap } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, TouchableOpacity, View } from 'react-native';
 
 const LOG_LEVEL_COLORS = {
-  debug: 'bg-gray-100 text-gray-800',
-  info: 'bg-blue-100 text-blue-800',
-  warn: 'bg-yellow-100 text-yellow-800',
-  error: 'bg-red-100 text-red-800',
-  critical: 'bg-red-200 text-red-900',
+  debug: 'bg-gray-500',
+  info: 'bg-blue-500',
+  warn: 'bg-yellow-500',
+  error: 'bg-red-500',
+  critical: 'bg-red-600',
 };
 
 const LOG_LEVEL_ICONS = {
@@ -44,15 +36,15 @@ const LOG_LEVEL_ICONS = {
 };
 
 const CATEGORY_COLORS = {
-  task_execution: 'bg-purple-100 text-purple-800',
-  sms_processing: 'bg-green-100 text-green-800',
-  transaction: 'bg-blue-100 text-blue-800',
-  database: 'bg-orange-100 text-orange-800',
-  auth: 'bg-red-100 text-red-800',
-  notification: 'bg-yellow-100 text-yellow-800',
-  system: 'bg-gray-100 text-gray-800',
-  error: 'bg-red-100 text-red-800',
-  debug: 'bg-gray-100 text-gray-800',
+  task_execution: 'bg-purple-500',
+  sms_processing: 'bg-green-500',
+  transaction: 'bg-blue-500',
+  database: 'bg-orange-500',
+  auth: 'bg-red-500',
+  notification: 'bg-yellow-500',
+  system: 'bg-gray-500',
+  error: 'bg-red-500',
+  debug: 'bg-gray-500',
 };
 
 export default function LogsScreen() {
@@ -60,11 +52,17 @@ export default function LogsScreen() {
   const db = useSQLiteContext();
   const { showSuccess, showError } = useToastHelpers();
   const [logs, setLogs] = useState<AppLog[]>([]);
-  const [stats, setStats] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | 'all'>('all');
   const [selectedLevel, setSelectedLevel] = useState<LogLevel | 'all'>('all');
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => Promise<void>;
+  }>({ open: false, title: '', description: '', onConfirm: async () => {} });
 
   const loadLogs = useCallback(
     async (showLoader = true) => {
@@ -86,16 +84,14 @@ export default function LogsScreen() {
           logsResult = await getAllLogs(db, 100);
         }
 
-        const statsResult = await getLogStatsByCategory(db);
-
         setLogs(logsResult);
-        setStats(statsResult);
-      } catch (error) {
-        console.error('Failed to load logs:', error);
+      } catch {
         showError({
           title: 'Loading Failed',
           description: 'Unable to load log data',
         });
+        // Set empty array to prevent infinite loading
+        setLogs([]);
       } finally {
         if (showLoader) setIsLoading(false);
         setIsRefreshing(false);
@@ -106,109 +102,72 @@ export default function LogsScreen() {
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
-    loadLogs(false); // Don't double-set loading state
-    // Silent refresh - no toast needed for pull-to-refresh
+    loadLogs(false); // Don't show loading spinner, just refresh
   }, [loadLogs]);
 
   const handleClearAllLogs = useCallback(() => {
-    Alert.alert(
-      'Clear All Logs',
-      'Are you sure you want to delete all log entries? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear All',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await clearAllLogs(db);
-              await loadLogs(false); // Silent refresh
-              showSuccess({
-                title: 'Logs Cleared',
-                description: 'All log entries have been deleted',
-              });
-            } catch (error) {
-              console.error('Failed to clear logs:', error);
-              showError({
-                title: 'Clear Failed',
-                description: 'Unable to clear log entries',
-              });
-            }
-          },
-        },
-      ]
-    );
-  }, [db, loadLogs, showSuccess, showError]);
+    setConfirmDialog({
+      open: true,
+      title: 'Clear All Logs',
+      description: 'Are you sure you want to delete all log entries? This action cannot be undone.',
+      onConfirm: async () => {
+        await clearAllLogs(db);
+        await loadLogs(false); // Silent refresh
+        showSuccess({
+          title: 'Logs Cleared',
+          description: 'All log entries have been deleted',
+        });
+      },
+    });
+  }, [db, loadLogs, showSuccess]);
 
   const handleClearOldLogs = useCallback(() => {
-    Alert.alert(
-      'Clear Old Logs',
-      'This will keep only the most recent 50 log entries and delete the rest.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear Old',
-          style: 'default',
-          onPress: async () => {
-            try {
-              await clearOldLogs(db, 50);
-              await loadLogs(false); // Silent refresh
-              showSuccess({
-                title: 'Old Logs Cleared',
-                description: 'Kept only the most recent 50 entries',
-              });
-            } catch (error) {
-              console.error('Failed to clear old logs:', error);
-              showError({
-                title: 'Clear Failed',
-                description: 'Unable to clear old log entries',
-              });
-            }
-          },
-        },
-      ]
-    );
-  }, [db, loadLogs, showSuccess, showError]);
+    setConfirmDialog({
+      open: true,
+      title: 'Clear Old Logs',
+      description: 'This will keep only the most recent 50 log entries and delete the rest.',
+      onConfirm: async () => {
+        await clearOldLogs(db, 50);
+        await loadLogs(false); // Silent refresh
+        showSuccess({
+          title: 'Old Logs Cleared',
+          description: 'Kept only the most recent 50 entries',
+        });
+      },
+    });
+  }, [db, loadLogs, showSuccess]);
+
+  const [logDetailModal, setLogDetailModal] = useState<{
+    visible: boolean;
+    log: AppLog | null;
+  }>({ visible: false, log: null });
 
   const handleLogDetail = useCallback((log: AppLog) => {
-    let metadata = {};
-    try {
-      metadata = log.metadata ? JSON.parse(log.metadata) : {};
-    } catch {
-      metadata = {};
-    }
-
-    const details = [
-      `ID: ${log.id}`,
-      `Key: ${log.log_key}`,
-      `Category: ${log.category}`,
-      `Level: ${log.log_level}`,
-      `Status: ${log.status}`,
-      `Timestamp: ${new Date(log.timestamp).toLocaleString()}`,
-      `Message: ${log.message || 'N/A'}`,
-      log.details ? `Details: ${log.details}` : null,
-      Object.keys(metadata).length > 0 ? `Metadata: ${JSON.stringify(metadata, null, 2)}` : null,
-    ]
-      .filter(Boolean)
-      .join('\n\n');
-
-    Alert.alert(`Log Entry Details`, details, [{ text: 'Close', onPress: () => {} }]);
+    setLogDetailModal({ visible: true, log });
   }, []);
 
   // Load logs on mount and when filters change
   useEffect(() => {
-    loadLogs(false); // Silent initial load
+    if (isInitialLoad) {
+      // Show loading spinner only on initial mount
+      loadLogs(true);
+      setIsInitialLoad(false);
+    } else {
+      // Silent loading for filter changes
+      loadLogs(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory, selectedLevel]); // Safe to disable - loadLogs is stable
+  }, [selectedCategory, selectedLevel]);
 
   const renderLogEntry = (log: AppLog, index: number) => {
     const LevelIcon = LOG_LEVEL_ICONS[log.log_level];
 
     return (
       <TouchableOpacity key={log.id || index} onPress={() => handleLogDetail(log)}>
-        <View className="mb-2 rounded-lg border border-border bg-card p-3">
-          <View className="mb-2 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2">
+        <Card className="mb-2">
+          <CardContent className="p-3">
+            {/* First row: Badges */}
+            <View className="mb-2 flex-row items-center gap-2">
               <LevelIcon size={16} color={theme.colors.text} />
               <Badge className={LOG_LEVEL_COLORS[log.log_level]}>
                 <Text className="text-xs font-medium">{log.log_level.toUpperCase()}</Text>
@@ -217,24 +176,31 @@ export default function LogsScreen() {
                 <Text className="text-xs">{log.category}</Text>
               </Badge>
             </View>
-            <Text className="text-xs text-muted-foreground">
-              {new Date(log.timestamp).toLocaleString()}
-            </Text>
-          </View>
 
-          <Text className="mb-1 font-medium">{log.message || 'No message'}</Text>
+            {/* Second row: Date */}
+            <View className="mb-2">
+              <Text className="text-xs text-muted-foreground">
+                {new Date(log.timestamp).toLocaleString()}
+              </Text>
+            </View>
 
-          {log.details && (
-            <Text className="mb-1 text-sm text-muted-foreground" numberOfLines={2}>
-              {log.details}
-            </Text>
-          )}
+            {/* Message */}
+            <Text className="mb-1 font-medium">{log.message || 'No message'}</Text>
 
-          <View className="flex-row items-center justify-between">
-            <Text className="text-xs text-muted-foreground">Status: {log.status}</Text>
-            <Text className="text-xs text-muted-foreground">Key: {log.log_key}</Text>
-          </View>
-        </View>
+            {/* Details (if exists) */}
+            {log.details && (
+              <Text className="mb-1 text-sm text-muted-foreground" numberOfLines={2}>
+                {log.details}
+              </Text>
+            )}
+
+            {/* Footer: Status and Key */}
+            <View className="flex-row items-center justify-between">
+              <Text className="text-xs text-muted-foreground">Status: {log.status}</Text>
+              <Text className="text-xs text-muted-foreground">Key: {log.log_key}</Text>
+            </View>
+          </CardContent>
+        </Card>
       </TouchableOpacity>
     );
   };
@@ -308,40 +274,6 @@ export default function LogsScreen() {
     </Card>
   );
 
-  const renderStats = () => (
-    <Card className="mb-4">
-      <CardHeader>
-        <CardTitle>Log Statistics</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {stats.length > 0 ? (
-          stats.map((stat, index) => (
-            <View
-              key={index}
-              className="flex-row items-center justify-between border-b border-border py-2 last:border-b-0">
-              <Text className="font-medium">{stat.category}</Text>
-              <View className="flex-row items-center gap-2">
-                <Text className="text-sm text-muted-foreground">{stat.total_count} total</Text>
-                {stat.error_count > 0 && (
-                  <Badge className="bg-red-100 text-red-800">
-                    <Text className="text-xs">{stat.error_count} errors</Text>
-                  </Badge>
-                )}
-                {stat.warning_count > 0 && (
-                  <Badge className="bg-yellow-100 text-yellow-800">
-                    <Text className="text-xs">{stat.warning_count} warns</Text>
-                  </Badge>
-                )}
-              </View>
-            </View>
-          ))
-        ) : (
-          <Text className="italic text-muted-foreground">No log statistics available</Text>
-        )}
-      </CardContent>
-    </Card>
-  );
-
   const renderActions = () => (
     <Card className="mb-4">
       <CardHeader>
@@ -349,22 +281,16 @@ export default function LogsScreen() {
       </CardHeader>
       <CardContent className="gap-2">
         <View className="flex-row gap-2">
-          <Button onPress={handleRefresh} className="flex-1" disabled={isRefreshing}>
-            <View className="flex-row items-center justify-center gap-2">
-              <RefreshCw size={16} color="white" />
-              <Text className="text-white">Refresh</Text>
-            </View>
-          </Button>
           <Button onPress={handleClearOldLogs} variant="secondary" className="flex-1">
             <Text>Clear Old</Text>
           </Button>
+          <Button onPress={handleClearAllLogs} variant="destructive" className="flex-1">
+            <View className="flex-row items-center justify-center gap-2">
+              <Trash2 size={16} color="white" />
+              <Text className="text-white">Clear All</Text>
+            </View>
+          </Button>
         </View>
-        <Button onPress={handleClearAllLogs} variant="destructive">
-          <View className="flex-row items-center justify-center gap-2">
-            <Trash2 size={16} color="white" />
-            <Text className="text-white">Clear All Logs</Text>
-          </View>
-        </Button>
       </CardContent>
     </Card>
   );
@@ -380,9 +306,8 @@ export default function LogsScreen() {
   return (
     <ScrollView
       className="flex-1 bg-background"
-      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
-      contentContainerStyle={{ padding: 16 }}>
-      {renderStats()}
+      contentContainerStyle={{ padding: 16 }}
+      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}>
       {renderFilters()}
       {renderActions()}
 
@@ -393,7 +318,7 @@ export default function LogsScreen() {
             {selectedLevel !== 'all' && ` - ${selectedLevel}`}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-1">
           {logs.length > 0 ? (
             logs.map((log, index) => renderLogEntry(log, index))
           ) : (
@@ -405,6 +330,92 @@ export default function LogsScreen() {
           )}
         </CardContent>
       </Card>
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) =>
+          setConfirmDialog({ open, title: '', description: '', onConfirm: async () => {} })
+        }
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        confirmText="Confirm"
+        cancelText="Cancel"
+        confirmVariant="destructive"
+        onConfirm={confirmDialog.onConfirm}
+        loadingText="Processing..."
+      />
+
+      {/* Log Detail Modal */}
+      <Modal
+        visible={logDetailModal.visible}
+        onClose={() => setLogDetailModal({ visible: false, log: null })}
+        title="Log Entry Details">
+        <View className="max-h-72 pt-4">
+          <ScrollView>
+            {logDetailModal.log &&
+              (() => {
+                let metadata = {};
+                try {
+                  metadata = logDetailModal.log.metadata
+                    ? JSON.parse(logDetailModal.log.metadata)
+                    : {};
+                } catch {
+                  metadata = {};
+                }
+
+                return (
+                  <View className="gap-3">
+                    <View>
+                      <Text className="text-sm font-semibold">ID:</Text>
+                      <Text className="text-sm">{logDetailModal.log.id}</Text>
+                    </View>
+                    <View>
+                      <Text className="text-sm font-semibold">Key:</Text>
+                      <Text className="text-sm">{logDetailModal.log.log_key}</Text>
+                    </View>
+                    <View>
+                      <Text className="text-sm font-semibold">Category:</Text>
+                      <Text className="text-sm">{logDetailModal.log.category}</Text>
+                    </View>
+                    <View>
+                      <Text className="text-sm font-semibold">Level:</Text>
+                      <Text className="text-sm">{logDetailModal.log.log_level}</Text>
+                    </View>
+                    <View>
+                      <Text className="text-sm font-semibold">Status:</Text>
+                      <Text className="text-sm">{logDetailModal.log.status}</Text>
+                    </View>
+                    <View>
+                      <Text className="text-sm font-semibold">Timestamp:</Text>
+                      <Text className="text-sm">
+                        {new Date(logDetailModal.log.timestamp).toLocaleString()}
+                      </Text>
+                    </View>
+                    <View>
+                      <Text className="text-sm font-semibold">Message:</Text>
+                      <Text className="text-sm">{logDetailModal.log.message || 'N/A'}</Text>
+                    </View>
+                    {logDetailModal.log.details && (
+                      <View>
+                        <Text className="text-sm font-semibold">Details:</Text>
+                        <Text className="text-sm">{logDetailModal.log.details}</Text>
+                      </View>
+                    )}
+                    {Object.keys(metadata).length > 0 && (
+                      <View>
+                        <Text className="text-sm font-semibold">Metadata:</Text>
+                        <Text className="font-mono text-xs">
+                          {JSON.stringify(metadata, null, 2)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })()}
+          </ScrollView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

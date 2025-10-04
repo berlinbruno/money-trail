@@ -10,7 +10,7 @@ interface PerformanceMetricsCardProps {
     totalRuns: number;
     totalMessages: number;
   };
-  taskHistoryLength: number;
+  taskHistoryLength?: number;
 }
 
 export const PerformanceMetricsCard: React.FC<PerformanceMetricsCardProps> = ({
@@ -23,7 +23,7 @@ export const PerformanceMetricsCard: React.FC<PerformanceMetricsCardProps> = ({
         <CardTitle>Performance Metrics</CardTitle>
       </CardHeader>
       <CardContent>
-        {taskHistoryLength > 0 ? (
+        {(taskHistoryLength || 0) > 0 ? (
           <>
             <View className="flex-row justify-between border-b border-border py-2">
               <Text className="font-medium">Success Rate:</Text>

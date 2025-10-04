@@ -40,6 +40,7 @@ interface Props {
 }
 
 const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) => {
+  const isEditMode = Boolean(transaction);
   const theme = useTheme();
 
   const [amount, setAmount] = useState('');
@@ -76,7 +77,7 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
 
   const isValid = useMemo(() => {
     const amt = parseFloat(amount.trim());
-    return (
+    const isFormValid =
       !isNaN(amt) &&
       amt > 0 &&
       title.trim().length > 0 &&
@@ -85,9 +86,22 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
       (type === 'credit'
         ? CREDIT_CATEGORIES.includes(category as CreditCategory)
         : DEBIT_CATEGORIES.includes(category as DebitCategory)) &&
-      TRANSACTION_MODES.includes(mode)
-    );
-  }, [amount, title, category, mode, type]);
+      TRANSACTION_MODES.includes(mode);
+
+    // Check if values have changed from original (only in edit mode)
+    const hasChanges =
+      isEditMode && transaction
+        ? amt !== transaction.amount ||
+          title.trim() !== transaction.title ||
+          type !== transaction.type ||
+          category !== transaction.category ||
+          mode !== (transaction.mode ?? 'other') ||
+          date.toISOString() !==
+            (transaction.date ? new Date(transaction.date).toISOString() : new Date().toISOString())
+        : true; // Always allow save in create mode
+
+    return isFormValid && hasChanges;
+  }, [amount, title, category, mode, type, date, isEditMode, transaction]);
 
   const handleSubmit = useCallback(async () => {
     if (!isValid) return;
@@ -231,10 +245,12 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
                   <View className="mr-2 animate-spin">
                     <Loader2 size={16} color={theme.colors.text} />
                   </View>
-                  <Text className="text-primary-foreground">Saving...</Text>
+                  <Text className="text-primary-foreground">
+                    {isEditMode ? 'Updating...' : 'Saving...'}
+                  </Text>
                 </View>
               ) : (
-                <Text>Save</Text>
+                <Text>{isEditMode ? 'Update' : 'Save'}</Text>
               )}
             </Button>
             <Button variant="secondary" className="flex-1" onPress={onCancel} disabled={isLoading}>
