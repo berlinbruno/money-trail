@@ -6,7 +6,7 @@ import {
 } from '@/components/debug';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { APP_VERSION } from '@/constants/settingsConstants';
-import { useToastHelpers } from '@/contexts/ToastProvider';
+import { useToast } from '@/contexts/ToastProvider';
 import {
   clearAllData,
   generateTestAlerts,
@@ -21,7 +21,7 @@ import { Platform, RefreshControl, ScrollView } from 'react-native';
 
 export default function DebugScreen() {
   const db = useSQLiteContext();
-  const { showSuccess, showError } = useToastHelpers();
+  const { showToast } = useToast();
   const [dbInfo, setDbInfo] = useState<{ table: string; count: number }[]>([]);
   const [configRecords, setConfigRecords] = useState<{ key: string; value: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -67,55 +67,40 @@ export default function DebugScreen() {
       setConfigRecords(configResult);
     } catch (error) {
       console.error('Error fetching DB info:', error);
-      showError({
-        title: 'Database Error',
-        description: 'Failed to fetch database information',
-      });
+      showToast('Failed to fetch database information');
     } finally {
       setIsLoading(false);
     }
-  }, [db, showError]);
+  }, [db, showToast]);
 
   // Generate test data handlers
   const handleGenerateTestTransactions = useCallback(async () => {
     setIsLoading(true);
     try {
       await generateTestTransactions(db);
-      showSuccess({
-        title: 'Test Transactions Created',
-        description: 'Sample transaction data generated for testing',
-      });
+      showToast('Test transactions created');
       fetchDbInfo();
     } catch (error) {
       console.error('Error generating test transactions:', error);
-      showError({
-        title: 'Generation Failed',
-        description: 'Unable to create test transactions',
-      });
+      showToast('Failed to create test transactions');
     } finally {
       setIsLoading(false);
     }
-  }, [db, fetchDbInfo, showSuccess, showError]);
+  }, [db, fetchDbInfo, showToast]);
 
   const handleGenerateTestAlerts = useCallback(async () => {
     setIsLoading(true);
     try {
       await generateTestAlerts(db);
-      showSuccess({
-        title: 'Test Alerts Created',
-        description: 'Sample alert data generated for testing',
-      });
+      showToast('Test alerts created');
       fetchDbInfo();
     } catch (error) {
       console.error('Error generating test alerts:', error);
-      showError({
-        title: 'Generation Failed',
-        description: 'Unable to create test alerts',
-      });
+      showToast('Failed to create test alerts');
     } finally {
       setIsLoading(false);
     }
-  }, [db, fetchDbInfo, showSuccess, showError]);
+  }, [db, fetchDbInfo, showToast]);
 
   // Optimized memory usage check
   const checkMemoryUsage = useCallback(async () => {
@@ -176,22 +161,16 @@ export default function DebugScreen() {
     setIsLoading(true);
     try {
       await clearAllData(db);
-      showSuccess({
-        title: 'Database Reset',
-        description: 'All data cleared and settings reset to defaults',
-      });
+      showToast('Database reset complete');
       fetchDbInfo();
       setShowClearDialog(false);
     } catch (error) {
       console.error('Reset error:', error);
-      showError({
-        title: 'Reset Failed',
-        description: 'Unable to reset database. Please try again.',
-      });
+      showToast('Database reset failed');
     } finally {
       setIsLoading(false);
     }
-  }, [db, showSuccess, showError, fetchDbInfo]);
+  }, [db, showToast, fetchDbInfo]);
 
   // Manual refresh with silent operation
   const handleManualRefresh = useCallback(async () => {

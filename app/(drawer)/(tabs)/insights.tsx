@@ -5,7 +5,7 @@ import {
   SmartInsightsSection,
 } from '@/components/insights';
 import { RANGE_OPTIONS } from '@/constants/insightsConstants';
-import { useToastHelpers } from '@/contexts/ToastProvider';
+import { useToast } from '@/contexts/ToastProvider';
 import {
   fetchCategoryBreakdown,
   fetchIncomeExpenseTrend,
@@ -23,7 +23,7 @@ import { RefreshControl, ScrollView, View } from 'react-native';
 export default function InsightsScreen() {
   const theme = useTheme();
   const db = useSQLiteContext();
-  const { showError } = useToastHelpers();
+  const { showToast } = useToast();
   const [selectedRangeIndex, setSelectedRangeIndex] = useState(0);
   const [state, setState] = useState({
     insightsSummary: null as InsightsSummary | null,
@@ -64,10 +64,7 @@ export default function InsightsScreen() {
       }));
     } catch (error) {
       console.error('Error fetching insights data:', error);
-      showError({
-        title: 'Insights Loading Failed',
-        description: 'Unable to load insights data',
-      });
+      showToast('Unable to load insights data');
       setState((prev) => ({
         ...prev,
         categoryBreakdown: { income: [], expense: [] },
@@ -75,7 +72,7 @@ export default function InsightsScreen() {
         timeSeriesData: null,
       }));
     }
-  }, [db, selectedRangeIndex, showError]);
+  }, [db, selectedRangeIndex, showToast]);
 
   // Fetch data when dependencies change
   useEffect(() => {

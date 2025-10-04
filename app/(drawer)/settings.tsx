@@ -12,7 +12,7 @@ import { type Option } from '@/components/ui/select';
 import { APP_VERSION, CURRENCY_OPTIONS } from '@/constants/settingsConstants';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useToastHelpers } from '@/contexts/ToastProvider';
+import { useToast } from '@/contexts/ToastProvider';
 import { resetAllData } from '@/lib/database/settingsQueries';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -20,7 +20,7 @@ import { RefreshControl, ScrollView } from 'react-native';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
-  const { showSuccess, showError } = useToastHelpers();
+  const { showToast } = useToast();
   const [showResetDataDialog, setShowResetDataDialog] = useState(false);
 
   // Theme context
@@ -62,13 +62,13 @@ export default function SettingsScreen() {
 
       try {
         await setTheme(theme as any);
-        showSuccess({ title: 'Theme Updated', description: `Theme set to ${theme}` });
+        showToast(`Theme set to ${theme}`);
       } catch (error) {
         console.error('Error saving theme:', error);
-        showError({ title: 'Theme Error', description: 'Failed to save theme setting' });
+        showToast('Failed to save theme setting');
       }
     },
-    [selectedTheme, setTheme, showSuccess, showError]
+    [selectedTheme, setTheme, showToast]
   );
 
   const handleBackgroundSyncToggle = useCallback(
@@ -80,16 +80,13 @@ export default function SettingsScreen() {
 
       try {
         await setBackgroundSyncEnabled(value);
-        showSuccess({
-          title: 'Background Sync Updated',
-          description: `Background sync ${value ? 'enabled' : 'disabled'}`,
-        });
+        showToast(`Background sync ${value ? 'enabled' : 'disabled'}`);
       } catch (error) {
         console.error('Error saving background sync setting:', error);
-        showError({ title: 'Sync Error', description: 'Failed to save background sync setting' });
+        showToast('Failed to save background sync setting');
       }
     },
-    [backgroundSyncEnabled, setBackgroundSyncEnabled, showSuccess, showError]
+    [backgroundSyncEnabled, setBackgroundSyncEnabled, showToast]
   );
 
   const handleNotificationsToggle = useCallback(
@@ -101,19 +98,13 @@ export default function SettingsScreen() {
 
       try {
         await setPushNotifications(value);
-        showSuccess({
-          title: 'Notifications Updated',
-          description: `Notifications ${value ? 'enabled' : 'disabled'}`,
-        });
+        showToast(`Notifications ${value ? 'enabled' : 'disabled'}`);
       } catch (error) {
         console.error('Error saving notification setting:', error);
-        showError({
-          title: 'Notification Error',
-          description: 'Failed to save notification setting',
-        });
+        showToast('Failed to save notification setting');
       }
     },
-    [notificationsEnabled, setPushNotifications, showSuccess, showError]
+    [notificationsEnabled, setPushNotifications, showToast]
   );
 
   const handleSyncIntervalChange = useCallback(
@@ -125,16 +116,13 @@ export default function SettingsScreen() {
 
       try {
         await setSyncIntervalMinutes(interval as any);
-        showSuccess({
-          title: 'Sync Interval Updated',
-          description: `Sync interval set to ${interval} minutes`,
-        });
+        showToast(`Sync interval set to ${interval} minutes`);
       } catch (error) {
         console.error('Error saving sync interval:', error);
-        showError({ title: 'Sync Error', description: 'Failed to save sync interval setting' });
+        showToast('Failed to save sync interval setting');
       }
     },
-    [syncInterval, setSyncIntervalMinutes, showSuccess, showError]
+    [syncInterval, setSyncIntervalMinutes, showToast]
   );
 
   const handleMessageScanCountChange = useCallback(
@@ -146,25 +134,19 @@ export default function SettingsScreen() {
 
       try {
         await setMessageScanCount(count as any);
-        showSuccess({
-          title: 'Message Count Updated',
-          description: `Message scan count set to ${count} messages`,
-        });
+        showToast(`Message scan count set to ${count} messages`);
       } catch (error) {
         console.error('Error saving message scan count:', error);
-        showError({
-          title: 'Message Count Error',
-          description: 'Failed to save message scan count setting',
-        });
+        showToast('Failed to save message scan count setting');
       }
     },
-    [messageScanCount, setMessageScanCount, showSuccess, showError]
+    [messageScanCount, setMessageScanCount, showToast]
   );
 
   const handleResetSyncTime = useCallback(() => {
     resetLastSyncTime();
-    showSuccess({ title: 'Sync Reset', description: 'Last sync time reset' });
-  }, [resetLastSyncTime, showSuccess]);
+    showToast('Last sync time reset');
+  }, [resetLastSyncTime, showToast]);
 
   const handleFetchOnLaunchToggle = useCallback(
     async (value: boolean) => {
@@ -175,16 +157,13 @@ export default function SettingsScreen() {
 
       try {
         await setFetchOnLaunchEnabled(value);
-        showSuccess({
-          title: 'Fetch on Launch Updated',
-          description: `Fetch on launch ${value ? 'enabled' : 'disabled'}`,
-        });
+        showToast(`Fetch on launch ${value ? 'enabled' : 'disabled'}`);
       } catch (error) {
         console.error('Error saving fetch on launch setting:', error);
-        showError({ title: 'Fetch Error', description: 'Failed to save fetch on launch setting' });
+        showToast('Failed to save fetch on launch setting');
       }
     },
-    [fetchOnLaunch, setFetchOnLaunchEnabled, showSuccess, showError]
+    [fetchOnLaunch, setFetchOnLaunchEnabled, showToast]
   );
 
   const handleAutoApprovalToggle = useCallback(
@@ -196,19 +175,13 @@ export default function SettingsScreen() {
 
       try {
         await setAutoApprovalEnabled(value);
-        showSuccess({
-          title: 'Auto Approval Updated',
-          description: `Auto approval ${value ? 'enabled' : 'disabled'}`,
-        });
+        showToast(`Auto approval ${value ? 'enabled' : 'disabled'}`);
       } catch (error) {
         console.error('Error saving auto approval setting:', error);
-        showError({
-          title: 'Auto Approval Error',
-          description: 'Failed to save auto approval setting',
-        });
+        showToast('Failed to save auto approval setting');
       }
     },
-    [autoApproval, setAutoApprovalEnabled, showSuccess, showError]
+    [autoApproval, setAutoApprovalEnabled, showToast]
   );
 
   const handleCurrencyChange = useCallback(
@@ -223,18 +196,15 @@ export default function SettingsScreen() {
             }
 
             await setCurrency(currency);
-            showSuccess({
-              title: 'Currency Updated',
-              description: `Currency format set to ${option.value}`,
-            });
+            showToast(`Currency format set to ${option.value}`);
           }
         } catch (error) {
           console.error('Error saving currency setting:', error);
-          showError({ title: 'Currency Error', description: 'Failed to save currency setting' });
+          showToast('Failed to save currency setting');
         }
       }
     },
-    [selectedCurrency, setCurrency, showSuccess, showError]
+    [selectedCurrency, setCurrency, showToast]
   );
 
   const handleResetData = useCallback(() => {
@@ -244,19 +214,13 @@ export default function SettingsScreen() {
   const confirmResetData = useCallback(async () => {
     try {
       await resetAllData(db);
-      showSuccess({
-        title: 'Data Reset Complete',
-        description: 'All transactions, alerts, and notifications have been deleted',
-      });
+      showToast('All transactions, alerts, and notifications have been deleted');
       setShowResetDataDialog(false);
     } catch (error) {
       console.error('Error resetting data:', error);
-      showError({
-        title: 'Reset Failed',
-        description: 'Unable to reset data. Please try again.',
-      });
+      showToast('Unable to reset data. Please try again.');
     }
-  }, [db, showSuccess, showError]);
+  }, [db, showToast]);
 
   const handleExportData = useCallback(() => {
     // These features should be disabled in UI instead of showing error toast
@@ -274,10 +238,7 @@ export default function SettingsScreen() {
       // Silent refresh - no toast needed for pull-to-refresh
     } catch (error) {
       console.error('Error refreshing settings:', error);
-      showError({
-        title: 'Refresh Failed',
-        description: 'Unable to refresh settings',
-      });
+      showToast('Unable to refresh settings');
     }
   };
 

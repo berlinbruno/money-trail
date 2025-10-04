@@ -141,14 +141,14 @@ const AlertForm: React.FC<AlertFormProps> = ({
   );
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}>
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        <View className="flex-1">
+    <ScrollView
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}>
+      <View className="flex-1 px-4 py-2">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}>
           <View className="mb-3">
             <Label>Amount *</Label>
             <Input
@@ -158,38 +158,38 @@ const AlertForm: React.FC<AlertFormProps> = ({
               onChangeText={setThreshold}
             />
           </View>
+        </KeyboardAvoidingView>
 
-          <View className="mb-3">
-            <Label>Category *</Label>
-            {availableCategories.length === 0 ? (
-              <Text className="text-red-500">No categories available</Text>
-            ) : (
-              renderOptions(availableCategories, category, setCategory)
-            )}
-          </View>
-
-          <View className="mt-6 flex-row justify-around gap-2">
-            <Button className="flex-[2]" onPress={handleSave} disabled={!isValid || isLoading}>
-              {isLoading ? (
-                <View className="flex-row items-center">
-                  <View className="mr-2 animate-spin">
-                    <Loader2 size={16} color={theme.colors.text} />
-                  </View>
-                  <Text className="text-primary-foreground">
-                    {isEditMode ? 'Updating...' : 'Saving...'}
-                  </Text>
-                </View>
-              ) : (
-                <Text>{isEditMode ? 'Update' : 'Save'}</Text>
-              )}
-            </Button>
-            <Button variant="secondary" className="flex-1" onPress={onClose} disabled={isLoading}>
-              <Text>Cancel</Text>
-            </Button>
-          </View>
+        <View className="mb-3">
+          <Label>Category *</Label>
+          {availableCategories.length === 0 ? (
+            <Text className="text-red-500">No categories available</Text>
+          ) : (
+            renderOptions(availableCategories, category, setCategory)
+          )}
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+        <View className="mt-6 flex-row justify-around gap-2">
+          <Button className="flex-[2]" onPress={handleSave} disabled={!isValid || isLoading}>
+            {isLoading ? (
+              <View className="flex-row items-center">
+                <View className="mr-2 animate-spin">
+                  <Loader2 size={16} color={theme.colors.text} />
+                </View>
+                <Text className="text-primary-foreground">
+                  {isEditMode ? 'Updating...' : 'Saving...'}
+                </Text>
+              </View>
+            ) : (
+              <Text>{isEditMode ? 'Update' : 'Save'}</Text>
+            )}
+          </Button>
+          <Button variant="secondary" className="flex-1" onPress={onClose} disabled={isLoading}>
+            <Text>Cancel</Text>
+          </Button>
+        </View>
+      </View>
+    </ScrollView>
   );
 };
 

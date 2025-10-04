@@ -3,7 +3,7 @@ import {
   PerformanceMetricsCard,
   RegisteredTasksCard,
 } from '@/components/background';
-import { useToastHelpers } from '@/contexts/ToastProvider';
+import { useToast } from '@/contexts/ToastProvider';
 import { getRecentTaskExecutionLogs } from '@/lib/database/loggingQueries';
 import {
   DEFAULT_TASK_CONFIG,
@@ -24,7 +24,7 @@ initializeBackgroundTask(promise);
 
 export default function BackgroundTaskScreen() {
   const db = useSQLiteContext();
-  const { showError } = useToastHelpers();
+  const { showToast } = useToast();
   const [registeredTasks, setRegisteredTasks] = useState<TaskManager.TaskManagerTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [taskConfig, setTaskConfig] = useState({ ...DEFAULT_TASK_CONFIG });
@@ -48,12 +48,9 @@ export default function BackgroundTaskScreen() {
       setTaskConfig(taskStatus.config);
     } catch (error) {
       console.error('Error loading task status:', error);
-      showError({
-        title: 'Task Status Loading Failed',
-        description: 'Unable to load background task status',
-      });
+      showToast('Failed to load task status');
     }
-  }, [showError]);
+  }, [showToast]);
 
   const loadPerformanceMetrics = useCallback(async () => {
     try {
@@ -113,12 +110,9 @@ export default function BackgroundTaskScreen() {
       });
     } catch (error) {
       console.error('Error loading performance metrics:', error);
-      showError({
-        title: 'Metrics Loading Failed',
-        description: 'Unable to load performance data',
-      });
+      showToast('Failed to load metrics');
     }
-  }, [db, showError]);
+  }, [db, showToast]);
 
   const refreshAllData = useCallback(async () => {
     setIsLoading(true);

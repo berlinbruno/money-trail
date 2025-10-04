@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import Modal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
-import { useToastHelpers } from '@/contexts/ToastProvider';
+import { useToast } from '@/contexts/ToastProvider';
 import type { AppLog, LogCategory, LogLevel } from '@/lib/database/loggingQueries';
 import {
   clearAllLogs,
@@ -50,7 +50,7 @@ const CATEGORY_COLORS = {
 export default function LogsScreen() {
   const theme = useTheme();
   const db = useSQLiteContext();
-  const { showSuccess, showError } = useToastHelpers();
+  const { showToast } = useToast();
   const [logs, setLogs] = useState<AppLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -86,10 +86,7 @@ export default function LogsScreen() {
 
         setLogs(logsResult);
       } catch {
-        showError({
-          title: 'Loading Failed',
-          description: 'Unable to load log data',
-        });
+        showToast('Failed to load logs');
         // Set empty array to prevent infinite loading
         setLogs([]);
       } finally {
@@ -97,7 +94,7 @@ export default function LogsScreen() {
         setIsRefreshing(false);
       }
     },
-    [db, selectedCategory, selectedLevel, showError]
+    [db, selectedCategory, selectedLevel, showToast]
   );
 
   const handleRefresh = useCallback(() => {
@@ -113,13 +110,10 @@ export default function LogsScreen() {
       onConfirm: async () => {
         await clearAllLogs(db);
         await loadLogs(false); // Silent refresh
-        showSuccess({
-          title: 'Logs Cleared',
-          description: 'All log entries have been deleted',
-        });
+        showToast('All logs cleared');
       },
     });
-  }, [db, loadLogs, showSuccess]);
+  }, [db, loadLogs, showToast]);
 
   const handleClearOldLogs = useCallback(() => {
     setConfirmDialog({
@@ -129,13 +123,10 @@ export default function LogsScreen() {
       onConfirm: async () => {
         await clearOldLogs(db, 50);
         await loadLogs(false); // Silent refresh
-        showSuccess({
-          title: 'Old Logs Cleared',
-          description: 'Kept only the most recent 50 entries',
-        });
+        showToast('Old logs cleared');
       },
     });
-  }, [db, loadLogs, showSuccess]);
+  }, [db, loadLogs, showToast]);
 
   const [logDetailModal, setLogDetailModal] = useState<{
     visible: boolean;

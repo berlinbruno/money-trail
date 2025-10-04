@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
 import { ALERT_LABELS, ALERT_TYPE_FREQUENCY_MAP } from '@/constants/alertsConstants';
-import { useToastHelpers } from '@/contexts/ToastProvider';
+import { useToast } from '@/contexts/ToastProvider';
 import {
   createAlert,
   deleteAlert,
@@ -44,7 +44,7 @@ export default function AlertDashboardScreen() {
 
   const theme = useTheme();
   const db = useSQLiteContext();
-  const { showSuccess, showError } = useToastHelpers();
+  const { showToast } = useToast();
   const screenWidth = Dimensions.get('window').width;
   const pieChartRadius = screenWidth / 5;
 
@@ -85,15 +85,12 @@ export default function AlertDashboardScreen() {
         });
       } catch (error) {
         console.error('Error loading alerts:', error);
-        showError({
-          title: 'Loading Failed',
-          description: 'Unable to load alerts data',
-        });
+        showToast('Failed to load alerts data');
       } finally {
         if (showLoader) setIsRefreshing(false);
       }
     },
-    [db, showError]
+    [db, showToast]
   );
 
   // Load alerts on mount
@@ -129,16 +126,10 @@ export default function AlertDashboardScreen() {
       await deleteAlert(db, alertToDelete);
       await loadAlerts(false); // Silent refresh
       setAlertToDelete(null);
-      showSuccess({
-        title: 'Alert Deleted',
-        description: 'Alert has been removed',
-      });
+      showToast('Alert deleted');
     } catch (error) {
       console.error('Failed to delete alert:', error);
-      showError({
-        title: 'Delete Failed',
-        description: 'Unable to delete alert',
-      });
+      showToast('Failed to delete alert');
       throw error; // Let ConfirmationDialog handle the error
     }
   };
@@ -153,10 +144,7 @@ export default function AlertDashboardScreen() {
           threshold: alert.threshold,
           updated_at: alert.updated_at,
         });
-        showSuccess({
-          title: 'Alert Updated',
-          description: 'Alert has been modified',
-        });
+        showToast('Alert updated');
       } else {
         await createAlert(db, {
           type: alert.type,
@@ -165,19 +153,13 @@ export default function AlertDashboardScreen() {
           threshold: alert.threshold,
           created_at: alert.created_at,
         });
-        showSuccess({
-          title: 'Alert Created',
-          description: 'New alert has been added',
-        });
+        showToast('Alert created');
       }
       await loadAlerts(false); // Silent refresh
       setModalVisible(false);
     } catch (error) {
       console.error('Failed to save alert:', error);
-      showError({
-        title: 'Save Failed',
-        description: 'Unable to save alert',
-      });
+      showToast('Failed to save alert');
     } finally {
       setIsFormSubmitting(false);
     }

@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
-import { useToastHelpers } from '@/contexts/ToastProvider';
+import { useToast } from '@/contexts/ToastProvider';
 
 import {
   deleteTransaction,
@@ -37,7 +37,7 @@ const isEditTransaction = (
 export default function TransactionApprovalScreen() {
   const db = useSQLiteContext();
   const theme = useTheme();
-  const { showSuccess, showError } = useToastHelpers();
+  const { showToast } = useToast();
 
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -83,15 +83,12 @@ export default function TransactionApprovalScreen() {
         setTransactions(rows);
       } catch (error) {
         console.error('Error fetching transactions:', error);
-        showError({
-          title: 'Loading Failed',
-          description: 'Unable to load transactions',
-        });
+        showToast('Failed to load transactions');
       } finally {
         if (showLoader) setIsRefreshing(false);
       }
     },
-    [db, filterState, sortBy, sortOrder, showError]
+    [db, filterState, sortBy, sortOrder, showToast]
   );
 
   const handleEditTransaction = (id: string) => {
@@ -115,16 +112,10 @@ export default function TransactionApprovalScreen() {
       await deleteTransaction(db, transactionToDelete);
       await fetchTransactions(false); // Silent refresh
       setTransactionToDelete(null);
-      showSuccess({
-        title: 'Transaction Deleted',
-        description: 'Transaction has been removed',
-      });
+      showToast('Transaction deleted');
     } catch (err) {
       console.error('Failed to delete transaction:', err);
-      showError({
-        title: 'Delete Failed',
-        description: 'Unable to delete transaction',
-      });
+      showToast('Failed to delete transaction');
       throw err; // Let ConfirmationDialog handle the error
     }
   };
@@ -142,16 +133,10 @@ export default function TransactionApprovalScreen() {
       await updateTransactionFlag(db, transactionToApprove, 0);
       await fetchTransactions(false); // Silent refresh
       setTransactionToApprove(null);
-      showSuccess({
-        title: 'Transaction Approved',
-        description: 'Transaction has been approved',
-      });
+      showToast('Transaction approved');
     } catch (err) {
       console.error('Failed to approve transaction:', err);
-      showError({
-        title: 'Approval Failed',
-        description: 'Unable to approve transaction',
-      });
+      showToast('Failed to approve transaction');
       throw err; // Let ConfirmationDialog handle the error
     }
   };
@@ -164,16 +149,10 @@ export default function TransactionApprovalScreen() {
     try {
       await updateAllTransactionFlags(db, 0);
       await fetchTransactions(false); // Silent refresh
-      showSuccess({
-        title: 'All Transactions Approved',
-        description: 'All pending transactions have been approved',
-      });
+      showToast('All transactions approved');
     } catch (err) {
       console.error('Failed to approve all transactions:', err);
-      showError({
-        title: 'Approval Failed',
-        description: 'Unable to approve all transactions',
-      });
+      showToast('Failed to approve all transactions');
       throw err; // Let ConfirmationDialog handle the error
     }
   };
@@ -257,26 +236,17 @@ export default function TransactionApprovalScreen() {
             try {
               if (isEditTransaction(transaction)) {
                 await updateTransaction(db, transaction);
-                showSuccess({
-                  title: 'Transaction Updated',
-                  description: 'Transaction has been modified',
-                });
+                showToast('Transaction updated');
               } else {
                 await insertTransaction(db, transaction);
-                showSuccess({
-                  title: 'Transaction Added',
-                  description: 'New transaction has been created',
-                });
+                showToast('Transaction added');
               }
               await fetchTransactions(false); // Silent refresh
               setShowTransactionModal(false);
               setSelectedTransaction(undefined);
             } catch (err) {
               console.error('Failed to save transaction:', err);
-              showError({
-                title: 'Save Failed',
-                description: 'Unable to save transaction',
-              });
+              showToast('Failed to save transaction');
             }
           }}
           onCancel={() => {

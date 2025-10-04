@@ -5,7 +5,7 @@ import {
   DashboardRecentTransactionsSection,
   DashboardTrendsSection,
 } from '@/components/dashboard';
-import { useToastHelpers } from '@/contexts/ToastProvider';
+import { useToast } from '@/contexts/ToastProvider';
 import {
   getMonthlyKPI,
   getRecentTransactions,
@@ -24,7 +24,7 @@ import { RefreshControl, ScrollView } from 'react-native';
 
 export default function DashboardScreen() {
   const db = useSQLiteContext();
-  const { showError } = useToastHelpers();
+  const { showToast } = useToast();
   const [monthlyKPIData, setMonthlyKPIData] = useState<KPIData>({
     totalIncome: 0,
     totalExpense: 0,
@@ -51,15 +51,12 @@ export default function DashboardScreen() {
         setNotifications(unreadNotifications);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        showError({
-          title: 'Dashboard Loading Failed',
-          description: 'Unable to load dashboard data',
-        });
+        showToast('Unable to load dashboard data');
       } finally {
         if (showLoader) setIsRefreshing(false);
       }
     },
-    [db, showError]
+    [db, showToast]
   );
 
   const insertAlerts = useCallback(async () => {
@@ -77,7 +74,7 @@ export default function DashboardScreen() {
     fetchDashboardData(false); // Silent initial load
     insertAlerts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Safe to disable - we only want this to run once on mount
+  }, [showToast]);
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -98,13 +95,10 @@ export default function DashboardScreen() {
         setNotifications(unread);
       } catch (error) {
         console.error('Error marking notification as read:', error);
-        showError({
-          title: 'Notification Error',
-          description: 'Unable to mark notification as read',
-        });
+        showToast('Unable to mark notification as read');
       }
     },
-    [db, showError]
+    [db, showToast]
   );
 
   const handleClearAll = useCallback(async () => {
@@ -112,12 +106,9 @@ export default function DashboardScreen() {
       setNotifications([]);
     } catch (error) {
       console.error('Error clearing notifications:', error);
-      showError({
-        title: 'Clear Failed',
-        description: 'Unable to clear notifications',
-      });
+      showToast('Unable to clear notifications');
     }
-  }, [showError]);
+  }, [showToast]);
   return (
     <ScrollView
       className="p-2"
