@@ -98,7 +98,7 @@ export async function resetLastSyncTime(): Promise<void> {
 
 export async function getFetchOnLaunch(): Promise<boolean> {
   const value = await getSettingsValue('fetch_on_launch');
-  return value === 'true';
+  return value === 'false';
 }
 
 export async function setFetchOnLaunch(enabled: boolean) {
@@ -107,7 +107,7 @@ export async function setFetchOnLaunch(enabled: boolean) {
 
 export async function getAutoApproval(): Promise<boolean> {
   const value = await getSettingsValue('auto_approval');
-  return value === 'true';
+  return value === 'false';
 }
 
 export async function setAutoApproval(enabled: boolean) {
