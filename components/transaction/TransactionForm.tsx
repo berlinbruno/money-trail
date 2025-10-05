@@ -52,15 +52,15 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  // Handle keyboard visibility for better form behavior
+  // Handle keyboard height for dynamic bottom margin
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      setKeyboardVisible(true);
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
     });
     const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardVisible(false);
+      setKeyboardHeight(0);
     });
 
     return () => {
@@ -188,20 +188,17 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
   );
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+    <KeyboardAvoidingView style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
-          paddingBottom: keyboardVisible ? 50 : 20,
+          marginBottom: keyboardHeight > 0 ? keyboardHeight : 20,
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         scrollEnabled={true}
         bounces={false}>
-        <View className="flex-1 px-4 py-2">
+        <View className="flex-1 p-2">
           <View className="mb-3">
             <Label>Amount *</Label>
             <Input

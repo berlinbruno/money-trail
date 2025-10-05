@@ -1,24 +1,10 @@
-import {
-  Alert,
-  // Alert,
-  AlertFrequency,
-  AlertType,
-  EditAlert,
-  NewAlert,
-} from '@/types/Alert';
+import { Alert, AlertFrequency, AlertType, EditAlert, NewAlert } from '@/types/Alert';
 import { TransactionCategory } from '@/types/Transaction';
 import { capitalizeFirstLetter } from '@/utils/formatterUtils';
 import { useTheme } from '@react-navigation/native';
 import { Loader2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Keyboard, KeyboardAvoidingView, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -47,18 +33,18 @@ const AlertForm: React.FC<AlertFormProps> = ({
   const [threshold, setThreshold] = useState('');
   const [category, setCategory] = useState<TransactionCategory>(availableCategories[0] || 'Other');
   const [internalLoading, setInternalLoading] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Use external loading state if provided, otherwise use internal
   const isLoading = externalLoading !== undefined ? externalLoading : internalLoading;
 
-  // Handle keyboard visibility for better form behavior
+  // Handle keyboard height for dynamic bottom margin
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      setKeyboardVisible(true);
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
     });
     const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardVisible(false);
+      setKeyboardHeight(0);
     });
 
     return () => {
@@ -140,44 +126,18 @@ const AlertForm: React.FC<AlertFormProps> = ({
     externalLoading,
   ]);
 
-  const renderOptions = <T extends string>(
-    options: readonly T[],
-    selected: T,
-    onSelect: (val: T) => void
-  ) => (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: 8 }}>
-      {options.map((opt) => (
-        <TouchableOpacity
-          key={opt}
-          className={`rounded-full px-3 py-2 ${selected === opt ? 'bg-primary' : 'bg-secondary'}`}
-          onPress={() => onSelect(opt)}>
-          <Text
-            className={selected === opt ? 'text-primary-foreground' : 'text-secondary-foreground'}>
-            {capitalizeFirstLetter(opt)}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  );
-
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+    <KeyboardAvoidingView style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
-          paddingBottom: keyboardVisible ? 50 : 20,
+          marginBottom: keyboardHeight > 0 ? keyboardHeight : 20,
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         scrollEnabled={true}
         bounces={false}>
-        <View className="flex-1 px-4 py-2">
+        <View className="flex-1 p-2">
           <View className="mb-3">
             <Label>Amount *</Label>
             <Input
@@ -193,7 +153,26 @@ const AlertForm: React.FC<AlertFormProps> = ({
             {availableCategories.length === 0 ? (
               <Text className="text-red-500">No categories available</Text>
             ) : (
-              renderOptions(availableCategories, category, setCategory)
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8 }}>
+                {availableCategories.map((opt) => (
+                  <TouchableOpacity
+                    key={opt}
+                    className={`rounded-full px-3 py-2 ${
+                      category === opt ? 'bg-primary' : 'bg-secondary'
+                    }`}
+                    onPress={() => setCategory(opt)}>
+                    <Text
+                      className={
+                        category === opt ? 'text-primary-foreground' : 'text-secondary-foreground'
+                      }>
+                      {capitalizeFirstLetter(opt)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             )}
           </View>
 
