@@ -144,6 +144,7 @@ export default function TransactionListScreen() {
             amount={item.amount}
             date={item.date}
             type={item.type}
+            category={item.category}
           />
         )}
         renderHiddenItem={({ item }) => (
@@ -225,39 +226,37 @@ export default function TransactionListScreen() {
       </BaseModal>
 
       {/* Bottom Tab-Style Toolbar */}
-      <View className="border-t border-border bg-card">
-        <View className="flex-row">
-          <Button
-            variant="ghost"
-            onPress={() => setShowFilterModal(true)}
-            className="flex-1 flex-row gap-2 rounded-none">
-            <Filter color={theme.colors.text} size={18} />
-            <Text className="text-sm font-medium">Filter</Text>
-          </Button>
+      <View className="flex-row border-t border-border bg-card">
+        <Button
+          variant="ghost"
+          onPress={() => setShowFilterModal(true)}
+          className="flex-1 flex-row gap-2 rounded-none">
+          <Filter color={theme.colors.text} size={18} />
+          <Text className="text-sm font-medium">Filter</Text>
+        </Button>
 
-          <View className="w-px bg-border" />
+        <View className="w-px bg-border" />
 
-          <Button
-            variant="ghost"
-            onPress={() => {
-              setSelectedTransaction(undefined);
-              setShowTransactionModal(true);
-            }}
-            className="flex-1 flex-row gap-2 rounded-none">
-            <PlusCircle color={theme.colors.text} size={18} />
-            <Text className="text-sm font-medium">Add</Text>
-          </Button>
+        <Button
+          variant="ghost"
+          onPress={() => {
+            setSelectedTransaction(undefined);
+            setShowTransactionModal(true);
+          }}
+          className="flex-1 flex-row gap-2 rounded-none">
+          <PlusCircle color={theme.colors.text} size={18} />
+          <Text className="text-sm font-medium">Add</Text>
+        </Button>
 
-          <View className="w-px bg-border" />
+        <View className="w-px bg-border" />
 
-          <Button
-            variant="ghost"
-            onPress={() => setShowSortModal(true)}
-            className="flex-1 flex-row gap-2 rounded-none">
-            <ArrowUpDown color={theme.colors.text} size={18} />
-            <Text className="text-sm font-medium">Sort</Text>
-          </Button>
-        </View>
+        <Button
+          variant="ghost"
+          onPress={() => setShowSortModal(true)}
+          className="flex-1 flex-row gap-2 rounded-none">
+          <ArrowUpDown color={theme.colors.text} size={18} />
+          <Text className="text-sm font-medium">Sort</Text>
+        </Button>
       </View>
     </View>
   );
