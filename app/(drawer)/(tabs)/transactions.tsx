@@ -165,6 +165,8 @@ export default function TransactionListScreen() {
           <RefreshControl
             refreshing={isRefreshing || appState.isRefreshing}
             onRefresh={() => fetchTransactions(true)}
+            colors={[theme.colors.background]}
+            tintColor={theme.colors.primary}
           />
         }
         renderItem={({ item }) => (

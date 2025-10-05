@@ -3,6 +3,7 @@ import {
   PerformanceMetricsCard,
   RegisteredTasksCard,
 } from '@/components/background';
+import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/contexts/ToastProvider';
 import {
   DEFAULT_TASK_CONFIG,
@@ -11,7 +12,7 @@ import {
   getTaskStatus,
   initializeBackgroundTask,
 } from '@/lib/sms/backgroundTask';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useTheme } from '@react-navigation/native';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as TaskManager from 'expo-task-manager';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -25,8 +26,10 @@ const promise = new Promise<void>((resolve) => {
 initializeBackgroundTask(promise);
 
 export default function BackgroundTaskScreen() {
+  const theme = useTheme();
   const db = useSQLiteContext();
   const { showToast } = useToast();
+  const { state: appContextState } = useApp();
   const [registeredTasks, setRegisteredTasks] = useState<TaskManager.TaskManagerTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [taskConfig, setTaskConfig] = useState({ ...DEFAULT_TASK_CONFIG });
@@ -142,7 +145,14 @@ export default function BackgroundTaskScreen() {
   return (
     <ScrollView
       className="flex-1"
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refreshAllData} />}>
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading || appContextState.isRefreshing}
+          onRefresh={refreshAllData}
+          colors={[theme.colors.background]}
+          tintColor={theme.colors.primary}
+        />
+      }>
       <BackgroundTaskSummaryCard
         registeredTasks={registeredTasks}
         taskConfig={taskConfig}

@@ -20,11 +20,13 @@ import {
 import { getPendingTransactionCount } from '@/lib/database/transactionQueries';
 import { INotificationRow } from '@/types/Common';
 import { KPIData, RecentTx, TrendRow } from '@/types/Insight';
+import { useTheme } from '@react-navigation/native';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView } from 'react-native';
 
 export default function DashboardScreen() {
+  const theme = useTheme();
   const db = useSQLiteContext();
   const { showToast } = useToast();
   const { state: appState, actions: appActions } = useApp();
@@ -209,8 +211,8 @@ export default function DashboardScreen() {
         <RefreshControl
           refreshing={appState.isRefreshing}
           onRefresh={onRefresh}
-          colors={['#177AD5']}
-          tintColor="#177AD5"
+          colors={[theme.colors.background]}
+          tintColor={theme.colors.primary}
         />
       }>
       <DashboardKPISection kpiData={monthlyKPIData} />

@@ -110,7 +110,7 @@ export default function InsightsScreen() {
           <RefreshControl
             refreshing={appState.isRefreshing}
             onRefresh={onRefresh}
-            colors={[theme.colors.primary]}
+            colors={[theme.colors.background]}
             tintColor={theme.colors.primary}
           />
         }>

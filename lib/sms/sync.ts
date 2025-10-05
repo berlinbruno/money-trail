@@ -915,6 +915,7 @@ export async function syncTransactions(
     defaultAccount?: string;
     forceApproval?: 0 | 1; // Override auto-approval setting if needed
     retryAttempts?: number; // Number of retry attempts for database operations
+    onSyncComplete?: () => void; // Callback for when sync completes successfully
   } = {}
 ): Promise<SyncResult> {
   const startTime = Date.now();
@@ -923,6 +924,7 @@ export async function syncTransactions(
     defaultAccount = 'default',
     forceApproval,
     retryAttempts = 3,
+    onSyncComplete,
   } = options;
   const syncKey = `sync_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 
@@ -1036,6 +1038,15 @@ export async function syncTransactions(
     if (results.length > 0) {
       await setLastSyncTime(now);
       console.log('Updated last sync time:', now.toISOString());
+
+      // Call callback if provided to notify UI of sync completion
+      if (onSyncComplete) {
+        try {
+          onSyncComplete();
+        } catch (callbackError) {
+          console.error('Error in sync completion callback:', callbackError);
+        }
+      }
 
       // Log approval status for debugging
       const autoApproval =

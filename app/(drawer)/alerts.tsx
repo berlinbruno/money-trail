@@ -227,7 +227,12 @@ export default function AlertDashboardScreen() {
         contentContainerStyle={{ padding: 12 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={appState.isRefreshing} onRefresh={handleRefresh} />
+          <RefreshControl
+            refreshing={appState.isRefreshing}
+            onRefresh={handleRefresh}
+            colors={[theme.colors.background]}
+            tintColor={theme.colors.primary}
+          />
         }
         ListHeaderComponent={
           <View className="flex-row justify-center space-x-6 p-4">

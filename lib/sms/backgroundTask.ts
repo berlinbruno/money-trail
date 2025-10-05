@@ -1,3 +1,4 @@
+import { refreshSettingsGlobally } from '@/contexts/SettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundTask from 'expo-background-task';
 import { openDatabaseAsync } from 'expo-sqlite';
@@ -115,6 +116,10 @@ export const executeTask = async (db?: any): Promise<TaskExecutionLog> => {
       maxMessages: config.messageScanCount,
       defaultAccount: 'default',
       forceApproval: 1,
+      onSyncComplete: () => {
+        // Refresh settings when background sync completes
+        refreshSettingsGlobally().catch(console.error);
+      },
     });
 
     // Update execution log

@@ -5,7 +5,7 @@ import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
 import { useApp } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/DialogProvider';
-import { useSettings } from '@/contexts/SettingsContext';
+import { refreshSettingsGlobally, useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastProvider';
 import { insertTransaction } from '@/lib/database/transactionQueries';
 import { syncTransactions } from '@/lib/sms/sync';
@@ -54,6 +54,10 @@ export function DashboardQuickActionsSection({ pendingCount }: DashboardQuickAct
       const result = await syncTransactions(db, {
         maxMessages: messageScanCount,
         defaultAccount: 'default',
+        onSyncComplete: () => {
+          // Refresh settings when manual sync completes
+          refreshSettingsGlobally().catch(console.error);
+        },
       });
 
       if (result.success) {

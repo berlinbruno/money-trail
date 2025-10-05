@@ -32,18 +32,6 @@ export const getDateRangeForPreset = (preset: string): { start: Date | null; end
       end = null;
   }
 
-  // Debug logging for date ranges
-  if (start && end) {
-    console.log(`📅 Date preset '${preset}':`, {
-      start: start.toISOString(),
-      end: end.toISOString(),
-      startDate: start.toDateString(),
-      endDate: end.toDateString(),
-    });
-  } else {
-    console.log(`📅 Date preset '${preset}': No date filter (all transactions)`);
-  }
-
   return { start, end };
 };
 

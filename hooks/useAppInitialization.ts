@@ -1,4 +1,5 @@
 import { useDialog } from '@/contexts/DialogProvider';
+import { refreshSettingsGlobally } from '@/contexts/SettingsContext';
 import { initializeTables } from '@/lib/database/db';
 import {
   getAlertsWithProgress,
@@ -73,7 +74,12 @@ export const useAppInitialization = () => {
       // Start SMS sync only if fetch on launch is enabled AND SMS permission is granted
       if (fetchOnLaunchEnabled && hasSMSAccess) {
         setTimeout(() => {
-          syncTransactions(db).catch(console.error);
+          syncTransactions(db, {
+            onSyncComplete: () => {
+              // Refresh settings when sync completes to update lastSyncTime
+              refreshSettingsGlobally().catch(console.error);
+            },
+          }).catch(console.error);
         }, 100);
       }
 
@@ -94,7 +100,7 @@ export const useAppInitialization = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [db]);
+  }, [db, showPermissionDialog]);
 
   useEffect(() => {
     initializeApp();

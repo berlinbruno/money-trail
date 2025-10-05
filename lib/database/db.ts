@@ -23,8 +23,10 @@ export async function initializeTables(db: SQLite.SQLiteDatabase) {
         type TEXT NOT NULL CHECK(type IN ('income','spending')),
         frequency TEXT NOT NULL CHECK(frequency IN ('weekly','monthly')),
         category TEXT NOT NULL CHECK(category IN (
-          'food','grocery','bills','shopping','travel','fuel','rent','other',
-          'salary','investments','refund'
+          'food','grocery','bills','shopping','travel','fuel','rent','healthcare','education','entertainment',
+          'utilities','insurance','fitness','beauty','transport','subscription','donation','maintenance','other',
+          'salary','investments','refund','bonus','freelance','gift','cashback','dividend','interest',
+          'commission','rental'
         )),
         threshold REAL NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -85,8 +87,10 @@ export async function initializeTables(db: SQLite.SQLiteDatabase) {
         date TEXT NOT NULL,
         mode TEXT NOT NULL DEFAULT 'other' CHECK(mode IN ('upi','neft','imps','card','cash','other')),
         category TEXT NOT NULL CHECK(category IN (
-          'food','grocery','bills','shopping','travel','fuel','rent','other',
-          'salary','investments','refund'
+          'food','grocery','bills','shopping','travel','fuel','rent','healthcare','education','entertainment',
+          'utilities','insurance','fitness','beauty','transport','subscription','donation','maintenance','other',
+          'salary','investments','refund','bonus','freelance','gift','cashback','dividend','interest',
+          'commission','rental'
         )),
         sms_hash TEXT UNIQUE,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

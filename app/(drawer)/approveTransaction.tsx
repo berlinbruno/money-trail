@@ -208,6 +208,8 @@ export default function TransactionApprovalScreen() {
           <RefreshControl
             refreshing={isRefreshing || appState.isRefreshing}
             onRefresh={() => fetchTransactions(true)}
+            colors={[theme.colors.background]}
+            tintColor={theme.colors.primary}
           />
         }
         renderItem={({ item }) => (

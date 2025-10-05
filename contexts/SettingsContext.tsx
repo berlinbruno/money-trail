@@ -26,6 +26,23 @@ import { updateTaskConfiguration } from '@/lib/sms/backgroundTask';
 import { hasSMSPermission } from '@/utils/permissionUtils';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
+// Global reference to refresh function for use outside the provider
+let globalSettingsRefresh: (() => Promise<void>) | null = null;
+
+/**
+ * Global function to refresh settings from anywhere in the app
+ * This allows SMS sync and other operations to trigger settings refresh
+ */
+export async function refreshSettingsGlobally(): Promise<void> {
+  if (globalSettingsRefresh) {
+    try {
+      await globalSettingsRefresh();
+    } catch (error) {
+      console.error('Error in global settings refresh:', error);
+    }
+  }
+}
+
 // Types
 type CurrencyType = (typeof CURRENCY_OPTIONS)[number];
 type SyncIntervalType = (typeof SYNC_INTERVALS)[number];
@@ -353,6 +370,9 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const refreshSettings = useCallback(async () => {
     await loadSettings(true); // Pass true to indicate this is a refresh, not initial load
   }, [loadSettings]);
+
+  // Assign global refresh function for use outside the provider
+  globalSettingsRefresh = refreshSettings;
 
   const contextValue: SettingsContextType = {
     // State

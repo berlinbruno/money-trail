@@ -5,7 +5,9 @@ import {
   SystemInfoCard,
 } from '@/components/debug';
 import { APP_VERSION } from '@/constants/settingsConstants';
+import { useApp } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/DialogProvider';
+import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastProvider';
 import {
   clearAllData,
@@ -14,15 +16,19 @@ import {
   getConfigRecords,
   getDbInfo,
 } from '@/lib/database/settingsQueries';
+import { useTheme } from '@react-navigation/native';
 import * as Device from 'expo-device';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, RefreshControl, ScrollView } from 'react-native';
 
 export default function DebugScreen() {
+  const theme = useTheme();
   const db = useSQLiteContext();
   const { showToast } = useToast();
   const { showConfirmationDialog } = useDialog();
+  const { state: appState, actions: appActions } = useApp();
+  const { refreshSettings } = useSettings();
   const [dbInfo, setDbInfo] = useState<{ table: string; count: number }[]>([]);
   const [configRecords, setConfigRecords] = useState<{ key: string; value: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -80,6 +86,8 @@ export default function DebugScreen() {
     try {
       await generateTestTransactions(db);
       showToast('Test transactions created');
+      // Trigger comprehensive data updates across the app
+      appActions.triggerTransactionDataUpdate();
       fetchDbInfo();
     } catch (error) {
       console.error('Error generating test transactions:', error);
@@ -87,13 +95,16 @@ export default function DebugScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [db, fetchDbInfo, showToast]);
+  }, [db, fetchDbInfo, showToast, appActions]);
 
   const handleGenerateTestAlerts = useCallback(async () => {
     setIsLoading(true);
     try {
       await generateTestAlerts(db);
       showToast('Test alerts created');
+      // Trigger alerts and dashboard updates
+      appActions.triggerAlertsRefresh();
+      appActions.triggerDashboardDataUpdate();
       fetchDbInfo();
     } catch (error) {
       console.error('Error generating test alerts:', error);
@@ -101,7 +112,7 @@ export default function DebugScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [db, fetchDbInfo, showToast]);
+  }, [db, fetchDbInfo, showToast, appActions]);
 
   // Optimized memory usage check
   const checkMemoryUsage = useCallback(async () => {
@@ -167,7 +178,11 @@ export default function DebugScreen() {
       onConfirm: async () => {
         try {
           await clearAllData(db);
+          // Refresh settings to update lastSyncTime and other settings display
+          await refreshSettings();
           showToast('Database reset complete');
+          // Trigger global refresh to update all app sections
+          appActions.triggerGlobalRefresh();
           fetchDbInfo();
         } catch (error) {
           console.error('Reset error:', error);
@@ -176,7 +191,7 @@ export default function DebugScreen() {
         }
       },
     });
-  }, [db, showToast, fetchDbInfo, showConfirmationDialog]);
+  }, [db, showToast, fetchDbInfo, showConfirmationDialog, appActions, refreshSettings]);
 
   // Manual refresh with silent operation
   const handleManualRefresh = useCallback(async () => {
@@ -198,7 +213,14 @@ export default function DebugScreen() {
   return (
     <ScrollView
       className="flex-1"
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleManualRefresh} />}>
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading || appState.isRefreshing}
+          onRefresh={handleManualRefresh}
+          colors={[theme.colors.background]}
+          tintColor={theme.colors.primary}
+        />
+      }>
       <DatabaseInfoCard dbInfo={dbInfo} />
 
       <DataManagementCard

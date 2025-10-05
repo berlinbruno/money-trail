@@ -296,7 +296,14 @@ export default function LogsScreen() {
   return (
     <ScrollView
       className="p-2"
-      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}>
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          colors={[theme.colors.background]}
+          tintColor={theme.colors.primary}
+        />
+      }>
       {renderFilters()}
       {renderActions()}
 

@@ -14,6 +14,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/contexts/ToastProvider';
 import { resetAllData } from '@/lib/database/settingsQueries';
+import { useTheme as useNavigationTheme } from '@react-navigation/native';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useMemo } from 'react';
 import { RefreshControl, ScrollView } from 'react-native';
@@ -24,6 +25,7 @@ export default function SettingsScreen() {
   const { showConfirmationDialog } = useDialog();
 
   // Theme context
+  const navigationTheme = useNavigationTheme();
   const { theme: selectedTheme, setTheme } = useTheme();
 
   // Settings context (non-theme settings)
@@ -224,6 +226,8 @@ export default function SettingsScreen() {
       onConfirm: async () => {
         try {
           await resetAllData(db);
+          // Refresh settings to update lastSyncTime display
+          await refreshSettings();
           showToast('All transactions, alerts, and notifications have been deleted');
         } catch (error) {
           console.error('Error resetting data:', error);
@@ -232,7 +236,7 @@ export default function SettingsScreen() {
         }
       },
     });
-  }, [db, showToast, showConfirmationDialog]);
+  }, [db, showToast, showConfirmationDialog, refreshSettings]);
 
   const handleExportData = useCallback(() => {
     // These features should be disabled in UI instead of showing error toast
@@ -257,7 +261,14 @@ export default function SettingsScreen() {
   return (
     <ScrollView
       className="flex-1"
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />}>
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading}
+          onRefresh={handleRefresh}
+          colors={[navigationTheme.colors.primary]}
+          tintColor={navigationTheme.colors.primary}
+        />
+      }>
       <AppearanceCard selectedTheme={selectedTheme} onThemeChange={handleThemeChange} />
 
       <SyncSettingsCard
