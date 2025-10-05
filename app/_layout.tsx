@@ -1,7 +1,5 @@
-import { PermissionDialog } from '@/components/dialogs';
 import { ThemedContent } from '@/components/layout/ThemedContent';
 import { AppProvider } from '@/contexts/AppProvider';
-import { ToastProvider } from '@/contexts/ToastProvider';
 import '@/global.css';
 import { useAppInitialization } from '@/hooks/useAppInitialization';
 import { initializeDatabase } from '@/lib/database/initialization';
@@ -19,26 +17,17 @@ configureReanimatedLogger({
 
 export { ErrorBoundary } from 'expo-router';
 
-function AppContent() {
-  // Initialize app-level services
-  const { permissionDialogProps, showPermissionDialog, setShowPermissionDialog } =
-    useAppInitialization();
+function AppInitializer() {
+  // Initialize app-level services (must be inside provider context)
+  useAppInitialization();
+  return null;
+}
 
+function AppContent() {
   return (
     <AppProvider>
-      <ToastProvider>
-        <ThemedContent />
-        {permissionDialogProps && (
-          <PermissionDialog
-            open={showPermissionDialog}
-            onOpenChange={setShowPermissionDialog}
-            title={permissionDialogProps.title}
-            description={permissionDialogProps.description}
-            showSettingsButton={permissionDialogProps.showSettingsButton}
-            isBlocking={permissionDialogProps.isBlocking}
-          />
-        )}
-      </ToastProvider>
+      <AppInitializer />
+      <ThemedContent />
     </AppProvider>
   );
 }

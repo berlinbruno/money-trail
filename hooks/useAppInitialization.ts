@@ -1,3 +1,4 @@
+import { useDialog } from '@/contexts/DialogProvider';
 import { initializeTables } from '@/lib/database/db';
 import {
   getAlertsWithProgress,
@@ -17,16 +18,10 @@ import { useCallback, useEffect, useState } from 'react';
  */
 export const useAppInitialization = () => {
   const db = useSQLiteContext();
+  const { showPermissionDialog } = useDialog();
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [permissionDialogProps, setPermissionDialogProps] = useState<{
-    title: string;
-    description: string;
-    showSettingsButton: boolean;
-    isBlocking: boolean;
-  } | null>(null);
-  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
 
   const initializeApp = useCallback(async () => {
     try {
@@ -42,8 +37,12 @@ export const useAppInitialization = () => {
       if (permissionResults) {
         const dialogProps = createPermissionDialogProps(permissionResults);
         if (dialogProps) {
-          setPermissionDialogProps(dialogProps);
-          setShowPermissionDialog(true);
+          showPermissionDialog({
+            title: dialogProps.title,
+            description: dialogProps.description,
+            showSettingsButton: dialogProps.showSettingsButton,
+            isBlocking: dialogProps.isBlocking,
+          });
         }
 
         // App can continue if critical permissions not denied
@@ -106,8 +105,5 @@ export const useAppInitialization = () => {
     isLoading,
     error,
     retry: initializeApp,
-    permissionDialogProps,
-    showPermissionDialog,
-    setShowPermissionDialog,
   };
 };

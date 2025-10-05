@@ -2,6 +2,7 @@ import React from 'react';
 import { DialogProvider } from './DialogProvider';
 import { SettingsProvider } from './SettingsContext';
 import { ThemeProvider as AppThemeProvider } from './ThemeContext';
+import { ToastProvider } from './ToastProvider';
 
 interface AppProviderProps {
   children: React.ReactNode;
@@ -15,7 +16,9 @@ export function AppProvider({ children }: AppProviderProps) {
   return (
     <AppThemeProvider>
       <DialogProvider>
-        <SettingsProvider>{children}</SettingsProvider>
+        <ToastProvider>
+          <SettingsProvider>{children}</SettingsProvider>
+        </ToastProvider>
       </DialogProvider>
     </AppThemeProvider>
   );
