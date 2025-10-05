@@ -1,19 +1,25 @@
+import TransactionForm from '@/components/transaction/TransactionForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
 import { useDialog } from '@/contexts/DialogProvider';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastProvider';
+import { insertTransaction } from '@/lib/database/transactionQueries';
 import { syncTransactions } from '@/lib/sms/sync';
+import { EditTransaction, NewTransaction } from '@/types/Transaction';
 import { useTheme } from '@react-navigation/native';
 import { Link } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import {
   CheckCheck,
   Code,
+  Loader2,
   MessageCircleMore,
   MessageSquareCode,
   PlusCircle,
 } from 'lucide-react-native';
+import React, { useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 
 export function DashboardQuickActionsSection() {
@@ -22,12 +28,19 @@ export function DashboardQuickActionsSection() {
   const { messageScanCount } = useSettings();
   const { checkSMSPermissionWithDialog } = useDialog();
   const { showToast } = useToast();
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   const handleScanSMS = async () => {
+    if (isScanning) return; // Prevent multiple scans
+
     try {
+      setIsScanning(true);
+
       // Check SMS permission first
       const hasPermission = await checkSMSPermissionWithDialog();
       if (!hasPermission) {
+        setIsScanning(false);
         return; // Permission dialog will be shown by the hook
       }
 
@@ -55,6 +68,8 @@ export function DashboardQuickActionsSection() {
         message: 'Failed to scan SMS messages. Please try again.',
         duration: 'long',
       });
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -65,17 +80,28 @@ export function DashboardQuickActionsSection() {
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <View className="flex flex-row justify-between">
-          <Link asChild href={'/(drawer)/(tabs)/transactions'}>
-            <TouchableOpacity className="mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary">
-              <PlusCircle color={theme.colors.text} />
-              <Text>Add Txn</Text>
-            </TouchableOpacity>
-          </Link>
           <TouchableOpacity
             className="mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary"
-            onPress={handleScanSMS}>
-            <MessageCircleMore color={theme.colors.text} />
-            <Text>Scan SMS</Text>
+            onPress={() => setShowTransactionModal(true)}>
+            <PlusCircle color={theme.colors.text} />
+            <Text>Add Txn</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className={`mx-1 flex h-24 flex-1 items-center justify-center rounded-lg ${
+              isScanning ? 'bg-muted' : 'bg-secondary'
+            }`}
+            onPress={handleScanSMS}
+            disabled={isScanning}>
+            {isScanning ? (
+              <View className="animate-spin">
+                <Loader2 color={theme.colors.text} />
+              </View>
+            ) : (
+              <MessageCircleMore color={theme.colors.text} />
+            )}
+            <Text className={isScanning ? 'text-muted-foreground' : ''}>
+              {isScanning ? 'Scanning...' : 'Scan SMS'}
+            </Text>
           </TouchableOpacity>
           <Link asChild href={'/(drawer)/approveTransaction'}>
             <TouchableOpacity className="mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary">
@@ -105,6 +131,26 @@ export function DashboardQuickActionsSection() {
           </Link>
         </View>
       </CardContent>
+
+      {/* Transaction Modal */}
+      <BaseModal
+        title="Add Transaction"
+        visible={showTransactionModal}
+        onClose={() => setShowTransactionModal(false)}>
+        <TransactionForm
+          onSubmit={async (transaction: NewTransaction | EditTransaction) => {
+            try {
+              await insertTransaction(db, transaction as NewTransaction);
+              showToast('New transaction has been created');
+              setShowTransactionModal(false);
+            } catch (err) {
+              console.error('Failed to save transaction:', err);
+              showToast('Unable to save transaction');
+            }
+          }}
+          onCancel={() => setShowTransactionModal(false)}
+        />
+      </BaseModal>
     </Card>
   );
 }

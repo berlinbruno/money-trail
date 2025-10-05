@@ -290,26 +290,37 @@ export default function TransactionApprovalScreen() {
         />
       </BaseModal>
 
-      {/* Footer Buttons */}
-      <View className="mb-4 flex-row items-center justify-evenly border-t border-border bg-background py-3">
-        <Button
-          variant="static"
-          onPress={() => setShowFilterModal(true)}
-          className="flex-row gap-1">
-          <Filter color={theme.colors.text} />
-          <Text>Filter</Text>
-        </Button>
-        <Button
-          variant="static"
-          onPress={() => handleApproveAllTransactions()}
-          className="flex-row gap-1">
-          <CheckCheck color={theme.colors.text} />
-          <Text>Approve All</Text>
-        </Button>
-        <Button variant="static" onPress={() => setShowSortModal(true)} className="flex-row gap-1">
-          <ArrowUpDown color={theme.colors.text} />
-          <Text>Sort</Text>
-        </Button>
+      {/* Footer Tab-Style Buttons */}
+      <View className="border-t border-border bg-card">
+        <View className="flex-row">
+          <Button
+            variant="ghost"
+            onPress={() => setShowFilterModal(true)}
+            className="flex-1 flex-row gap-2 rounded-none">
+            <Filter color={theme.colors.text} size={18} />
+            <Text className="text-sm font-medium">Filter</Text>
+          </Button>
+
+          <View className="w-px bg-border" />
+
+          <Button
+            variant="ghost"
+            onPress={() => handleApproveAllTransactions()}
+            className="flex-1 flex-row gap-2 rounded-none">
+            <CheckCheck color={theme.colors.text} size={18} />
+            <Text className="text-sm font-medium">Approve All</Text>
+          </Button>
+
+          <View className="w-px bg-border" />
+
+          <Button
+            variant="ghost"
+            onPress={() => setShowSortModal(true)}
+            className="flex-1 flex-row gap-2 rounded-none">
+            <ArrowUpDown color={theme.colors.text} size={18} />
+            <Text className="text-sm font-medium">Sort</Text>
+          </Button>
+        </View>
       </View>
     </View>
   );

@@ -224,32 +224,40 @@ export default function TransactionListScreen() {
         />
       </BaseModal>
 
-      {/* Bottom Toolbar */}
-      <View className="flex-row items-center justify-evenly border-t border-border bg-background">
-        <Button
-          variant="static"
-          className="flex-row items-center justify-center gap-1"
-          onPress={() => setShowFilterModal(true)}>
-          <Filter color={theme.colors.text} />
-          <Text>Filter</Text>
-        </Button>
-        <Button
-          size="icon"
-          variant="static"
-          className="flex-row items-center justify-center gap-1"
-          onPress={() => {
-            setSelectedTransaction(undefined);
-            setShowTransactionModal(true);
-          }}>
-          <PlusCircle color={theme.colors.text} />
-        </Button>
-        <Button
-          variant="static"
-          className="flex-row items-center justify-center gap-1"
-          onPress={() => setShowSortModal(true)}>
-          <ArrowUpDown color={theme.colors.text} />
-          <Text>Sort</Text>
-        </Button>
+      {/* Bottom Tab-Style Toolbar */}
+      <View className="border-t border-border bg-card">
+        <View className="flex-row">
+          <Button
+            variant="ghost"
+            onPress={() => setShowFilterModal(true)}
+            className="flex-1 flex-row gap-2 rounded-none">
+            <Filter color={theme.colors.text} size={18} />
+            <Text className="text-sm font-medium">Filter</Text>
+          </Button>
+
+          <View className="w-px bg-border" />
+
+          <Button
+            variant="ghost"
+            onPress={() => {
+              setSelectedTransaction(undefined);
+              setShowTransactionModal(true);
+            }}
+            className="flex-1 flex-row gap-2 rounded-none">
+            <PlusCircle color={theme.colors.text} size={18} />
+            <Text className="text-sm font-medium">Add</Text>
+          </Button>
+
+          <View className="w-px bg-border" />
+
+          <Button
+            variant="ghost"
+            onPress={() => setShowSortModal(true)}
+            className="flex-1 flex-row gap-2 rounded-none">
+            <ArrowUpDown color={theme.colors.text} size={18} />
+            <Text className="text-sm font-medium">Sort</Text>
+          </Button>
+        </View>
       </View>
     </View>
   );
