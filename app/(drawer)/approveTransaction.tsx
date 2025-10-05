@@ -26,6 +26,7 @@ import {
 import { FilterState } from '@/types/FilterState';
 import { EditTransaction, NewTransaction, Transaction } from '@/types/Transaction';
 import { fetchTransactionsFromDB, getDateRangeForPreset } from '@/utils/transactions/filterUtils';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Type Guard
 const isEditTransaction = (
@@ -39,6 +40,7 @@ export default function TransactionApprovalScreen() {
   const theme = useTheme();
   const { showToast } = useToast();
   const { showConfirmationDialog } = useDialog();
+  const insets = useSafeAreaInsets();
 
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -291,8 +293,8 @@ export default function TransactionApprovalScreen() {
       </BaseModal>
 
       {/* Footer Tab-Style Buttons */}
-      <View className="border-t border-border bg-card">
-        <View className="flex-row">
+      <View className="border-t border-border bg-card" style={{ paddingBottom: insets.bottom }}>
+        <View className="flex-row py-4">
           <Button
             variant="ghost"
             onPress={() => setShowFilterModal(true)}

@@ -9,6 +9,7 @@ import { SQLiteProvider } from 'expo-sqlite';
 import React from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -44,10 +45,12 @@ function AppContent() {
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SQLiteProvider databaseName="app.db" onInit={initializeDatabase}>
-        <AppContent />
-      </SQLiteProvider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SQLiteProvider databaseName="app.db" onInit={initializeDatabase}>
+          <AppContent />
+        </SQLiteProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
