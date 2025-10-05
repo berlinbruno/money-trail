@@ -1,97 +1,69 @@
-import { getSettingsValue, setSettingsValue } from '@/utils/asyncStorageHelpers';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundTask from 'expo-background-task';
 import { openDatabaseAsync } from 'expo-sqlite';
 import * as TaskManager from 'expo-task-manager';
-import { dbConnectionManager } from '../database/connectionManager';
-import { logError, logInfo, logWarning } from '../database/loggingQueries';
-import { getMessageScanCount } from '../database/settingsQueries';
+import { logError, logInfo } from '../database/loggingQueries';
 import { syncTransactions } from './sync';
 
 export const BACKGROUND_TASK_IDENTIFIER = 'fetch-sms-task';
-export const BACKGROUND_TASK_OPTIONS = {
-  minimumInterval: 10, // in minutes
-  stopOnTerminate: false,
-  startOnBoot: true,
-};
+export const MINIMUM_INTERVAL = 120; // 2 hours in minutes
+export const TASK_CONFIG_KEY = '@sms_task_config';
 
 // Task scheduling configuration defaults
 export const DEFAULT_TASK_CONFIG = {
   enabled: true,
-  intervalMinutes: 120, // Default 2 hours (matches settings default)
-  messageScanCount: 200, // Default 200 messages (matches settings default)
+  intervalMinutes: 120, // Default 2 hours
+  messageScanCount: 200, // Default 200 messages
   runOnAppLaunch: true,
 };
 
-// Task configuration storage keys - reuse existing settings where possible
-const TASK_CONFIG_KEYS = {
-  enabled: 'back_sync', // Reuse existing back_sync setting
-  intervalMinutes: 'sync_interval', // Reuse existing sync_interval setting
-  messageScanCount: 'message_scan_count', // Reuse existing message_scan_count setting
-  runOnAppLaunch: 'fetch_on_launch', // Reuse existing fetch_on_launch setting
-};
-
 /**
- * Get task configuration from settings or return defaults
- * Also checks SMS permission and disables SMS-dependent features if not available
+ * Get task configuration from AsyncStorage or return defaults
  */
-export async function getTaskConfig(): Promise<typeof DEFAULT_TASK_CONFIG> {
+export const getTaskConfig = async (): Promise<typeof DEFAULT_TASK_CONFIG> => {
   try {
     // Check SMS permission first
     const { hasSMSPermission } = await import('@/utils/permissionUtils');
     const smsAccess = await hasSMSPermission();
 
-    // Get individual task config values using the settings helpers
-    const enabled = await getSettingsValue(TASK_CONFIG_KEYS.enabled);
-    const intervalMinutes = await getSettingsValue(TASK_CONFIG_KEYS.intervalMinutes);
-    const messageScanCount = await getSettingsValue(TASK_CONFIG_KEYS.messageScanCount);
-    const runOnAppLaunch = await getSettingsValue(TASK_CONFIG_KEYS.runOnAppLaunch);
+    const configJson = await AsyncStorage.getItem(TASK_CONFIG_KEY);
+    const storedConfig = configJson ? JSON.parse(configJson) : {};
 
     return {
-      enabled: enabled ? enabled === 'true' && smsAccess : DEFAULT_TASK_CONFIG.enabled && smsAccess, // Disable if no SMS access
-      intervalMinutes: intervalMinutes
-        ? parseInt(intervalMinutes, 10)
-        : DEFAULT_TASK_CONFIG.intervalMinutes,
-      messageScanCount: messageScanCount
-        ? parseInt(messageScanCount, 10)
-        : DEFAULT_TASK_CONFIG.messageScanCount,
-      runOnAppLaunch: runOnAppLaunch
-        ? runOnAppLaunch === 'true' && smsAccess
-        : DEFAULT_TASK_CONFIG.runOnAppLaunch && smsAccess, // Disable if no SMS access
+      enabled: (storedConfig.enabled ?? DEFAULT_TASK_CONFIG.enabled) && smsAccess,
+      intervalMinutes: storedConfig.intervalMinutes ?? DEFAULT_TASK_CONFIG.intervalMinutes,
+      messageScanCount: storedConfig.messageScanCount ?? DEFAULT_TASK_CONFIG.messageScanCount,
+      runOnAppLaunch:
+        (storedConfig.runOnAppLaunch ?? DEFAULT_TASK_CONFIG.runOnAppLaunch) && smsAccess,
     };
   } catch (error) {
     console.error('Error retrieving task configuration:', error);
-    return { ...DEFAULT_TASK_CONFIG, enabled: false, runOnAppLaunch: false }; // Safe defaults when SMS not available
+    return { ...DEFAULT_TASK_CONFIG, enabled: false, runOnAppLaunch: false };
   }
-}
+};
 
 /**
- * Save task configuration to settings
+ * Save task configuration to AsyncStorage
  */
-export const saveTaskConfig = async (config: typeof DEFAULT_TASK_CONFIG) => {
+export const saveTaskConfig = async (config: typeof DEFAULT_TASK_CONFIG): Promise<boolean> => {
   try {
+    // Validate configuration values
+    if (config.intervalMinutes < 15) {
+      console.warn('Interval too small, using minimum of 15 minutes');
+      config.intervalMinutes = 15;
+    }
+    if (config.messageScanCount < 1 || config.messageScanCount > 1000) {
+      console.warn('Invalid message scan count, using default');
+      config.messageScanCount = DEFAULT_TASK_CONFIG.messageScanCount;
+    }
+
     const finalConfig = { ...DEFAULT_TASK_CONFIG, ...config };
-
-    await Promise.all([
-      setSettingsValue(TASK_CONFIG_KEYS.enabled, finalConfig.enabled.toString()),
-      setSettingsValue(TASK_CONFIG_KEYS.intervalMinutes, finalConfig.intervalMinutes.toString()),
-      setSettingsValue(TASK_CONFIG_KEYS.messageScanCount, finalConfig.messageScanCount.toString()),
-      setSettingsValue(TASK_CONFIG_KEYS.runOnAppLaunch, finalConfig.runOnAppLaunch.toString()),
-    ]);
-
+    await AsyncStorage.setItem(TASK_CONFIG_KEY, JSON.stringify(finalConfig));
     return true;
   } catch (error) {
     console.error('Error saving task configuration:', error);
     return false;
   }
-};
-
-export type FinanceSms = {
-  _id: string;
-  address: string;
-  body: string;
-  date: number;
-  timestamp?: number; // extra field for history
-  sms_hash?: string; // hash used for transaction matching
 };
 
 export type TaskExecutionLog = {
@@ -100,22 +72,20 @@ export type TaskExecutionLog = {
   details?: string;
   messageCount?: number;
   error?: string;
-  executionTimeMs?: number; // Track execution time in milliseconds
-  processingRate?: number; // Messages processed per second
+  executionTimeMs?: number;
+  processingRate?: number;
 };
 
 /**
- * Execute the SMS processing task with enhanced error handling
+ * Execute the SMS processing task
  * @param db The SQLite database instance (optional - will open if not provided)
  * @returns Promise<TaskExecutionLog> Execution results
  */
 export const executeTask = async (db?: any): Promise<TaskExecutionLog> => {
   console.log('SMS processing task executing...');
   const startTime = Date.now();
-  const now = new Date();
-  const taskKey = `background_task_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
   const executionLog: TaskExecutionLog = {
-    timestamp: now.toISOString(),
+    timestamp: new Date().toISOString(),
     status: 'Started',
   };
 
@@ -123,74 +93,31 @@ export const executeTask = async (db?: any): Promise<TaskExecutionLog> => {
   let taskDb = db;
 
   try {
-    // If no database provided, open one with proper connection management
-    if (!taskDb) {
-      taskDb = await openDatabaseAsync('app.db', {
-        enableChangeListener: false, // Disable change listener for background tasks
-      });
-      // Enable WAL mode for concurrent access
-      await taskDb.execAsync('PRAGMA journal_mode = WAL;');
-      // Set busy timeout for better handling of concurrent access
-      await taskDb.execAsync('PRAGMA busy_timeout = 30000;'); // 30 seconds
-      shouldCloseDb = true;
-    }
-
-    // Log task execution start
-    await logInfo(
-      taskDb,
-      'task_execution',
-      'Background task started',
-      'SMS processing background task execution started',
-      {
-        task_key: taskKey,
-        start_time: now.toISOString(),
-      }
-    );
-
     // Get task configuration
     const config = await getTaskConfig();
     if (!config.enabled) {
       executionLog.status = 'Skipped';
       executionLog.details = 'Background sync is disabled';
       executionLog.executionTimeMs = Date.now() - startTime;
-
-      await logWarning(
-        taskDb,
-        'task_execution',
-        'Background task skipped',
-        'Background sync is disabled in settings',
-        {
-          task_key: taskKey,
-          execution_time_ms: executionLog.executionTimeMs,
-        }
-      );
-
       return executionLog;
     }
 
-    // Get the current messageScanCount from user settings
-    const messageScanCount = await getMessageScanCount();
+    // Open database if not provided
+    if (!taskDb) {
+      taskDb = await openDatabaseAsync('app.db');
+      await taskDb.execAsync('PRAGMA journal_mode = WAL;');
+      await taskDb.execAsync('PRAGMA busy_timeout = 30000;');
+      shouldCloseDb = true;
+    }
 
-    await logInfo(
-      taskDb,
-      'task_execution',
-      'Background task configuration',
-      `Task will process up to ${messageScanCount} messages`,
-      {
-        task_key: taskKey,
-        message_scan_count: messageScanCount,
-        config,
-      }
-    );
-
-    // Use the enhanced sync function
+    // Execute SMS sync
     const result = await syncTransactions(taskDb, {
-      maxMessages: messageScanCount,
+      maxMessages: config.messageScanCount,
       defaultAccount: 'default',
       forceApproval: 1,
     });
 
-    // Update execution log with sync results
+    // Update execution log
     executionLog.messageCount = result.processed;
     executionLog.status = result.success ? 'Completed' : 'Failed';
     executionLog.details = result.success
@@ -204,67 +131,77 @@ export const executeTask = async (db?: any): Promise<TaskExecutionLog> => {
       executionLog.error = result.errorMessages.join(', ');
     }
 
-    // Log execution completion
-    if (result.success) {
-      await logInfo(
-        taskDb,
-        'task_execution',
-        'Background task completed successfully',
-        executionLog.details || 'Task completed',
-        {
-          task_key: taskKey,
-          ...result,
-          processing_rate: executionLog.processingRate,
-        }
-      );
-    } else {
-      await logError(
-        taskDb,
-        'task_execution',
-        'Background task completed with errors',
-        executionLog.error || 'Unknown error',
-        {
-          task_key: taskKey,
-          ...result,
-          error_messages: result.errorMessages,
-        }
-      );
+    // Log to database
+    try {
+      if (result.success) {
+        await logInfo(
+          taskDb,
+          'task_execution',
+          'Background SMS sync completed',
+          executionLog.details || '',
+          {
+            task_type: 'background_sync',
+            messages_processed: result.processed,
+            transactions_inserted: result.inserted,
+            execution_time_ms: executionLog.executionTimeMs,
+            processing_rate: executionLog.processingRate,
+            success_rate:
+              result.processed > 0 ? ((result.inserted / result.processed) * 100).toFixed(2) : 0,
+          }
+        );
+      } else {
+        await logError(
+          taskDb,
+          'task_execution',
+          'Background SMS sync failed',
+          executionLog.error || 'Unknown error',
+          {
+            task_type: 'background_sync',
+            messages_processed: result.processed,
+            execution_time_ms: executionLog.executionTimeMs,
+            error_messages: result.errorMessages,
+          }
+        );
+      }
+    } catch {
+      // Silent fail - don't break sync for logging issues
     }
 
     return executionLog;
   } catch (error) {
     console.error('Error in SMS processing task:', error);
-    const endTime = Date.now();
     executionLog.status = 'Failed';
     executionLog.error = error instanceof Error ? error.message : String(error);
-    executionLog.details = 'Task execution failed, see error details';
-    executionLog.executionTimeMs = endTime - startTime;
+    executionLog.details = 'Task execution failed';
+    executionLog.executionTimeMs = Date.now() - startTime;
 
-    // Log task execution error
-    if (taskDb) {
-      await logError(
-        taskDb,
-        'task_execution',
-        'Background task execution failed',
-        executionLog.error,
-        {
-          task_key: taskKey,
-          execution_time_ms: executionLog.executionTimeMs,
-          error_type: error instanceof Error ? error.constructor.name : 'Unknown',
-          stack_trace: error instanceof Error ? error.stack : undefined,
-        }
-      );
+    // Log error to database
+    try {
+      if (taskDb) {
+        await logError(
+          taskDb,
+          'task_execution',
+          'Background SMS sync execution failed',
+          executionLog.error,
+          {
+            task_type: 'background_sync',
+            execution_time_ms: executionLog.executionTimeMs,
+            error_type: error instanceof Error ? error.constructor.name : 'Unknown',
+          }
+        );
+      }
+    } catch {
+      // Silent fail - don't break sync for logging issues
     }
 
     return executionLog;
   } finally {
-    // Properly close database connection if we opened it
+    // Close database if we opened it
     if (shouldCloseDb && taskDb) {
       try {
         await taskDb.closeAsync();
-        console.log('Background task database connection closed');
-      } catch (closeError) {
-        console.error('Failed to close background task database:', closeError);
+      } catch {
+        // Silent fail - database might already be closed
       }
     }
   }
@@ -273,75 +210,24 @@ export const executeTask = async (db?: any): Promise<TaskExecutionLog> => {
 /**
  * Register background task with current settings
  */
-export const registerBackgroundTask = async (db: any): Promise<boolean> => {
+export const registerBackgroundTask = async (): Promise<boolean> => {
   try {
-    // Check if task is already registered
     const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_TASK_IDENTIFIER);
-
     if (isRegistered) {
-      console.log('Background SMS task already registered');
-
-      // Log that task is already registered
-      await logInfo(
-        db,
-        'task_execution',
-        'Background task registration skipped',
-        'Background task is already registered with the system',
-        {
-          task_identifier: BACKGROUND_TASK_IDENTIFIER,
-          already_registered: true,
-        }
-      );
-
       return true;
     }
 
-    // Get current configuration
     const config = await getTaskConfig();
+    await BackgroundTask.registerTaskAsync(BACKGROUND_TASK_IDENTIFIER, {
+      minimumInterval: config.intervalMinutes || MINIMUM_INTERVAL,
+    });
 
-    // Update background task options based on config
-    const taskOptions = {
-      ...BACKGROUND_TASK_OPTIONS,
-      minimumInterval: config.intervalMinutes || BACKGROUND_TASK_OPTIONS.minimumInterval,
-    };
-
-    await BackgroundTask.registerTaskAsync(BACKGROUND_TASK_IDENTIFIER, taskOptions);
     console.log(
-      `Background SMS task registered with interval: ${taskOptions.minimumInterval} minutes`
+      `Background SMS task registered (${config.intervalMinutes || MINIMUM_INTERVAL}min)`
     );
-
-    // Log successful task registration
-    await logInfo(
-      db,
-      'task_execution',
-      'Background task registered',
-      `Background task registered successfully with ${taskOptions.minimumInterval} minute interval`,
-      {
-        task_identifier: BACKGROUND_TASK_IDENTIFIER,
-        interval_minutes: taskOptions.minimumInterval,
-        stop_on_terminate: taskOptions.stopOnTerminate,
-        start_on_boot: taskOptions.startOnBoot,
-        configuration: config,
-        task_options: taskOptions,
-      }
-    );
-
     return true;
   } catch (error) {
     console.error('Failed to register background task:', error);
-
-    // Log registration failure
-    await logError(
-      db,
-      'task_execution',
-      'Background task registration failed',
-      error instanceof Error ? error.message : String(error),
-      {
-        task_identifier: BACKGROUND_TASK_IDENTIFIER,
-        error_type: error instanceof Error ? error.constructor.name : 'Unknown',
-      }
-    );
-
     return false;
   }
 };
@@ -349,64 +235,15 @@ export const registerBackgroundTask = async (db: any): Promise<boolean> => {
 /**
  * Unregister background task
  */
-export const unregisterBackgroundTask = async (db?: any): Promise<boolean> => {
+export const unregisterBackgroundTask = async (): Promise<boolean> => {
   try {
     const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_TASK_IDENTIFIER);
-
     if (isRegistered) {
-      // For BackgroundTask, we need to unregister using BackgroundTask API
       await BackgroundTask.unregisterTaskAsync(BACKGROUND_TASK_IDENTIFIER);
-      console.log('Background SMS task unregistered');
-
-      // Log task unregistration if database is available
-      if (db) {
-        await logInfo(
-          db,
-          'task_execution',
-          'Background task unregistered',
-          'Background task has been unregistered from the system',
-          {
-            task_identifier: BACKGROUND_TASK_IDENTIFIER,
-            unregistered_at: new Date().toISOString(),
-          }
-        );
-      }
-    } else {
-      console.log('Background SMS task was not registered');
-
-      // Log that task was not registered if database is available
-      if (db) {
-        await logInfo(
-          db,
-          'task_execution',
-          'Background task unregistration skipped',
-          'Background task was not registered, no action needed',
-          {
-            task_identifier: BACKGROUND_TASK_IDENTIFIER,
-            was_registered: false,
-          }
-        );
-      }
     }
-
     return true;
   } catch (error) {
     console.error('Failed to unregister background task:', error);
-
-    // Log unregistration failure if database is available
-    if (db) {
-      await logError(
-        db,
-        'task_execution',
-        'Background task unregistration failed',
-        error instanceof Error ? error.message : String(error),
-        {
-          task_identifier: BACKGROUND_TASK_IDENTIFIER,
-          error_type: error instanceof Error ? error.constructor.name : 'Unknown',
-        }
-      );
-    }
-
     return false;
   }
 };
@@ -415,156 +252,35 @@ export const unregisterBackgroundTask = async (db?: any): Promise<boolean> => {
  * Update task configuration and re-register if needed
  */
 export const updateTaskConfiguration = async (
-  db: any,
   newConfig: Partial<typeof DEFAULT_TASK_CONFIG>
 ): Promise<boolean> => {
   try {
-    // Get current config
     const currentConfig = await getTaskConfig();
     const updatedConfig = { ...currentConfig, ...newConfig };
 
-    // Log the configuration update attempt
-    await logInfo(
-      db,
-      'task_execution',
-      'Background task configuration update started',
-      'Attempting to update background task configuration',
-      {
-        current_config: currentConfig,
-        new_config: newConfig,
-        updated_config: updatedConfig,
-      }
-    );
-
-    // Save updated config
-    const saved = await saveTaskConfig(updatedConfig);
-    if (!saved) {
-      console.error('Failed to save task configuration');
-      await logError(
-        db,
-        'task_execution',
-        'Background task configuration save failed',
-        'Failed to save task configuration to storage',
-        {
-          updated_config: updatedConfig,
-        }
-      );
+    if (!(await saveTaskConfig(updatedConfig))) {
       return false;
     }
 
-    // If background sync is disabled, unregister the task
     if (!updatedConfig.enabled) {
-      console.log('Background sync disabled, unregistering task');
-      await logInfo(
-        db,
-        'task_execution',
-        'Background sync disabled',
-        'Background sync disabled, unregistering task',
-        {
-          previous_enabled: currentConfig.enabled,
-        }
-      );
-      return await unregisterBackgroundTask(db);
+      return await unregisterBackgroundTask();
     }
 
-    // Check if task is currently registered
     const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_TASK_IDENTIFIER);
-
-    // If the interval has changed or task is not registered, we need to re-register
     const intervalChanged = currentConfig.intervalMinutes !== updatedConfig.intervalMinutes;
 
     if (isRegistered && intervalChanged) {
-      console.log(
-        `Task interval changed from ${currentConfig.intervalMinutes} to ${updatedConfig.intervalMinutes} minutes, re-registering background task`
-      );
-
-      await logInfo(
-        db,
-        'task_execution',
-        'Background task interval changed',
-        `Task interval changed, forcing re-registration`,
-        {
-          old_interval: currentConfig.intervalMinutes,
-          new_interval: updatedConfig.intervalMinutes,
-          task_identifier: BACKGROUND_TASK_IDENTIFIER,
-        }
-      );
-
-      // Unregister first, then re-register with new settings
-      const unregistered = await unregisterBackgroundTask(db);
-      if (!unregistered) {
-        console.error('Failed to unregister task before re-registration');
-        await logError(
-          db,
-          'task_execution',
-          'Background task unregistration failed during update',
-          'Failed to unregister task before applying new interval',
-          {
-            old_interval: currentConfig.intervalMinutes,
-            new_interval: updatedConfig.intervalMinutes,
-          }
-        );
-        return false;
-      }
-
-      // Small delay to ensure unregistration is complete
+      await unregisterBackgroundTask();
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    // Register with new settings if not registered or if we just unregistered
     if (!isRegistered || intervalChanged) {
-      const registered = await registerBackgroundTask(db);
-
-      if (registered) {
-        await logInfo(
-          db,
-          'task_execution',
-          'Background task configuration updated successfully',
-          'Background task registered with new configuration',
-          {
-            updated_config: updatedConfig,
-            was_registered: isRegistered,
-            interval_changed: intervalChanged,
-          }
-        );
-      } else {
-        await logError(
-          db,
-          'task_execution',
-          'Background task registration failed during update',
-          'Failed to register task with new configuration',
-          {
-            updated_config: updatedConfig,
-          }
-        );
-      }
-
-      return registered;
+      return await registerBackgroundTask();
     }
 
-    console.log('Background task configuration updated successfully (no re-registration needed)');
-    await logInfo(
-      db,
-      'task_execution',
-      'Background task configuration updated (no re-registration)',
-      'Configuration updated without requiring task re-registration',
-      {
-        updated_config: updatedConfig,
-      }
-    );
     return true;
   } catch (error) {
     console.error('Failed to update task configuration:', error);
-    await logError(
-      db,
-      'task_execution',
-      'Background task configuration update failed',
-      error instanceof Error ? error.message : String(error),
-      {
-        error_type: error instanceof Error ? error.constructor.name : 'Unknown',
-        stack_trace: error instanceof Error ? error.stack : undefined,
-      }
-    );
     return false;
   }
 };
@@ -598,127 +314,123 @@ export const getTaskStatus = async (): Promise<{
     };
   }
 };
+
 /**
- * Define and register the background task with enhanced integration
- * @param innerAppMountedPromise Promise that resolves when the app is mounted
+ * Clear SMS sync logs (removes task_execution category logs)
+ */
+export const clearSyncHistory = async (db: any): Promise<boolean> => {
+  try {
+    await db.execAsync(
+      `DELETE FROM app_logs WHERE category = 'task_execution' AND metadata LIKE '%"task_type":"background_sync"%'`
+    );
+    return true;
+  } catch (error) {
+    console.error('Error clearing sync history:', error);
+    return false;
+  }
+};
+
+/**
+ * Get SMS sync history from database logs
+ */
+export const getSyncHistory = async (db: any, limit = 50): Promise<any[]> => {
+  try {
+    const logs = await db.getAllAsync(
+      `SELECT * FROM app_logs 
+       WHERE category = 'task_execution' 
+       AND metadata LIKE '%"task_type":"background_sync"%'
+       ORDER BY timestamp DESC 
+       LIMIT ?`,
+      [limit]
+    );
+
+    return logs.map((log: any) => {
+      let metadata = {};
+      try {
+        metadata = log.metadata ? JSON.parse(log.metadata) : {};
+      } catch {
+        metadata = {};
+      }
+
+      return {
+        ...log,
+        metadata,
+      };
+    });
+  } catch (error) {
+    console.error('Error getting sync history:', error);
+    return [];
+  }
+};
+
+/**
+ * Get sync statistics from database logs
+ */
+export const getSyncStatistics = async (
+  db: any
+): Promise<{
+  totalSyncs: number;
+  successRate: number;
+  avgExecutionTime: number;
+  totalMessagesProcessed: number;
+  totalTransactionsInserted: number;
+  lastSyncTime: string | null;
+} | null> => {
+  try {
+    const logs = await getSyncHistory(db, 100); // Get more logs for better statistics
+    if (logs.length === 0) {
+      return null;
+    }
+
+    const completedSyncs = logs.filter((log) => log.log_level === 'info');
+    const totalExecutionTime = logs.reduce((sum, log) => {
+      const execTime = log.metadata?.execution_time_ms || 0;
+      return sum + execTime;
+    }, 0);
+
+    const totalMessagesProcessed = logs.reduce((sum, log) => {
+      const messages = log.metadata?.messages_processed || 0;
+      return sum + messages;
+    }, 0);
+
+    const totalTransactionsInserted = logs.reduce((sum, log) => {
+      const transactions = log.metadata?.transactions_inserted || 0;
+      return sum + transactions;
+    }, 0);
+
+    return {
+      totalSyncs: logs.length,
+      successRate: logs.length > 0 ? (completedSyncs.length / logs.length) * 100 : 0,
+      avgExecutionTime: logs.length > 0 ? totalExecutionTime / logs.length : 0,
+      totalMessagesProcessed,
+      totalTransactionsInserted,
+      lastSyncTime: logs[0]?.timestamp || null,
+    };
+  } catch (error) {
+    console.error('Error calculating sync statistics:', error);
+    return null;
+  }
+};
+/**
+ * Initialize the background task
  */
 export const initializeBackgroundTask = async (
   innerAppMountedPromise: Promise<void>
 ): Promise<void> => {
-  // Define the task handler
   TaskManager.defineTask(BACKGROUND_TASK_IDENTIFIER, async () => {
-    console.log('Background SMS task started');
-    const taskStartTime = Date.now();
-    const taskKey = `bg_task_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    const connectionId = `background_task_${taskKey}`;
-
+    await innerAppMountedPromise;
     try {
-      // Wait for app to be fully mounted
-      await innerAppMountedPromise;
-
-      // Open database connection with proper configuration for background tasks
-      const db = await dbConnectionManager.openConnection(connectionId, 'app.db', {
-        enableChangeListener: false, // Disable change listener for background tasks
-        busyTimeout: 30000, // 30 seconds timeout
-        retryAttempts: 3,
-      });
-
-      // Log background task initiation
-      await dbConnectionManager.retryOperation(
-        () =>
-          logInfo(
-            db,
-            'task_execution',
-            'Background task initiated',
-            'Background SMS processing task started by system scheduler',
-            {
-              task_key: taskKey,
-              task_identifier: BACKGROUND_TASK_IDENTIFIER,
-              start_time: new Date().toISOString(),
-              trigger: 'system_scheduler',
-            }
-          ),
-        'log background task initiation'
-      );
-
-      // Execute the task with retry logic
-      const result = await dbConnectionManager.retryOperation(
-        () => executeTask(db),
-        'execute background task'
-      );
-
-      const executionTime = Date.now() - taskStartTime;
-
-      console.log(`Background task execution ${result.status}: ${result.details || ''}`);
-
-      // Log background task completion
-      await dbConnectionManager.retryOperation(
-        () =>
-          logInfo(
-            db,
-            'task_execution',
-            'Background task completed',
-            `Task completed with status: ${result.status}`,
-            {
-              task_key: taskKey,
-              task_identifier: BACKGROUND_TASK_IDENTIFIER,
-              execution_status: result.status,
-              execution_time_ms: executionTime,
-              messages_processed: result.messageCount || 0,
-              processing_rate: result.processingRate || 0,
-              completion_time: new Date().toISOString(),
-            }
-          ),
-        'log background task completion'
-      );
-
+      const result = await executeTask();
+      console.log(`Background task: ${result.status}`);
       return BackgroundTask.BackgroundTaskResult.Success;
     } catch (error) {
-      console.error('Unhandled error in background task:', error);
-      const executionTime = Date.now() - taskStartTime;
-      const errorMessage = error instanceof Error ? error.message : String(error);
-
-      // Try to log error if connection is available
-      try {
-        const db = dbConnectionManager.getConnection(connectionId);
-        if (db) {
-          await dbConnectionManager.retryOperation(
-            () =>
-              logError(
-                db,
-                'task_execution',
-                'Background task failed',
-                `Background task execution failed: ${errorMessage}`,
-                {
-                  task_key: taskKey,
-                  task_identifier: BACKGROUND_TASK_IDENTIFIER,
-                  execution_time_ms: executionTime,
-                  error_type: error instanceof Error ? error.constructor.name : 'Unknown',
-                  error_message: errorMessage,
-                  stack_trace: error instanceof Error ? error.stack : undefined,
-                  failure_time: new Date().toISOString(),
-                }
-              ),
-            'log background task error'
-          );
-        }
-      } catch (logError) {
-        console.error('Failed to log background task error:', logError);
-      }
-
+      console.error('Background task error:', error);
       return BackgroundTask.BackgroundTaskResult.Failed;
-    } finally {
-      // Close the database connection
-      try {
-        await dbConnectionManager.closeConnection(connectionId);
-      } catch (closeError) {
-        console.error('Failed to close background task database connection:', closeError);
-      }
-      console.log('Background SMS task completed');
     }
   });
 
-  // Note: Task registration will be handled by the settings context
-  // when background sync is enabled by the user
-  console.log('Background SMS task handler defined');
+  const config = await getTaskConfig();
+  if (config.enabled && !(await TaskManager.isTaskRegisteredAsync(BACKGROUND_TASK_IDENTIFIER))) {
+    await registerBackgroundTask();
+  }
 };

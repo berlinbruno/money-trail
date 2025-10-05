@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { BACKGROUND_TASK_OPTIONS } from '@/lib/sms/backgroundTask';
+import { MINIMUM_INTERVAL } from '@/lib/sms/backgroundTask';
 import * as TaskManager from 'expo-task-manager';
 import React from 'react';
 import { View } from 'react-native';
@@ -56,9 +56,7 @@ export const BackgroundTaskSummaryCard: React.FC<BackgroundTaskSummaryCardProps>
             </View>
             <View className="flex-row justify-between border-b border-border py-2">
               <Text className="font-medium">Sync Interval:</Text>
-              <Text>
-                Every {taskConfig.intervalMinutes || BACKGROUND_TASK_OPTIONS.minimumInterval} min
-              </Text>
+              <Text>Every {taskConfig.intervalMinutes || MINIMUM_INTERVAL} min</Text>
             </View>
             <View className="flex-row justify-between border-b border-border py-2">
               <Text className="font-medium">Message Scan Count:</Text>

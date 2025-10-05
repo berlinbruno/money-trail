@@ -24,7 +24,6 @@ import {
 } from '@/lib/database/settingsQueries';
 import { updateTaskConfiguration } from '@/lib/sms/backgroundTask';
 import { hasSMSPermission } from '@/utils/permissionUtils';
-import { useSQLiteContext } from 'expo-sqlite';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 // Types
@@ -86,7 +85,6 @@ interface SettingsProviderProps {
 }
 
 export function SettingsProvider({ children }: SettingsProviderProps) {
-  const db = useSQLiteContext();
   const { showPermissionDialog } = useDialog();
 
   // Sync state
@@ -155,9 +153,11 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         // Initialize background task configuration on first load
         if (!isRefresh) {
           try {
-            await updateTaskConfiguration(db, {
+            await updateTaskConfiguration({
               enabled: syncEnabled,
-              intervalMinutes: syncIntervalMinutes as SyncIntervalType, // Already in minutes
+              intervalMinutes: syncIntervalMinutes as SyncIntervalType,
+              messageScanCount: messageScanCount || 200,
+              runOnAppLaunch: fetchOnLaunchEnabled,
             });
             console.log('Background task configuration initialized');
           } catch (error) {
@@ -171,7 +171,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         setIsLoading(false);
       }
     },
-    [db]
+    [messageScanCount] // Add messageScanCount dependency
   );
 
   // Initialize settings on mount
@@ -201,7 +201,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         setBackgroundSyncState(enabled);
 
         // Update background task configuration
-        const success = await updateTaskConfiguration(db, {
+        const success = await updateTaskConfiguration({
           enabled,
           intervalMinutes: syncInterval,
         });
@@ -219,7 +219,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         throw error;
       }
     },
-    [db, syncInterval, hasSMSAccess, showPermissionDialog]
+    [syncInterval, hasSMSAccess, showPermissionDialog]
   );
 
   const setSyncIntervalMinutes = useCallback(
@@ -230,7 +230,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
 
         // Update background task if sync is enabled
         if (backgroundSyncEnabled) {
-          const success = await updateTaskConfiguration(db, {
+          const success = await updateTaskConfiguration({
             enabled: backgroundSyncEnabled,
             intervalMinutes: interval,
           });
@@ -247,7 +247,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         throw error;
       }
     },
-    [backgroundSyncEnabled, db]
+    [backgroundSyncEnabled]
   );
 
   const setMessageScanCount = useCallback(
@@ -258,9 +258,10 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
 
         // Update background task configuration if sync is enabled
         if (backgroundSyncEnabled) {
-          const success = await updateTaskConfiguration(db, {
+          const success = await updateTaskConfiguration({
             enabled: backgroundSyncEnabled,
             intervalMinutes: syncInterval,
+            messageScanCount: count,
           });
 
           if (!success) {
@@ -275,7 +276,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         throw error;
       }
     },
-    [backgroundSyncEnabled, db, syncInterval]
+    [backgroundSyncEnabled, syncInterval]
   );
 
   const resetLastSyncTime = useCallback(async () => {
