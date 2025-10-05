@@ -2,31 +2,46 @@ import { getTransactions } from '@/lib/database/transactionQueries';
 import { SQLiteDatabase } from 'expo-sqlite';
 
 export const getDateRangeForPreset = (preset: string): { start: Date | null; end: Date | null } => {
-  const today = new Date();
   let start: Date | null = null;
   let end: Date | null = null;
 
   switch (preset) {
     case 'Today':
-      start = new Date(today.setHours(0, 0, 0, 0));
-      end = new Date(today.setHours(23, 59, 59, 999));
-      break;
-    case 'This Week':
-      start = new Date(today);
-      start.setDate(today.getDate() - today.getDay()); // Sunday start
+      start = new Date();
       start.setHours(0, 0, 0, 0);
-      end = new Date(today.setHours(23, 59, 59, 999));
+      end = new Date();
+      end.setHours(23, 59, 59, 999);
+      break;
+    case 'Last 7 Days':
+      start = new Date();
+      start.setDate(start.getDate() - 6); // Go back 6 days to include today (7 total days)
+      start.setHours(0, 0, 0, 0);
+      end = new Date();
+      end.setHours(23, 59, 59, 999);
       break;
     case 'Last 30 Days':
-      start = new Date(today);
-      start.setDate(today.getDate() - 30);
+      start = new Date();
+      start.setDate(start.getDate() - 30);
       start.setHours(0, 0, 0, 0);
-      end = new Date(today.setHours(23, 59, 59, 999));
+      end = new Date();
+      end.setHours(23, 59, 59, 999);
       break;
     case 'all':
     default:
       start = null;
       end = null;
+  }
+
+  // Debug logging for date ranges
+  if (start && end) {
+    console.log(`📅 Date preset '${preset}':`, {
+      start: start.toISOString(),
+      end: end.toISOString(),
+      startDate: start.toDateString(),
+      endDate: end.toDateString(),
+    });
+  } else {
+    console.log(`📅 Date preset '${preset}': No date filter (all transactions)`);
   }
 
   return { start, end };

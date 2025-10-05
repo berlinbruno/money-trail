@@ -50,9 +50,9 @@ export default function TransactionListScreen() {
     search: '',
     type: 'all',
     category: 'all',
-    selectedPreset: 'all',
-    startDate: new Date(),
-    endDate: new Date(),
+    selectedPreset: '',
+    startDate: null,
+    endDate: null,
     showStartPicker: false,
     showEndPicker: false,
   });
@@ -247,7 +247,7 @@ export default function TransactionListScreen() {
         <FilterForm
           filterState={filterState}
           setFilterState={handleFilterStateChange}
-          presets={['Today', 'This Week', 'Last 30 Days']}
+          presets={['all', 'Today', 'Last 7 Days', 'Last 30 Days']}
           applyPreset={applyDatePreset}
           onClose={() => setShowFilterModal(false)}
         />

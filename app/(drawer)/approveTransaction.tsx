@@ -295,7 +295,7 @@ export default function TransactionApprovalScreen() {
         <FilterForm
           filterState={filterState}
           setFilterState={setFilterState}
-          presets={['Today', 'This Week', 'Last 30 Days']}
+          presets={['all', 'Today', 'Last 7 Days', 'Last 30 Days']}
           applyPreset={applyDatePreset}
           onClose={() => setShowFilterModal(false)}
         />

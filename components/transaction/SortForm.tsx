@@ -64,3 +64,14 @@ function SortForm({ onClose, sortOrder, setSortOrder, sortBy, setSortBy }: SortF
     </View>
   );
 }
+
+// Custom comparison function for React.memo
+const arePropsEqual = (prevProps: SortFormProps, nextProps: SortFormProps): boolean => {
+  // Only re-render if sort values actually change
+  return (
+    prevProps.sortOrder === nextProps.sortOrder && prevProps.sortBy === nextProps.sortBy
+    // Ignore function prop changes (onClose, setSortOrder, setSortBy)
+  );
+};
+
+export default memo(SortForm, arePropsEqual);

@@ -130,31 +130,27 @@ function FilterForm({
       {/* Presets */}
       <Label>Preset Ranges</Label>
       <View className="mb-3 flex-row flex-wrap gap-2">
-        <TouchableOpacity
-          key="all-presets"
-          className={`rounded-full px-3 py-2 ${selectedPreset === '' ? 'bg-primary' : 'bg-secondary'}`}
-          onPress={() => applyPreset('')}>
-          <Text
-            className={
-              selectedPreset === '' ? 'text-primary-foreground' : 'text-secondary-foreground'
-            }>
-            All
-          </Text>
-        </TouchableOpacity>
-
-        {presets.map((preset) => (
-          <TouchableOpacity
-            key={preset}
-            className={`rounded-full px-3 py-2 ${selectedPreset === preset ? 'bg-primary' : 'bg-secondary'}`}
-            onPress={() => applyPreset(preset)}>
-            <Text
-              className={
-                selectedPreset === preset ? 'text-primary-foreground' : 'text-secondary-foreground'
-              }>
-              {preset}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-3"
+          contentContainerStyle={{ gap: 8 }}>
+          {presets.map((preset) => (
+            <TouchableOpacity
+              key={preset}
+              className={`rounded-full px-3 py-2 ${selectedPreset === preset ? 'bg-primary' : 'bg-secondary'}`}
+              onPress={() => applyPreset(preset)}>
+              <Text
+                className={
+                  selectedPreset === preset
+                    ? 'text-primary-foreground'
+                    : 'text-secondary-foreground'
+                }>
+                {preset === 'all' ? 'All' : preset}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       {/* Date Range */}
@@ -214,9 +210,9 @@ function FilterForm({
               search: '',
               type: 'all',
               category: 'all',
-              selectedPreset: 'Today',
-              startDate: maxDate,
-              endDate: maxDate,
+              selectedPreset: '',
+              startDate: null,
+              endDate: null,
               showStartPicker: false,
               showEndPicker: false,
             });
