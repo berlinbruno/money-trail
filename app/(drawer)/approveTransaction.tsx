@@ -12,20 +12,20 @@ import TransactionForm from '@/components/transaction/TransactionForm';
 import { Button } from '@/components/ui/button';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
+import { useApp } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/DialogProvider';
 import { useToast } from '@/contexts/ToastProvider';
+import { useTransactionState } from '@/hooks/useTransactionState';
 
 import {
-  deleteTransaction,
   insertTransaction,
   updateAllTransactionFlags,
   updateTransaction,
-  updateTransactionFlag,
 } from '@/lib/database/transactionQueries';
 
 import { FilterState } from '@/types/FilterState';
 import { EditTransaction, NewTransaction, Transaction } from '@/types/Transaction';
-import { fetchTransactionsFromDB, getDateRangeForPreset } from '@/utils/transactions/filterUtils';
+import { getDateRangeForPreset } from '@/utils/transactions/filterUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Type Guard
@@ -40,16 +40,19 @@ export default function TransactionApprovalScreen() {
   const theme = useTheme();
   const { showToast } = useToast();
   const { showConfirmationDialog } = useDialog();
+  const { state: appState, actions: appActions } = useApp();
+  const { transactions: allTransactions, actions: transactionActions } = useTransactionState();
   const insets = useSafeAreaInsets();
 
-  const [transactions, setTransactions] = useState<Transaction[] | null>(null);
+  // Filter only pending transactions for this screen
+  const transactions = allTransactions.filter((tx) => tx.pending_approval === 1);
+
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showSortModal, setShowSortModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction>();
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterState, setFilterState] = useState<FilterState>({
     search: '',
     type: 'all',
@@ -72,22 +75,10 @@ export default function TransactionApprovalScreen() {
     }));
   }, []);
 
-  const fetchTransactions = useCallback(
-    async (showLoader = true) => {
-      if (showLoader) setIsRefreshing(true);
-      // await insertTransactions(db);
-      try {
-        const rows = await fetchTransactionsFromDB(db, filterState, sortBy, sortOrder, true);
-        setTransactions(rows);
-      } catch (error) {
-        console.error('Error fetching transactions:', error);
-        showToast('Failed to load transactions');
-      } finally {
-        if (showLoader) setIsRefreshing(false);
-      }
-    },
-    [db, filterState, sortBy, sortOrder, showToast]
-  );
+  // Use AppContext refresh instead of manual fetch
+  const refreshTransactions = useCallback(() => {
+    appActions.triggerTransactionRefresh();
+  }, [appActions]);
 
   const handleEditTransaction = (id: string) => {
     const tx = transactions?.find((t) => t.id === id);
@@ -109,19 +100,11 @@ export default function TransactionApprovalScreen() {
         confirmVariant: 'destructive',
         loadingText: 'Deleting...',
         onConfirm: async () => {
-          try {
-            await deleteTransaction(db, id);
-            await fetchTransactions(false); // Silent refresh
-            showToast('Transaction deleted');
-          } catch (err) {
-            console.error('Failed to delete transaction:', err);
-            showToast('Failed to delete transaction');
-            throw err; // Let the dialog handle the error state
-          }
+          await transactionActions.removeTransaction(id);
         },
       });
     },
-    [db, fetchTransactions, showToast, showConfirmationDialog]
+    [transactionActions, showConfirmationDialog]
   );
 
   const handleApproveTransaction = useCallback(
@@ -135,19 +118,11 @@ export default function TransactionApprovalScreen() {
         confirmVariant: 'default',
         loadingText: 'Approving...',
         onConfirm: async () => {
-          try {
-            await updateTransactionFlag(db, id, 0);
-            await fetchTransactions(false); // Silent refresh
-            showToast('Transaction approved');
-          } catch (err) {
-            console.error('Failed to approve transaction:', err);
-            showToast('Failed to approve transaction');
-            throw err; // Let the dialog handle the error state
-          }
+          await transactionActions.approveTransaction(id);
         },
       });
     },
-    [db, fetchTransactions, showToast, showConfirmationDialog]
+    [transactionActions, showConfirmationDialog]
   );
 
   const handleApproveAllTransactions = useCallback(() => {
@@ -158,33 +133,24 @@ export default function TransactionApprovalScreen() {
       confirmVariant: 'default',
       loadingText: 'Approving all...',
       onConfirm: async () => {
+        // Approve all pending transactions using the database function
         try {
           await updateAllTransactionFlags(db, 0);
-          await fetchTransactions(false); // Silent refresh
           showToast('All transactions approved');
+          appActions.triggerTransactionRefresh();
         } catch (err) {
           console.error('Failed to approve all transactions:', err);
           showToast('Failed to approve all transactions');
-          throw err; // Let the dialog handle the error state
+          throw err;
         }
       },
     });
-  }, [db, fetchTransactions, showToast, showConfirmationDialog]);
+  }, [db, appActions, showToast, showConfirmationDialog]);
 
   // Initialize date preset once
   useEffect(() => {
     applyDatePreset('all');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Safe to disable - we only want this to run once
-
-  // Fetch transactions when filter dependencies change
-  useEffect(() => {
-    if (filterState.selectedPreset) {
-      // Only fetch if preset is set
-      fetchTransactions(false); // Silent initial load
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterState, sortBy, sortOrder]); // Safe to disable - fetchTransactions is stable
+  }, [applyDatePreset]);
 
   /** --- Render --- **/
   return (
@@ -193,7 +159,7 @@ export default function TransactionApprovalScreen() {
         data={transactions}
         keyExtractor={(item) => item.id}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={() => fetchTransactions(true)} />
+          <RefreshControl refreshing={appState.isRefreshing} onRefresh={refreshTransactions} />
         }
         renderItem={({ item }) => (
           <TransactionCard
@@ -236,8 +202,8 @@ export default function TransactionApprovalScreen() {
         rightOpenValue={-180}
         stopRightSwipe={-180}
         disableRightSwipe={false}
-        refreshing={isRefreshing}
-        onRefresh={() => fetchTransactions(true)}
+        refreshing={appState.isRefreshing}
+        onRefresh={refreshTransactions}
       />
 
       {/* Transaction Form Modal */}
@@ -256,7 +222,8 @@ export default function TransactionApprovalScreen() {
                 await insertTransaction(db, transaction);
                 showToast('Transaction added');
               }
-              await fetchTransactions(false); // Silent refresh
+              // Trigger refresh via AppContext
+              appActions.triggerTransactionRefresh();
               setShowTransactionModal(false);
               setSelectedTransaction(undefined);
             } catch (err) {

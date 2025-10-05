@@ -1,4 +1,5 @@
 import React from 'react';
+import { AppStateProvider } from './AppContext';
 import { DialogProvider } from './DialogProvider';
 import { SettingsProvider } from './SettingsContext';
 import { ThemeProvider as AppThemeProvider } from './ThemeContext';
@@ -15,11 +16,13 @@ interface AppProviderProps {
 export function AppProvider({ children }: AppProviderProps) {
   return (
     <AppThemeProvider>
-      <DialogProvider>
-        <ToastProvider>
-          <SettingsProvider>{children}</SettingsProvider>
-        </ToastProvider>
-      </DialogProvider>
+      <AppStateProvider>
+        <DialogProvider>
+          <ToastProvider>
+            <SettingsProvider>{children}</SettingsProvider>
+          </ToastProvider>
+        </DialogProvider>
+      </AppStateProvider>
     </AppThemeProvider>
   );
 }

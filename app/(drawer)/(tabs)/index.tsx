@@ -5,7 +5,9 @@ import {
   DashboardRecentTransactionsSection,
   DashboardTrendsSection,
 } from '@/components/dashboard';
+import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/contexts/ToastProvider';
+import { useTransactionState } from '@/hooks/useTransactionState';
 import {
   getMonthlyKPI,
   getRecentTransactions,
@@ -16,7 +18,6 @@ import {
   getUnreadNotifications,
   insertAlertNotifications,
 } from '@/lib/database/notificationQueries';
-import { getPendingTransactionCount } from '@/lib/database/transactionQueries';
 import { INotificationRow } from '@/types/Common';
 import { KPIData, RecentTx, TrendRow } from '@/types/Insight';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -26,6 +27,9 @@ import { RefreshControl, ScrollView } from 'react-native';
 export default function DashboardScreen() {
   const db = useSQLiteContext();
   const { showToast } = useToast();
+  const { state: appState, actions: appActions } = useApp();
+  const { pendingCount } = useTransactionState();
+
   const [monthlyKPIData, setMonthlyKPIData] = useState<KPIData>({
     totalIncome: 0,
     totalExpense: 0,
@@ -34,23 +38,16 @@ export default function DashboardScreen() {
   const [recentTransactions, setRecentTransactions] = useState<RecentTx[]>([]);
   const [monthlyTrends, setMonthlyTrends] = useState<TrendRow[]>([]);
   const [notifications, setNotifications] = useState<INotificationRow[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
 
-  // Fetch pending transaction count
+  // Fetch pending transaction count is now handled by useTransactionState
   const fetchPendingCount = useCallback(async () => {
-    try {
-      const count = await getPendingTransactionCount(db);
-      setPendingCount(count);
-    } catch (error) {
-      console.error('Failed to fetch pending count:', error);
-      setPendingCount(0);
-    }
-  }, [db]);
+    // This function now triggers a refresh which will update pendingCount via useTransactionState
+    appActions.triggerTransactionRefresh();
+  }, [appActions]);
 
   const fetchDashboardData = useCallback(
     async (showLoader = true) => {
-      if (showLoader) setIsRefreshing(true);
+      if (showLoader) appActions.setRefreshing(true);
       try {
         const [transactions, kpiData, trendsData, unreadNotifications] = await Promise.all([
           getRecentTransactions(db),
@@ -63,16 +60,16 @@ export default function DashboardScreen() {
         setMonthlyTrends(trendsData);
         setNotifications(unreadNotifications);
 
-        // Also fetch pending count
-        await fetchPendingCount();
+        // Mark dashboard as updated
+        appActions.markDashboardUpdated();
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         showToast('Unable to load dashboard data');
       } finally {
-        if (showLoader) setIsRefreshing(false);
+        if (showLoader) appActions.setRefreshing(false);
       }
     },
-    [db, showToast, fetchPendingCount]
+    [db, showToast, appActions]
   );
 
   const insertAlerts = useCallback(async () => {
@@ -85,23 +82,22 @@ export default function DashboardScreen() {
     }
   }, [db]);
 
-  // Load data on mount
+  // Load data on mount and when transaction triggers change
   useEffect(() => {
     fetchDashboardData(false); // Silent initial load
     insertAlerts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showToast]);
+  }, [fetchDashboardData, insertAlerts, appState.dashboardUpdateTrigger]);
 
   const onRefresh = useCallback(async () => {
-    setIsRefreshing(true);
+    appActions.setRefreshing(true);
     try {
       await fetchDashboardData(false); // Don't double-set loading
       await insertAlerts();
       // Silent refresh - no toast needed for pull-to-refresh
     } finally {
-      setIsRefreshing(false);
+      appActions.setRefreshing(false);
     }
-  }, [fetchDashboardData, insertAlerts]);
+  }, [fetchDashboardData, insertAlerts, appActions]);
 
   const handleMarkedRead = useCallback(
     async (id: number) => {
@@ -130,7 +126,7 @@ export default function DashboardScreen() {
       className="p-2"
       refreshControl={
         <RefreshControl
-          refreshing={isRefreshing}
+          refreshing={appState.isRefreshing}
           onRefresh={onRefresh}
           colors={['#177AD5']}
           tintColor="#177AD5"
@@ -140,10 +136,7 @@ export default function DashboardScreen() {
 
       <DashboardRecentTransactionsSection recentTransactions={recentTransactions} />
 
-      <DashboardQuickActionsSection
-        pendingCount={pendingCount}
-        onRefreshPendingCount={fetchPendingCount}
-      />
+      <DashboardQuickActionsSection />
 
       <DashboardNotificationsSection
         notifications={notifications}

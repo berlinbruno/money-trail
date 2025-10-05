@@ -3,9 +3,11 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
+import { useApp } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/DialogProvider';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastProvider';
+import { useTransactionState } from '@/hooks/useTransactionState';
 import { insertTransaction } from '@/lib/database/transactionQueries';
 import { syncTransactions } from '@/lib/sms/sync';
 import { EditTransaction, NewTransaction } from '@/types/Transaction';
@@ -24,19 +26,17 @@ import React, { useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 
 interface DashboardQuickActionsSectionProps {
-  pendingCount: number;
-  onRefreshPendingCount: () => Promise<void>;
+  // Remove the props since we get data from AppContext now
 }
 
-export function DashboardQuickActionsSection({
-  pendingCount,
-  onRefreshPendingCount,
-}: DashboardQuickActionsSectionProps) {
+export function DashboardQuickActionsSection({}: DashboardQuickActionsSectionProps) {
   const theme = useTheme();
   const db = useSQLiteContext();
   const { messageScanCount } = useSettings();
   const { checkSMSPermissionWithDialog } = useDialog();
   const { showToast } = useToast();
+  const { actions: appActions } = useApp();
+  const { pendingCount } = useTransactionState();
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
 
@@ -63,8 +63,8 @@ export function DashboardQuickActionsSection({
           message: `SMS scan completed. Processed ${result.processed} messages, added ${result.inserted} transactions.`,
           duration: 'long',
         });
-        // Refresh pending count after successful scan
-        await onRefreshPendingCount();
+        // Trigger transaction refresh to update all screens
+        appActions.triggerTransactionRefresh();
       } else {
         showToast({
           message: `SMS scan failed: ${result.errorMessages.join(', ')}`,
@@ -160,6 +160,8 @@ export function DashboardQuickActionsSection({
             try {
               await insertTransaction(db, transaction as NewTransaction);
               showToast('New transaction has been created');
+              // Trigger transaction refresh to update all screens
+              appActions.triggerTransactionRefresh();
               setShowTransactionModal(false);
             } catch (err) {
               console.error('Failed to save transaction:', err);

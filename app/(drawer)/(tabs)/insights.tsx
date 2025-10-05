@@ -5,6 +5,7 @@ import {
   SmartInsightsSection,
 } from '@/components/insights';
 import { RANGE_OPTIONS } from '@/constants/insightsConstants';
+import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/contexts/ToastProvider';
 import {
   fetchCategoryBreakdown,
@@ -24,6 +25,7 @@ export default function InsightsScreen() {
   const theme = useTheme();
   const db = useSQLiteContext();
   const { showToast } = useToast();
+  const { state: appState, actions: appActions } = useApp();
   const [selectedRangeIndex, setSelectedRangeIndex] = useState(0);
   const [state, setState] = useState({
     insightsSummary: null as InsightsSummary | null,
@@ -33,7 +35,6 @@ export default function InsightsScreen() {
       expense: [] as CategoryBreakdown[],
     },
   });
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch all data in main page
   const fetchInsightsData = useCallback(async () => {
@@ -74,21 +75,20 @@ export default function InsightsScreen() {
     }
   }, [db, selectedRangeIndex, showToast]);
 
-  // Fetch data when dependencies change
+  // Fetch data when dependencies change or when transaction data changes
   useEffect(() => {
     fetchInsightsData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db, selectedRangeIndex]); // Safe to disable - fetchInsightsData is stable
+  }, [fetchInsightsData, appState.insightsUpdateTrigger]);
 
   const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
+    appActions.setRefreshing(true);
     try {
       fetchInsightsData();
       // Silent refresh - no toast needed for pull-to-refresh
     } finally {
-      setIsRefreshing(false);
+      appActions.setRefreshing(false);
     }
-  }, [fetchInsightsData]);
+  }, [fetchInsightsData, appActions]);
 
   const currentRangeKey = RANGE_OPTIONS[selectedRangeIndex];
 
@@ -98,7 +98,7 @@ export default function InsightsScreen() {
         className="p-2"
         refreshControl={
           <RefreshControl
-            refreshing={isRefreshing}
+            refreshing={appState.isRefreshing}
             onRefresh={onRefresh}
             colors={[theme.colors.primary]}
             tintColor={theme.colors.primary}

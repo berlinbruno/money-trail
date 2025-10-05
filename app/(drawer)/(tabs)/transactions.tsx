@@ -6,8 +6,10 @@ import TransactionForm from '@/components/transaction/TransactionForm';
 import { Button } from '@/components/ui/button';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
+import { useApp } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/DialogProvider';
 import { useToast } from '@/contexts/ToastProvider';
+import { useTransactionState } from '@/hooks/useTransactionState';
 import { useTheme } from '@react-navigation/native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ArrowUpDown, Filter, PlusCircle } from 'lucide-react-native';
@@ -15,15 +17,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SwipeListView } from 'react-native-swipe-list-view';
 
-import {
-  deleteTransaction,
-  insertTransaction,
-  updateTransaction,
-} from '@/lib/database/transactionQueries';
+import { insertTransaction, updateTransaction } from '@/lib/database/transactionQueries';
 
 import { FilterState } from '@/types/FilterState';
 import { EditTransaction, NewTransaction, Transaction } from '@/types/Transaction';
-import { fetchTransactionsFromDB, getDateRangeForPreset } from '@/utils/transactions/filterUtils';
+import { getDateRangeForPreset } from '@/utils/transactions/filterUtils';
 
 // Type Guard
 const isEditTransaction = (
@@ -37,15 +35,15 @@ export default function TransactionListScreen() {
   const theme = useTheme();
   const { showToast } = useToast();
   const { showConfirmationDialog } = useDialog();
+  const { state: appState, actions: appActions } = useApp();
+  const { transactions, actions: transactionActions } = useTransactionState();
 
-  const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showSortModal, setShowSortModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction>();
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterState, setFilterState] = useState<FilterState>({
     search: '',
     type: 'all',
@@ -68,22 +66,6 @@ export default function TransactionListScreen() {
     }));
   }, []);
 
-  const fetchTransactions = useCallback(
-    async (showLoader = true) => {
-      if (showLoader) setIsRefreshing(true);
-      try {
-        const rows = await fetchTransactionsFromDB(db, filterState, sortBy, sortOrder, false);
-        setTransactions(rows);
-      } catch (error) {
-        console.error('Error fetching transactions:', error);
-        showToast('Unable to load transactions');
-      } finally {
-        if (showLoader) setIsRefreshing(false);
-      }
-    },
-    [db, filterState, sortBy, sortOrder, showToast]
-  );
-
   const handleEditTransaction = (id: string) => {
     const tx = transactions?.find((t) => t.id === id);
     if (tx) {
@@ -104,35 +86,17 @@ export default function TransactionListScreen() {
         confirmVariant: 'destructive',
         loadingText: 'Deleting...',
         onConfirm: async () => {
-          try {
-            await deleteTransaction(db, id);
-            await fetchTransactions(false); // Silent refresh
-            showToast('Transaction has been removed');
-          } catch (err) {
-            console.error('Failed to delete transaction:', err);
-            showToast('Unable to delete transaction');
-            throw err; // Let the dialog handle the error state
-          }
+          await transactionActions.removeTransaction(id);
         },
       });
     },
-    [db, fetchTransactions, showToast, showConfirmationDialog]
+    [transactionActions, showConfirmationDialog]
   );
 
   // Initialize date preset once
   useEffect(() => {
     applyDatePreset('all');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Safe to disable - we only want this to run once
-
-  // Fetch transactions when filter dependencies change
-  useEffect(() => {
-    if (filterState.selectedPreset) {
-      // Only fetch if preset is set
-      fetchTransactions(false); // Silent initial load
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterState, sortBy, sortOrder]); // Safe to disable - fetchTransactions is stable
+  }, [applyDatePreset]);
   return (
     <View className="flex-1">
       <SwipeListView
@@ -168,8 +132,8 @@ export default function TransactionListScreen() {
         rightOpenValue={-180}
         stopRightSwipe={-180}
         disableRightSwipe
-        refreshing={isRefreshing}
-        onRefresh={() => fetchTransactions(true)}
+        refreshing={appState.isRefreshing}
+        onRefresh={() => appActions.triggerTransactionRefresh()}
       />
 
       {/* Transaction Modal */}
@@ -188,7 +152,8 @@ export default function TransactionListScreen() {
                 await insertTransaction(db, transaction);
                 showToast('New transaction has been created');
               }
-              await fetchTransactions(false); // Silent refresh
+              // Trigger refresh via AppContext
+              appActions.triggerTransactionRefresh();
               setShowTransactionModal(false);
               setSelectedTransaction(undefined);
             } catch (err) {

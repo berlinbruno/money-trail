@@ -310,10 +310,15 @@ export async function clearAllData(db: SQLiteDatabase): Promise<void> {
     }
 
     // Run VACUUM outside of transaction to reclaim storage space
+    // Add a small delay to ensure all database operations have completed
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     try {
       await db.runAsync('VACUUM');
+      console.log('Database vacuum completed successfully');
     } catch (vacuumError) {
       console.warn('VACUUM failed, but data clearing was successful:', vacuumError);
+      // This is not critical - the data has been cleared successfully
     }
 
     // Reset settings to defaults instead of clearing them completely
