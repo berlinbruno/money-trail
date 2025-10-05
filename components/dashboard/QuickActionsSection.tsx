@@ -24,11 +24,11 @@ import {
 import React, { useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 
-interface DashboardQuickActionsSectionProps {
+interface QuickActionsSectionProps {
   pendingCount: number;
 }
 
-export function DashboardQuickActionsSection({ pendingCount }: DashboardQuickActionsSectionProps) {
+export function QuickActionsSection({ pendingCount }: QuickActionsSectionProps) {
   const theme = useTheme();
   const db = useSQLiteContext();
   const { messageScanCount } = useSettings();

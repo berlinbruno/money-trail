@@ -2,17 +2,17 @@ import { INotificationRow } from '@/types/Common';
 import React from 'react';
 import { NotificationSection } from './NotificationSection';
 
-export interface DashboardNotificationsSectionProps {
+export interface NotificationListSectionProps {
   notifications: INotificationRow[];
   onMarkedRead: (id: number) => void;
   onClearAll?: () => void;
 }
 
-export function DashboardNotificationsSection({
+export function NotificationListSection({
   notifications,
   onMarkedRead,
   onClearAll,
-}: DashboardNotificationsSectionProps) {
+}: NotificationListSectionProps) {
   return (
     <NotificationSection
       notifications={notifications}

@@ -6,7 +6,7 @@ interface TrendsSectionProps {
   monthlyTrends: TrendRow[];
 }
 
-export function DashboardTrendsSection({ monthlyTrends }: TrendsSectionProps) {
+export function TrendsSection({ monthlyTrends }: TrendsSectionProps) {
   // Don't render the card if there are no trends
   if (!monthlyTrends || monthlyTrends.length === 0) {
     return null;

@@ -5,7 +5,7 @@ import { KPIData } from '@/types/Insight';
 import { formatAmountWithCurrency } from '@/utils/formatterUtils';
 import { KPIItem } from './KPIItem';
 
-export function DashboardKPISection({ kpiData }: { kpiData: KPIData }) {
+export function KPISection({ kpiData }: { kpiData: KPIData }) {
   const { selectedCurrency } = useSettings();
 
   return (

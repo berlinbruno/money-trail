@@ -1,10 +1,9 @@
-export { DashboardNotificationsSection } from './DashboardNotificationsSection';
 export { KPIItem } from './KPIItem';
-export { DashboardKPISection } from './KPISection';
+export { KPISection } from './KPISection';
 export { NotificationCard } from './NotificationCard';
 export { NotificationListSection } from './NotificationListSection';
 export { NotificationSection } from './NotificationSection';
-export { DashboardQuickActionsSection } from './QuickActionsSection';
-export { DashboardRecentTransactionsSection } from './RecentTransactionsSection';
+export { QuickActionsSection } from './QuickActionsSection';
+export { RecentTransactionsSection } from './RecentTransactionsSection';
 export { TrendCardItem } from './TrendCardItem';
-export { DashboardTrendsSection } from './TrendsSection';
+export { TrendsSection } from './TrendsSection';

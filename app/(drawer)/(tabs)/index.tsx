@@ -1,9 +1,9 @@
 import {
-  DashboardKPISection,
-  DashboardNotificationsSection,
-  DashboardQuickActionsSection,
-  DashboardRecentTransactionsSection,
-  DashboardTrendsSection,
+  KPISection,
+  NotificationListSection,
+  QuickActionsSection,
+  RecentTransactionsSection,
+  TrendsSection,
 } from '@/components/dashboard';
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/contexts/ToastProvider';
@@ -215,19 +215,19 @@ export default function DashboardScreen() {
           tintColor={theme.colors.primary}
         />
       }>
-      <DashboardKPISection kpiData={monthlyKPIData} />
+      <KPISection kpiData={monthlyKPIData} />
 
-      <DashboardRecentTransactionsSection recentTransactions={recentTransactions} />
+      <RecentTransactionsSection recentTransactions={recentTransactions} />
 
-      <DashboardQuickActionsSection pendingCount={pendingCount} />
+      <QuickActionsSection pendingCount={pendingCount} />
 
-      <DashboardNotificationsSection
+      <NotificationListSection
         notifications={notifications}
         onMarkedRead={handleMarkedRead}
         onClearAll={handleClearAll}
       />
 
-      <DashboardTrendsSection monthlyTrends={monthlyTrends} />
+      <TrendsSection monthlyTrends={monthlyTrends} />
     </ScrollView>
   );
 }

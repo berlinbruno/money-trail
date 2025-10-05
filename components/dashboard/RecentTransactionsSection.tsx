@@ -9,9 +9,7 @@ interface RecentTransactionsSectionProps {
   recentTransactions: RecentTx[];
 }
 
-export function DashboardRecentTransactionsSection({
-  recentTransactions,
-}: RecentTransactionsSectionProps) {
+export function RecentTransactionsSection({ recentTransactions }: RecentTransactionsSectionProps) {
   const { selectedCurrency } = useSettings();
 
   // Don't render the card if there are no recent transactions

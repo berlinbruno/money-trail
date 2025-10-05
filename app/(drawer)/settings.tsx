@@ -9,6 +9,7 @@ import {
 } from '@/components/settings';
 import { type Option } from '@/components/ui/select';
 import { APP_VERSION, CURRENCY_OPTIONS } from '@/constants/settingsConstants';
+import { useApp } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/DialogProvider';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -23,6 +24,7 @@ export default function SettingsScreen() {
   const db = useSQLiteContext();
   const { showToast } = useToast();
   const { showConfirmationDialog } = useDialog();
+  const { state: appState } = useApp();
 
   // Theme context
   const navigationTheme = useNavigationTheme();
@@ -263,7 +265,7 @@ export default function SettingsScreen() {
       className="flex-1"
       refreshControl={
         <RefreshControl
-          refreshing={isLoading}
+          refreshing={isLoading || appState.isRefreshing}
           onRefresh={handleRefresh}
           colors={[navigationTheme.colors.primary]}
           tintColor={navigationTheme.colors.primary}

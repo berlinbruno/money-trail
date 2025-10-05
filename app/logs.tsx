@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Modal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
+import { useApp } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/DialogProvider';
 import { useToast } from '@/contexts/ToastProvider';
 import type { AppLog, LogCategory, LogLevel } from '@/lib/database/loggingQueries';
@@ -52,6 +53,7 @@ export default function LogsScreen() {
   const db = useSQLiteContext();
   const { showToast } = useToast();
   const { showConfirmationDialog } = useDialog();
+  const { actions: appActions } = useApp();
   const [logs, setLogs] = useState<AppLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -87,15 +89,17 @@ export default function LogsScreen() {
       } finally {
         if (showLoader) setIsLoading(false);
         setIsRefreshing(false);
+        appActions.setRefreshing(false);
       }
     },
-    [db, selectedCategory, selectedLevel, showToast]
+    [db, selectedCategory, selectedLevel, showToast, appActions]
   );
 
   const handleRefresh = useCallback(() => {
+    appActions.setRefreshing(true);
     setIsRefreshing(true);
     loadLogs(false); // Don't show loading spinner, just refresh
-  }, [loadLogs]);
+  }, [loadLogs, appActions]);
 
   const handleClearAllLogs = useCallback(() => {
     showConfirmationDialog({

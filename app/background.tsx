@@ -29,7 +29,7 @@ export default function BackgroundTaskScreen() {
   const theme = useTheme();
   const db = useSQLiteContext();
   const { showToast } = useToast();
-  const { state: appContextState } = useApp();
+  const { state: appState } = useApp();
   const [registeredTasks, setRegisteredTasks] = useState<TaskManager.TaskManagerTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [taskConfig, setTaskConfig] = useState({ ...DEFAULT_TASK_CONFIG });
@@ -41,7 +41,7 @@ export default function BackgroundTaskScreen() {
     totalRuns: 0,
     totalMessages: 0,
   });
-  const appState = useRef(AppState.currentState);
+  const nativeAppState = useRef(AppState.currentState);
 
   const loadTaskStatus = useCallback(async () => {
     try {
@@ -126,14 +126,14 @@ export default function BackgroundTaskScreen() {
 
     // Listen to app state changes for background/foreground transitions
     const sub = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+      if (nativeAppState.current.match(/inactive|background/) && nextAppState === 'active') {
         console.log('App foregrounded, reload data');
         refreshAllData();
       }
-      if (appState.current.match(/active/) && nextAppState === 'background') {
+      if (nativeAppState.current.match(/active/) && nextAppState === 'background') {
         console.log('App backgrounded');
       }
-      appState.current = nextAppState;
+      nativeAppState.current = nextAppState;
     });
 
     return () => {
@@ -147,9 +147,9 @@ export default function BackgroundTaskScreen() {
       className="flex-1"
       refreshControl={
         <RefreshControl
-          refreshing={isLoading || appContextState.isRefreshing}
+          refreshing={isLoading || appState.isRefreshing}
           onRefresh={refreshAllData}
-          colors={[theme.colors.background]}
+          colors={[theme.colors.primary]}
           tintColor={theme.colors.primary}
         />
       }>

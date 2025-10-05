@@ -34,12 +34,20 @@ SQLite database patterns and query organization
 - Transaction management and error handling
 - Performance optimization patterns
 
+### 🔧 [State Management](./state-management.md)
+
+Lightweight trigger-based state management system
+
+- AppContext with debounced triggers
+- useTransaction hook for operations
+- Cross-screen synchronization
+- Optimistic updates with error recovery
+
 ### 🔧 [Common Systems](./common-systems.md)
 
 Comprehensive guide to all shared app systems
 
 - Theme system and styling
-- State management patterns
 - Error handling strategies
 - Development workflow guidelines
 
@@ -57,7 +65,7 @@ Configuration and environment setup
 ### For New Developers
 
 1. **Setup Environment**: Follow [Environment Variables](./environment-variables.md) setup
-2. **Understand Core Systems**: Review [Common Systems](./common-systems.md) overview
+2. **Understand Core Systems**: Review [State Management](./state-management.md) and [Common Systems](./common-systems.md) overview
 3. **Learn Database Patterns**: Study [Database Context](./database-context.md) usage
 4. **Master UI Systems**: Read [Dialog System](./dialog-system.md) and [Toast System](./toast-system.md)
 
