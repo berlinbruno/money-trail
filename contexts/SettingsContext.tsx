@@ -24,24 +24,8 @@ import {
 } from '@/lib/database/settingsQueries';
 import { updateTaskConfiguration } from '@/lib/sms/backgroundTask';
 import { hasSMSPermission } from '@/utils/permissionUtils';
+import { clearGlobalSettingsRefresh, setGlobalSettingsRefresh } from '@/utils/settingsUtils';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-
-// Global reference to refresh function for use outside the provider
-let globalSettingsRefresh: (() => Promise<void>) | null = null;
-
-/**
- * Global function to refresh settings from anywhere in the app
- * This allows SMS sync and other operations to trigger settings refresh
- */
-export async function refreshSettingsGlobally(): Promise<void> {
-  if (globalSettingsRefresh) {
-    try {
-      await globalSettingsRefresh();
-    } catch (error) {
-      console.error('Error in global settings refresh:', error);
-    }
-  }
-}
 
 // Types
 type CurrencyType = (typeof CURRENCY_OPTIONS)[number];
@@ -372,7 +356,12 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   }, [loadSettings]);
 
   // Assign global refresh function for use outside the provider
-  globalSettingsRefresh = refreshSettings;
+  useEffect(() => {
+    setGlobalSettingsRefresh(refreshSettings);
+    return () => {
+      clearGlobalSettingsRefresh();
+    };
+  }, [refreshSettings]);
 
   const contextValue: SettingsContextType = {
     // State

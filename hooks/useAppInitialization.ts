@@ -1,5 +1,4 @@
 import { useDialog } from '@/contexts/DialogProvider';
-import { refreshSettingsGlobally } from '@/contexts/SettingsContext';
 import { initializeTables } from '@/lib/database/db';
 import {
   getAlertsWithProgress,
@@ -10,6 +9,7 @@ import { initializeBackgroundTask } from '@/lib/sms/backgroundTask';
 import { syncTransactions } from '@/lib/sms/sync';
 import { initializeAppPermissions } from '@/utils/permissionInitializer';
 import { createPermissionDialogProps, hasSMSPermission } from '@/utils/permissionUtils';
+import { refreshSettingsGlobally } from '@/utils/settingsUtils';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useState } from 'react';
 

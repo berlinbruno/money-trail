@@ -1,4 +1,4 @@
-import { refreshSettingsGlobally } from '@/contexts/SettingsContext';
+import { refreshSettingsGlobally } from '@/utils/settingsUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundTask from 'expo-background-task';
 import { openDatabaseAsync } from 'expo-sqlite';
