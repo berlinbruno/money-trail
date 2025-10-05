@@ -9,7 +9,7 @@ import { Period } from '@/types/Insight';
 export function getDateFormat(frequency: AlertFrequency): string {
   switch (frequency) {
     case 'weekly':
-      return '%Y-%W';
+      return '%G-%V';
     case 'monthly':
       return '%Y-%m';
     default:

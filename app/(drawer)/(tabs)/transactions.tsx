@@ -9,19 +9,19 @@ import { Text } from '@/components/ui/text';
 import { useApp } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/DialogProvider';
 import { useToast } from '@/contexts/ToastProvider';
-import { useTransactionState } from '@/hooks/useTransactionState';
+import { useTransaction } from '@/hooks/useTransaction';
 import { useTheme } from '@react-navigation/native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ArrowUpDown, Filter, PlusCircle } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { RefreshControl, View } from 'react-native';
 import { SwipeListView } from 'react-native-swipe-list-view';
 
 import { insertTransaction, updateTransaction } from '@/lib/database/transactionQueries';
 
 import { FilterState } from '@/types/FilterState';
 import { EditTransaction, NewTransaction, Transaction } from '@/types/Transaction';
-import { getDateRangeForPreset } from '@/utils/transactions/filterUtils';
+import { fetchTransactionsFromDB, getDateRangeForPreset } from '@/utils/transactions/filterUtils';
 
 // Type Guard
 const isEditTransaction = (
@@ -36,14 +36,16 @@ export default function TransactionListScreen() {
   const { showToast } = useToast();
   const { showConfirmationDialog } = useDialog();
   const { state: appState, actions: appActions } = useApp();
-  const { transactions, actions: transactionActions } = useTransactionState();
+  const { removeTransaction, updateTransactionState } = useTransaction();
 
+  const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showSortModal, setShowSortModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction>();
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterState, setFilterState] = useState<FilterState>({
     search: '',
     type: 'all',
@@ -66,6 +68,36 @@ export default function TransactionListScreen() {
     }));
   }, []);
 
+  // Memoize filter state setter to prevent unnecessary re-renders
+  const handleFilterStateChange = useCallback((newState: React.SetStateAction<FilterState>) => {
+    setFilterState(newState);
+  }, []);
+
+  // Memoize sort setters to prevent re-renders
+  const handleSortOrderChange = useCallback((order: React.SetStateAction<'asc' | 'desc'>) => {
+    setSortOrder(order);
+  }, []);
+
+  const handleSortByChange = useCallback((sortField: React.SetStateAction<'date' | 'amount'>) => {
+    setSortBy(sortField);
+  }, []);
+
+  const fetchTransactions = useCallback(
+    async (showLoader = true) => {
+      if (showLoader) setIsRefreshing(true);
+      try {
+        const rows = await fetchTransactionsFromDB(db, filterState, sortBy, sortOrder, false);
+        setTransactions(rows);
+      } catch (error) {
+        console.error('Error fetching transactions:', error);
+        showToast('Unable to load transactions');
+      } finally {
+        if (showLoader) setIsRefreshing(false);
+      }
+    },
+    [db, filterState, sortBy, sortOrder, showToast]
+  );
+
   const handleEditTransaction = (id: string) => {
     const tx = transactions?.find((t) => t.id === id);
     if (tx) {
@@ -86,22 +118,55 @@ export default function TransactionListScreen() {
         confirmVariant: 'destructive',
         loadingText: 'Deleting...',
         onConfirm: async () => {
-          await transactionActions.removeTransaction(id);
+          try {
+            // Update local state immediately for better UX
+            updateTransactionState(setTransactions, 'delete', id);
+            // Perform database operation and trigger global updates
+            await removeTransaction(id);
+          } catch (err) {
+            console.error('Failed to delete transaction:', err);
+            // Refresh data to revert optimistic update on error
+            await fetchTransactions(false);
+            throw err; // Let the dialog handle the error state
+          }
         },
       });
     },
-    [transactionActions, showConfirmationDialog]
+    [removeTransaction, updateTransactionState, fetchTransactions, showConfirmationDialog]
   );
 
   // Initialize date preset once
   useEffect(() => {
     applyDatePreset('all');
-  }, [applyDatePreset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Safe to disable - we only want this to run once
+
+  // Fetch transactions when filter dependencies change
+  useEffect(() => {
+    if (filterState.selectedPreset) {
+      // Only fetch if preset is set
+      fetchTransactions(false); // Silent initial load
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterState, sortBy, sortOrder]); // Safe to disable - fetchTransactions is stable
+
+  // Refresh transactions when transaction list trigger changes
+  useEffect(() => {
+    if (filterState.selectedPreset) {
+      fetchTransactions(false); // Silent refresh when triggered
+    }
+  }, [appState.transactionListTrigger, fetchTransactions, filterState.selectedPreset]);
   return (
     <View className="flex-1">
       <SwipeListView
         data={transactions}
         keyExtractor={(item) => item.id}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing || appState.isRefreshing}
+            onRefresh={() => fetchTransactions(true)}
+          />
+        }
         renderItem={({ item }) => (
           <TransactionCard
             title={item.title}
@@ -131,9 +196,15 @@ export default function TransactionListScreen() {
         )}
         rightOpenValue={-180}
         stopRightSwipe={-180}
-        disableRightSwipe
-        refreshing={appState.isRefreshing}
-        onRefresh={() => appActions.triggerTransactionRefresh()}
+        disableRightSwipe={false}
+        refreshing={isRefreshing}
+        onRefresh={() => fetchTransactions(true)}
+        // Performance optimizations
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={100}
+        initialNumToRender={15}
+        windowSize={10}
       />
 
       {/* Transaction Modal */}
@@ -148,12 +219,15 @@ export default function TransactionListScreen() {
               if (isEditTransaction(transaction)) {
                 await updateTransaction(db, transaction);
                 showToast('Transaction has been modified');
+                // Trigger transaction list refresh for edit
+                appActions.triggerTransactionListUpdate();
               } else {
                 await insertTransaction(db, transaction);
                 showToast('New transaction has been created');
+                // Trigger comprehensive data update for new transaction
+                appActions.triggerTransactionDataUpdate();
               }
-              // Trigger refresh via AppContext
-              appActions.triggerTransactionRefresh();
+              await fetchTransactions(false); // Silent refresh
               setShowTransactionModal(false);
               setSelectedTransaction(undefined);
             } catch (err) {
@@ -172,7 +246,7 @@ export default function TransactionListScreen() {
       <BaseModal title="Filter" visible={showFilterModal} onClose={() => setShowFilterModal(false)}>
         <FilterForm
           filterState={filterState}
-          setFilterState={setFilterState}
+          setFilterState={handleFilterStateChange}
           presets={['Today', 'This Week', 'Last 30 Days']}
           applyPreset={applyDatePreset}
           onClose={() => setShowFilterModal(false)}
@@ -183,9 +257,9 @@ export default function TransactionListScreen() {
       <BaseModal title="Sort" visible={showSortModal} onClose={() => setShowSortModal(false)}>
         <SortForm
           sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
+          setSortOrder={handleSortOrderChange}
           sortBy={sortBy}
-          setSortBy={setSortBy}
+          setSortBy={handleSortByChange}
           onClose={() => setShowSortModal(false)}
         />
       </BaseModal>

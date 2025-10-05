@@ -8,11 +8,12 @@ Money Trail is a React Native Expo app for automatic expense tracking via SMS pa
 
 ### Core SMS Processing Pipeline
 
-- **SMS Collection**: `react-native-get-sms-android` fetches finance-related SMS using regex patterns
-- **Transaction Parsing**: `utils/transactions/transactionParser.ts` extracts amounts, types (debit/credit), and metadata from SMS text
-- **Background Processing**: `lib/sms/backgroundTask.ts` handles automatic SMS sync via Expo Background Tasks
-- **SMS Sync Logic**: `lib/sms/sync.ts` orchestrates transaction processing and categorization
-- **Deduplication**: Uses MD5 hashing (`utils/cryptoUtils.ts`) of SMS content to prevent duplicate transactions
+- **SMS Collection**: `react-native-get-sms-android` fetches finance-related SMS using comprehensive regex patterns (`financeRegex` in `lib/sms/sync.ts`)
+- **Transaction Parsing**: `lib/sms/parser.ts` extracts amounts, types (debit/credit), and metadata from SMS text using pattern matching
+- **Background Processing**: `lib/sms/backgroundTask.ts` handles automatic SMS sync via Expo Background Tasks with configurable intervals (min 15min)
+- **SMS Sync Logic**: `lib/sms/sync.ts` orchestrates transaction processing, categorization, and comprehensive error handling with retry mechanisms
+- **Deduplication**: Uses MD5 hashing (`utils/cryptoUtils.ts`) of SMS content + metadata to prevent duplicate transactions
+- **Smart Categorization**: AI-driven categorization in `sync.ts` using keyword matching, merchant patterns, and amount-based heuristics
 
 ### Navigation Structure
 
@@ -31,19 +32,22 @@ Stack (Root Layout)
 ### Database Layer (SQLite)
 
 - **Location**: `assets/database/app.db` (bundled), accessed via `expo-sqlite`
-- **WAL Mode**: Enabled for better concurrency (`PRAGMA journal_mode = WAL`)
-- **Key Tables**: transactions, notifications, alerts, config, app_logs
+- **WAL Mode**: Enabled for better concurrency (`PRAGMA journal_mode = WAL`) with busy timeout (30s)
+- **Key Tables**: transactions, notifications, alerts, app_logs (replaces old config/task_execution_logs)
 - **Queries**: Organized in `lib/database/` with separate files per domain
 - **Initialization**: Automatic table creation via `initializeDatabase()` function
 - **Sync Configuration**: Stores sync intervals and app settings in `app_logs` table
+- **Retry Logic**: Database operations include retry mechanisms for SQLITE_BUSY errors with exponential backoff
+- **Transaction Approval**: `pending_approval` flag (0=approved, 1=pending) with auto-approval setting support
 
-### State Management Patterns
+### Hook System
 
-- **Database Context**: `useSQLiteContext()` hook provides direct SQLite access throughout components
-- **Dialog System**: Unified `useDialog()` hook with centralized dialog management (`DialogProvider`) for both confirmation and permission dialogs
-- **Toast System**: Unified `useToast()` hook with simplified `showToast()` API across all components
-- **Local Component State**: `useState` for UI state, `useCallback` for database operations
-- **Data Fetching**: Async functions with Promise.all for parallel queries on dashboard
+- **Removed**: `useTransactionState.ts` - Heavy hook with complex state management
+- **Current**: `useTransaction.ts` - Lightweight hook with:
+  - Direct database operations only
+  - Uses specific trigger functions
+  - Focus on actions rather than state management
+  - Better error handling and performance
 
 ## Development Workflow
 
@@ -73,6 +77,8 @@ npm run lint:fix     # Auto-fix linting issues
 - **Components**: Reusable `ConfirmationDialog` and `PermissionDialog` components in `components/dialogs/`
 - **Type Safety**: Full TypeScript support with proper interfaces and error handling
 - **Best Practices**: Use centralized dialogs instead of individual component state management
+- **Error Handling**: Throw errors in `onConfirm` handlers to let dialog manage loading/error states
+- **Loading States**: Include `loadingText` for async operations, use appropriate `confirmVariant` for destructive actions
 
 ### Toast System
 
@@ -89,7 +95,8 @@ npm run lint:fix     # Auto-fix linting issues
 - **utils/transactions/**: Transaction-specific utilities
 - **utils/finance/**: Financial calculations and insights
 - **utils/**: Core utilities (formatters, crypto, permissions, etc.)
-- **contexts/**: React context providers (DialogProvider, ToastProvider, AppProvider)
+- **contexts/**: React context providers (AppProvider, DialogProvider, ToastProvider)
+- **hooks/**: Custom hooks (`useTransaction.ts`, `useAppInitialization.ts`)
 - **components/ui/**: Reusable UI primitives
 - **components/dialogs/**: Centralized dialog components
 - **components/{domain}/**: Feature-specific components
@@ -114,13 +121,18 @@ npm run lint:fix     # Auto-fix linting issues
 - **Transactions**: Use database transactions for related operations
 - **Config Storage**: App settings and sync state in `app_logs` table
 - **Type Safety**: Full TypeScript support for all database operations
+- **Retry Mechanisms**: Database operations include exponential backoff for SQLITE_BUSY errors
+- **WAL Mode**: Always enabled with 30s busy timeout for better concurrency
+- **Connection Management**: Use `useSQLiteContext()` hook for consistent database access
 
 ### SMS Processing Specifics
 
-- **Finance Regex**: Pattern matching for banking keywords and UPI apps
-- **Category Mapping**: Automatic categorization based on merchant/description
-- **Deduplication**: MD5 hash-based prevention of duplicate processing
-- **Background Sync**: Configurable intervals with comprehensive logging
+- **Finance Regex**: Pattern matching for banking keywords and UPI apps using comprehensive `financeRegex`
+- **Category Mapping**: Automatic categorization based on merchant/description with extensive keyword lists
+- **Deduplication**: MD5 hash-based prevention of duplicate processing using SMS content + metadata
+- **Background Sync**: Configurable intervals (min 15min) with comprehensive logging via `app_logs` table
+- **Error Handling**: Robust retry mechanisms with detailed error logging and categorization
+- **Transaction Approval**: Support for both auto-approval and manual approval workflows
 
 ## Critical Integration Points
 
@@ -133,6 +145,38 @@ npm run lint:fix     # Auto-fix linting issues
 
 ## Common Development Tasks
 
+### Dialog Usage Best Practices
+
+```typescript
+// Transaction operations with new hook
+const { removeTransaction, updateTransactionState } = useTransaction();
+
+const handleDeleteTransaction = useCallback(
+  (id: string) => {
+    showConfirmationDialog({
+      title: 'Delete Transaction',
+      description: 'Are you sure you want to delete this transaction?',
+      confirmText: 'Delete',
+      confirmVariant: 'destructive',
+      loadingText: 'Deleting...',
+      onConfirm: async () => {
+        try {
+          // Optimistic update
+          updateTransactionState(setTransactions, 'delete', id);
+          await removeTransaction(id);
+          showToast('Transaction deleted');
+        } catch (err) {
+          console.error('Failed to delete:', err);
+          await fetchTransactions(false); // Revert on error
+          throw err; // Let dialog handle error state
+        }
+      },
+    });
+  },
+  [removeTransaction, updateTransactionState, showConfirmationDialog]
+);
+```
+
 **Best Practices**:
 
 - Use `useCallback` for dialog handlers to prevent re-renders
@@ -142,17 +186,52 @@ npm run lint:fix     # Auto-fix linting issues
 
 ### Transaction Management
 
-**Adding Categories**: Update `constants/transactionConstants.ts` and `lib/sms/sync.ts`
+**Adding Categories**: Update `constants/transactionConstants.ts` and categorization logic in `lib/sms/sync.ts`
 
-**SMS Parser**: Modify `utils/transactions/transactionParser.ts` for new patterns
+**SMS Parser**: Modify parsing logic in `lib/sms/parser.ts` for new banking SMS patterns
 
 **Dashboard Data**: Add KPI calculations in `lib/database/dashboardQueries.ts`
 
+### Performance Optimization Patterns
+
+**State Management Performance**:
+
+- Use lightweight, focused hooks instead of heavy `useTransactionState` for better performance
+- Implement immediate local state updates for better UX, then trigger app context for global refresh
+- Use `useTransaction` hook for transaction operations instead of complex state hooks
+- Avoid unnecessary re-renders by limiting context dependencies
+
+**App Context Integration**:
+
+- Use specific triggers like `appActions.triggerKpiUpdate()`, `appActions.triggerRecentTransactionsUpdate()`, `appActions.triggerPendingTransactionCountUpdate()` for targeted updates
+- Use combined triggers `appActions.triggerTransactionDataUpdate()` or `appActions.triggerDashboardDataUpdate()` for comprehensive updates
+- Implement optimistic updates: update local state immediately, then refresh global state
+- Use `appActions.markTransactionUpdated()` for timestamp tracking without triggering re-renders
+- Debounced triggers prevent excessive re-renders across components
+
+**Database Operation Patterns**:
+
+- Perform database operation first, then update local state optimistically
+- Use app context triggers for cross-component updates (dashboard, insights, etc.)
+- Implement fallback data refresh if optimistic updates fail
+- Batch operations when possible to reduce database calls
+
+**SwipeListView Performance**:
+
+- Memoize `renderItem` and `renderHiddenItem` functions with `useCallback`
+- Use memoized `keyExtractor` function to prevent re-renders
+- Implement `removeClippedSubviews={true}` for better memory management
+- Set appropriate `maxToRenderPerBatch`, `updateCellsBatchingPeriod`, `initialNumToRender`, and `windowSize`
+- Avoid complex calculations in render functions
+- Use swipe configuration objects memoized with `useMemo`
+
 ### Background Tasks
 
-**Debugging**: Check registration status and monitor logs in `app_logs` table
+**Testing**: Use `executeTask()` function in `lib/sms/backgroundTask.ts` for manual execution
 
-**Testing**: Use `executeTask()` function in `lib/sms/backgroundTask.ts`
+**Configuration**: Update intervals via `updateTaskConfiguration()` with minimum 15-minute intervals
+
+**Debugging**: Check registration status with `getTaskStatus()` and monitor logs in `app_logs` table
 
 ## File Organization Best Practices
 

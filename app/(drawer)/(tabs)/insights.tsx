@@ -27,7 +27,7 @@ export default function InsightsScreen() {
   const { showToast } = useToast();
   const { state: appState, actions: appActions } = useApp();
   const [selectedRangeIndex, setSelectedRangeIndex] = useState(0);
-  const [state, setState] = useState({
+  const [insightsData, setInsightsData] = useState({
     insightsSummary: null as InsightsSummary | null,
     timeSeriesData: null as insightsDataset | null,
     categoryBreakdown: {
@@ -36,7 +36,7 @@ export default function InsightsScreen() {
     },
   });
 
-  // Fetch all data in main page
+  // Fetch all insights data
   const fetchInsightsData = useCallback(async () => {
     if (!db) return;
     try {
@@ -46,7 +46,7 @@ export default function InsightsScreen() {
         fetchInsightsSummary(db, currentRange),
         fetchIncomeExpenseTrend(db, currentRange),
       ]);
-      setState((prev) => ({
+      setInsightsData((prev) => ({
         ...prev,
         categoryBreakdown: {
           income: Array.isArray(categories.incomeCategories) ? categories.incomeCategories : [],
@@ -66,7 +66,7 @@ export default function InsightsScreen() {
     } catch (error) {
       console.error('Error fetching insights data:', error);
       showToast('Unable to load insights data');
-      setState((prev) => ({
+      setInsightsData((prev) => ({
         ...prev,
         categoryBreakdown: { income: [], expense: [] },
         insightsSummary: null,
@@ -75,20 +75,30 @@ export default function InsightsScreen() {
     }
   }, [db, selectedRangeIndex, showToast]);
 
-  // Fetch data when dependencies change or when transaction data changes
+  // Fetch data when range changes
   useEffect(() => {
     fetchInsightsData();
-  }, [fetchInsightsData, appState.insightsUpdateTrigger]);
+  }, [fetchInsightsData]);
 
-  const onRefresh = useCallback(() => {
+  // Refresh insights when transaction data changes or insights trigger changes
+  useEffect(() => {
+    fetchInsightsData();
+  }, [appState.insightsUpdateTrigger, appState.transactionListTrigger, fetchInsightsData]);
+
+  const onRefresh = useCallback(async () => {
     appActions.setRefreshing(true);
     try {
-      fetchInsightsData();
+      await fetchInsightsData();
+      // Mark insights as updated
+      appActions.markInsightsUpdated();
       // Silent refresh - no toast needed for pull-to-refresh
+    } catch (error) {
+      console.error('Error refreshing insights:', error);
+      showToast('Unable to refresh insights data');
     } finally {
       appActions.setRefreshing(false);
     }
-  }, [fetchInsightsData, appActions]);
+  }, [fetchInsightsData, appActions, showToast]);
 
   const currentRangeKey = RANGE_OPTIONS[selectedRangeIndex];
 
@@ -104,10 +114,16 @@ export default function InsightsScreen() {
             tintColor={theme.colors.primary}
           />
         }>
-        <BarChartSection timeSeriesData={state.timeSeriesData} rangeLabel={currentRangeKey} />
-        <LineChartSection timeSeriesData={state.timeSeriesData} rangeLabel={currentRangeKey} />
-        <PieChartSection categoryBreakdown={state.categoryBreakdown} />
-        <SmartInsightsSection insightsSummary={state.insightsSummary} />
+        <BarChartSection
+          timeSeriesData={insightsData.timeSeriesData}
+          rangeLabel={currentRangeKey}
+        />
+        <LineChartSection
+          timeSeriesData={insightsData.timeSeriesData}
+          rangeLabel={currentRangeKey}
+        />
+        <PieChartSection categoryBreakdown={insightsData.categoryBreakdown} />
+        <SmartInsightsSection insightsSummary={insightsData.insightsSummary} />
       </ScrollView>
       <SegmentedControl
         values={RANGE_OPTIONS as unknown as string[]}

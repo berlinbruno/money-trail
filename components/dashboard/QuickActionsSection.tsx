@@ -7,7 +7,6 @@ import { useApp } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/DialogProvider';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastProvider';
-import { useTransactionState } from '@/hooks/useTransactionState';
 import { insertTransaction } from '@/lib/database/transactionQueries';
 import { syncTransactions } from '@/lib/sms/sync';
 import { EditTransaction, NewTransaction } from '@/types/Transaction';
@@ -26,17 +25,16 @@ import React, { useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 
 interface DashboardQuickActionsSectionProps {
-  // Remove the props since we get data from AppContext now
+  pendingCount: number;
 }
 
-export function DashboardQuickActionsSection({}: DashboardQuickActionsSectionProps) {
+export function DashboardQuickActionsSection({ pendingCount }: DashboardQuickActionsSectionProps) {
   const theme = useTheme();
   const db = useSQLiteContext();
   const { messageScanCount } = useSettings();
   const { checkSMSPermissionWithDialog } = useDialog();
   const { showToast } = useToast();
   const { actions: appActions } = useApp();
-  const { pendingCount } = useTransactionState();
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
 
@@ -64,7 +62,7 @@ export function DashboardQuickActionsSection({}: DashboardQuickActionsSectionPro
           duration: 'long',
         });
         // Trigger transaction refresh to update all screens
-        appActions.triggerTransactionRefresh();
+        appActions.triggerTransactionDataUpdate();
       } else {
         showToast({
           message: `SMS scan failed: ${result.errorMessages.join(', ')}`,
@@ -161,7 +159,7 @@ export function DashboardQuickActionsSection({}: DashboardQuickActionsSectionPro
               await insertTransaction(db, transaction as NewTransaction);
               showToast('New transaction has been created');
               // Trigger transaction refresh to update all screens
-              appActions.triggerTransactionRefresh();
+              appActions.triggerTransactionDataUpdate();
               setShowTransactionModal(false);
             } catch (err) {
               console.error('Failed to save transaction:', err);

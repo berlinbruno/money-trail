@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
@@ -15,13 +15,7 @@ export interface SortFormProps {
   setSortBy: React.Dispatch<React.SetStateAction<SortBy>>;
 }
 
-export default function SortForm({
-  onClose,
-  sortOrder,
-  setSortOrder,
-  sortBy,
-  setSortBy,
-}: SortFormProps) {
+function SortForm({ onClose, sortOrder, setSortOrder, sortBy, setSortBy }: SortFormProps) {
   return (
     <View>
       <Label>Sort By</Label>

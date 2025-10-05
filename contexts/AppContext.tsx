@@ -1,40 +1,64 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
 
-// App State Interface
+// App State Interface - Lightweight trigger system
 interface AppState {
-  // Simplified refresh triggers - only what we actually need
-  transactionUpdateTrigger: number;
+  // Specific lightweight triggers for different app sections
+  kpiUpdateTrigger: number;
+  recentTransactionsTrigger: number;
+  pendingTransactionCountTrigger: number;
+  transactionListTrigger: number;
   dashboardUpdateTrigger: number;
   settingsUpdateTrigger: number;
   insightsUpdateTrigger: number;
+  alertsUpdateTrigger: number;
+  notificationsUpdateTrigger: number;
 
-  // Loading states
+  // Global loading state
   isRefreshing: boolean;
 
-  // Last update timestamps (simplified)
-  lastTransactionUpdate: string | null;
+  // Last update timestamps for debugging and optimization
+  lastKpiUpdate: string | null;
+  lastRecentTransactionsUpdate: string | null;
+  lastPendingCountUpdate: string | null;
+  lastTransactionListUpdate: string | null;
   lastDashboardUpdate: string | null;
   lastSettingsUpdate: string | null;
   lastInsightsUpdate: string | null;
+  lastAlertsUpdate: string | null;
+  lastNotificationsUpdate: string | null;
 }
 
-// App Actions Interface
+// App Actions Interface - All triggers are debounced for performance
 interface AppActions {
-  // Core refresh triggers (debounced)
-  triggerTransactionRefresh: () => void;
+  // Individual trigger functions (debounced)
+  triggerKpiUpdate: () => void;
+  triggerRecentTransactionsUpdate: () => void;
+  triggerPendingTransactionCountUpdate: () => void;
+  triggerTransactionListUpdate: () => void;
   triggerDashboardRefresh: () => void;
   triggerSettingsRefresh: () => void;
   triggerInsightsRefresh: () => void;
+  triggerAlertsRefresh: () => void;
+  triggerNotificationsRefresh: () => void;
   triggerGlobalRefresh: () => void;
 
-  // Loading state
+  // Combined triggers for efficiency (debounced)
+  triggerTransactionDataUpdate: () => void; // Updates KPI + Recent + Pending + List + Alerts
+  triggerDashboardDataUpdate: () => void; // Updates Dashboard + KPI + Recent + Notifications
+
+  // Loading state management
   setRefreshing: (loading: boolean) => void;
 
-  // Mark updates (for timestamp tracking)
-  markTransactionUpdated: () => void;
+  // Timestamp markers (non-triggering, for optimization)
+  markKpiUpdated: () => void;
+  markRecentTransactionsUpdated: () => void;
+  markPendingCountUpdated: () => void;
+  markTransactionListUpdated: () => void;
   markDashboardUpdated: () => void;
   markSettingsUpdated: () => void;
   markInsightsUpdated: () => void;
+  markAlertsUpdated: () => void;
+  markNotificationsUpdated: () => void;
 }
 
 // App Context Type
@@ -48,22 +72,32 @@ const AppContext = createContext<AppContextType | null>(null);
 
 // Initial State
 const initialState: AppState = {
-  transactionUpdateTrigger: 0,
+  kpiUpdateTrigger: 0,
+  recentTransactionsTrigger: 0,
+  pendingTransactionCountTrigger: 0,
+  transactionListTrigger: 0,
   dashboardUpdateTrigger: 0,
   settingsUpdateTrigger: 0,
   insightsUpdateTrigger: 0,
+  alertsUpdateTrigger: 0,
+  notificationsUpdateTrigger: 0,
   isRefreshing: false,
-  lastTransactionUpdate: null,
+  lastKpiUpdate: null,
+  lastRecentTransactionsUpdate: null,
+  lastPendingCountUpdate: null,
+  lastTransactionListUpdate: null,
   lastDashboardUpdate: null,
   lastSettingsUpdate: null,
   lastInsightsUpdate: null,
+  lastAlertsUpdate: null,
+  lastNotificationsUpdate: null,
 };
 
-// App State Provider Component
-export const AppStateProvider = ({ children }: { children: React.ReactNode }) => {
+// App State Provider Component - Manages global app state with lightweight triggers
+export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, setState] = useState<AppState>(initialState);
 
-  // Debounce refs to prevent excessive triggers
+  // Debounce refs to prevent excessive triggers (performance optimization)
   const debounceRefs = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
 
   // Debounced trigger helper
@@ -80,14 +114,46 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     }, delay);
   }, []);
 
-  // Transaction refresh trigger (debounced)
-  const triggerTransactionRefresh = useCallback(() => {
-    debouncedTrigger('transaction', () => {
+  // KPI update trigger (debounced)
+  const triggerKpiUpdate = useCallback(() => {
+    debouncedTrigger('kpi', () => {
       setState((prev) => ({
         ...prev,
-        transactionUpdateTrigger: prev.transactionUpdateTrigger + 1,
-        dashboardUpdateTrigger: prev.dashboardUpdateTrigger + 1, // Dashboard depends on transactions
-        lastTransactionUpdate: new Date().toISOString(),
+        kpiUpdateTrigger: prev.kpiUpdateTrigger + 1,
+        lastKpiUpdate: new Date().toISOString(),
+      }));
+    });
+  }, [debouncedTrigger]);
+
+  // Recent transactions update trigger (debounced)
+  const triggerRecentTransactionsUpdate = useCallback(() => {
+    debouncedTrigger('recentTransactions', () => {
+      setState((prev) => ({
+        ...prev,
+        recentTransactionsTrigger: prev.recentTransactionsTrigger + 1,
+        lastRecentTransactionsUpdate: new Date().toISOString(),
+      }));
+    });
+  }, [debouncedTrigger]);
+
+  // Pending transaction count update trigger (debounced)
+  const triggerPendingTransactionCountUpdate = useCallback(() => {
+    debouncedTrigger('pendingCount', () => {
+      setState((prev) => ({
+        ...prev,
+        pendingTransactionCountTrigger: prev.pendingTransactionCountTrigger + 1,
+        lastPendingCountUpdate: new Date().toISOString(),
+      }));
+    });
+  }, [debouncedTrigger]);
+
+  // Transaction list update trigger (debounced)
+  const triggerTransactionListUpdate = useCallback(() => {
+    debouncedTrigger('transactionList', () => {
+      setState((prev) => ({
+        ...prev,
+        transactionListTrigger: prev.transactionListTrigger + 1,
+        lastTransactionListUpdate: new Date().toISOString(),
       }));
     });
   }, [debouncedTrigger]);
@@ -125,19 +191,89 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     });
   }, [debouncedTrigger]);
 
+  // Alerts refresh trigger (debounced)
+  const triggerAlertsRefresh = useCallback(() => {
+    debouncedTrigger('alerts', () => {
+      setState((prev) => ({
+        ...prev,
+        alertsUpdateTrigger: prev.alertsUpdateTrigger + 1,
+        lastAlertsUpdate: new Date().toISOString(),
+      }));
+    });
+  }, [debouncedTrigger]);
+
+  // Notifications refresh trigger (debounced)
+  const triggerNotificationsRefresh = useCallback(() => {
+    debouncedTrigger('notifications', () => {
+      setState((prev) => ({
+        ...prev,
+        notificationsUpdateTrigger: prev.notificationsUpdateTrigger + 1,
+        lastNotificationsUpdate: new Date().toISOString(),
+      }));
+    });
+  }, [debouncedTrigger]);
+
+  // Combined trigger for all transaction-related data (debounced)
+  const triggerTransactionDataUpdate = useCallback(() => {
+    debouncedTrigger('transactionData', () => {
+      const timestamp = new Date().toISOString();
+      setState((prev) => ({
+        ...prev,
+        kpiUpdateTrigger: prev.kpiUpdateTrigger + 1,
+        recentTransactionsTrigger: prev.recentTransactionsTrigger + 1,
+        pendingTransactionCountTrigger: prev.pendingTransactionCountTrigger + 1,
+        transactionListTrigger: prev.transactionListTrigger + 1,
+        alertsUpdateTrigger: prev.alertsUpdateTrigger + 1,
+        lastKpiUpdate: timestamp,
+        lastRecentTransactionsUpdate: timestamp,
+        lastPendingCountUpdate: timestamp,
+        lastTransactionListUpdate: timestamp,
+        lastAlertsUpdate: timestamp,
+      }));
+    });
+  }, [debouncedTrigger]);
+
+  // Combined trigger for dashboard data (debounced)
+  const triggerDashboardDataUpdate = useCallback(() => {
+    debouncedTrigger('dashboardData', () => {
+      const timestamp = new Date().toISOString();
+      setState((prev) => ({
+        ...prev,
+        dashboardUpdateTrigger: prev.dashboardUpdateTrigger + 1,
+        kpiUpdateTrigger: prev.kpiUpdateTrigger + 1,
+        recentTransactionsTrigger: prev.recentTransactionsTrigger + 1,
+        notificationsUpdateTrigger: prev.notificationsUpdateTrigger + 1,
+        lastDashboardUpdate: timestamp,
+        lastKpiUpdate: timestamp,
+        lastRecentTransactionsUpdate: timestamp,
+        lastNotificationsUpdate: timestamp,
+      }));
+    });
+  }, [debouncedTrigger]);
+
   // Global refresh trigger (immediate, but still debounced per category)
   const triggerGlobalRefresh = useCallback(() => {
     const timestamp = new Date().toISOString();
     setState((prev) => ({
       ...prev,
-      transactionUpdateTrigger: prev.transactionUpdateTrigger + 1,
+      kpiUpdateTrigger: prev.kpiUpdateTrigger + 1,
+      recentTransactionsTrigger: prev.recentTransactionsTrigger + 1,
+      pendingTransactionCountTrigger: prev.pendingTransactionCountTrigger + 1,
+      transactionListTrigger: prev.transactionListTrigger + 1,
       dashboardUpdateTrigger: prev.dashboardUpdateTrigger + 1,
       settingsUpdateTrigger: prev.settingsUpdateTrigger + 1,
       insightsUpdateTrigger: prev.insightsUpdateTrigger + 1,
-      lastTransactionUpdate: timestamp,
+      alertsUpdateTrigger: prev.alertsUpdateTrigger + 1,
+      notificationsUpdateTrigger: prev.notificationsUpdateTrigger + 1,
+      lastKpiUpdate: timestamp,
+      lastRecentTransactionsUpdate: timestamp,
+      lastPendingCountUpdate: timestamp,
+      lastTransactionListUpdate: timestamp,
       lastDashboardUpdate: timestamp,
       lastSettingsUpdate: timestamp,
       lastInsightsUpdate: timestamp,
+      lastAlertsUpdate: timestamp,
+      lastNotificationsUpdate: timestamp,
     }));
   }, []);
 
@@ -147,10 +283,31 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
   }, []);
 
   // Optimized mark update functions
-  const markTransactionUpdated = useCallback(() => {
+  const markKpiUpdated = useCallback(() => {
     setState((prev) => ({
       ...prev,
-      lastTransactionUpdate: new Date().toISOString(),
+      lastKpiUpdate: new Date().toISOString(),
+    }));
+  }, []);
+
+  const markRecentTransactionsUpdated = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      lastRecentTransactionsUpdate: new Date().toISOString(),
+    }));
+  }, []);
+
+  const markPendingCountUpdated = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      lastPendingCountUpdate: new Date().toISOString(),
+    }));
+  }, []);
+
+  const markTransactionListUpdated = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      lastTransactionListUpdate: new Date().toISOString(),
     }));
   }, []);
 
@@ -175,18 +332,44 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     }));
   }, []);
 
+  const markAlertsUpdated = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      lastAlertsUpdate: new Date().toISOString(),
+    }));
+  }, []);
+
+  const markNotificationsUpdated = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      lastNotificationsUpdate: new Date().toISOString(),
+    }));
+  }, []);
+
   // Create actions object
   const actions: AppActions = {
-    triggerTransactionRefresh,
+    triggerKpiUpdate,
+    triggerRecentTransactionsUpdate,
+    triggerPendingTransactionCountUpdate,
+    triggerTransactionListUpdate,
     triggerDashboardRefresh,
     triggerSettingsRefresh,
     triggerInsightsRefresh,
+    triggerAlertsRefresh,
+    triggerNotificationsRefresh,
     triggerGlobalRefresh,
+    triggerTransactionDataUpdate,
+    triggerDashboardDataUpdate,
     setRefreshing,
-    markTransactionUpdated,
+    markKpiUpdated,
+    markRecentTransactionsUpdated,
+    markPendingCountUpdated,
+    markTransactionListUpdated,
     markDashboardUpdated,
     markSettingsUpdated,
     markInsightsUpdated,
+    markAlertsUpdated,
+    markNotificationsUpdated,
   };
 
   return <AppContext.Provider value={{ state, actions }}>{children}</AppContext.Provider>;
@@ -202,4 +385,4 @@ export const useApp = (): AppContextType => {
 };
 
 // Export for convenience
-export default AppStateProvider;
+export default AppProvider;

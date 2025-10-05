@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
 import { ALERT_LABELS, ALERT_TYPE_FREQUENCY_MAP } from '@/constants/alertsConstants';
+import { useApp } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/DialogProvider';
 import { useToast } from '@/contexts/ToastProvider';
 import {
@@ -37,11 +38,11 @@ export default function AlertDashboardScreen() {
   }>();
   const [selectedAlert, setSelectedAlert] = useState<Alerts>();
   const [modalVisible, setModalVisible] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFormSubmitting, setIsFormSubmitting] = useState(false);
 
   const theme = useTheme();
   const db = useSQLiteContext();
+  const { state: appState, actions: appActions } = useApp();
   const { showToast } = useToast();
   const { showConfirmationDialog } = useDialog();
   const screenWidth = Dimensions.get('window').width;
@@ -54,7 +55,7 @@ export default function AlertDashboardScreen() {
     async (showLoader = true) => {
       if (!db) return;
 
-      if (showLoader) setIsRefreshing(true);
+      if (showLoader) appActions.setRefreshing(true);
 
       try {
         const incomeWeeklyAlerts = await fetchAlertsByTypeAndFrequency(db, 'income', 'weekly');
@@ -86,10 +87,10 @@ export default function AlertDashboardScreen() {
         console.error('Error loading alerts:', error);
         showToast('Failed to load alerts data');
       } finally {
-        if (showLoader) setIsRefreshing(false);
+        if (showLoader) appActions.setRefreshing(false);
       }
     },
-    [db, showToast]
+    [db, showToast, appActions]
   );
 
   // Load alerts on mount
@@ -97,6 +98,11 @@ export default function AlertDashboardScreen() {
     loadAlerts(false); // Silent initial load
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Safe to disable - we only want this to run once on mount
+
+  // Refresh alerts when transaction data or alerts trigger changes
+  useEffect(() => {
+    loadAlerts(false); // Silent refresh when data changes
+  }, [appState.transactionListTrigger, appState.alertsUpdateTrigger, loadAlerts]);
 
   // Handlers for add, edit, delete alerts
   const handleAddAlert = (categoryKey: string, categories: TransactionCategory[]) => {
@@ -126,6 +132,7 @@ export default function AlertDashboardScreen() {
           try {
             await deleteAlert(db, alertId);
             await loadAlerts(false); // Silent refresh
+            appActions.triggerAlertsRefresh(); // Trigger alerts update for other components
             showToast('Alert deleted successfully');
           } catch (error) {
             console.error('Failed to delete alert:', error);
@@ -135,7 +142,7 @@ export default function AlertDashboardScreen() {
         },
       });
     },
-    [db, loadAlerts, showToast, showConfirmationDialog]
+    [db, loadAlerts, showToast, showConfirmationDialog, appActions]
   );
 
   const handleSubmitAlert = async (alert: NewAlert | EditAlert) => {
@@ -160,6 +167,7 @@ export default function AlertDashboardScreen() {
         showToast('Alert created');
       }
       await loadAlerts(false); // Silent refresh
+      appActions.triggerAlertsRefresh(); // Trigger alerts update for other components
       setModalVisible(false);
     } catch (error) {
       console.error('Failed to save alert:', error);
@@ -218,7 +226,9 @@ export default function AlertDashboardScreen() {
         keyExtractor={(key) => key}
         contentContainerStyle={{ padding: 12 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={appState.isRefreshing} onRefresh={handleRefresh} />
+        }
         ListHeaderComponent={
           <View className="flex-row justify-center space-x-6 p-4">
             <View className="flex-1 items-center">

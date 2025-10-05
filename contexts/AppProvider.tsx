@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppStateProvider } from './AppContext';
+import { AppProvider as AppStateProvider } from './AppContext';
 import { DialogProvider } from './DialogProvider';
 import { SettingsProvider } from './SettingsContext';
 import { ThemeProvider as AppThemeProvider } from './ThemeContext';

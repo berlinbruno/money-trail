@@ -19,7 +19,7 @@ import { capitalizeFirstLetter } from '@/utils/formatterUtils';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@react-navigation/native';
 import { Loader2 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Keyboard,
@@ -49,10 +49,16 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
   const [type, setType] = useState<TransactionType>('debit');
   const [category, setCategory] = useState<TransactionCategory>('other');
   const [mode, setMode] = useState<TransactionMode>('other');
-  const [date, setDate] = useState(new Date());
+  const [date, setDate] = useState(() => new Date()); // Use function to ensure consistent initial value
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Memoize today's date to prevent new Date() on every render
+  const maxDate = useMemo(() => new Date(), []);
+
+  // Memoize theme colors to prevent re-renders from theme changes
+  const themeColors = useMemo(() => theme.colors.text, [theme.colors.text]);
 
   // Handle keyboard height for dynamic bottom margin
   useEffect(() => {
@@ -80,9 +86,14 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
       setType(transaction.type);
       setCategory(transaction.category);
       setMode(transaction.mode ?? 'other');
-      setDate(transaction.date ? new Date(transaction.date) : new Date());
+      // Only set date if transaction has a valid date, don't reset to current date
+      if (transaction.date) {
+        setDate(new Date(transaction.date));
+      }
+      // If no transaction.date, keep the existing date state (don't reset to current date)
     }
-  }, [transaction]); // Remove 'type' dependency to allow type changes during editing
+    // For new transactions (no transaction), keep all existing form state including date
+  }, [transaction]); // Use full transaction dependency
 
   // Separate effect to handle category reset when type changes for new transactions
   useEffect(() => {
@@ -113,8 +124,7 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
           type !== transaction.type ||
           category !== transaction.category ||
           mode !== (transaction.mode ?? 'other') ||
-          date.toISOString() !==
-            (transaction.date ? new Date(transaction.date).toISOString() : new Date().toISOString())
+          (transaction.date && date.toISOString() !== new Date(transaction.date).toISOString())
         : true; // Always allow save in create mode
 
     return isFormValid && hasChanges;
@@ -234,10 +244,13 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
                 <DateTimePicker
                   value={date}
                   mode="date"
-                  display="default"
+                  display={Platform.OS === 'ios' ? 'default' : 'default'}
+                  maximumDate={maxDate}
                   onChange={(event, selectedDate) => {
-                    if (Platform.OS === 'android') setShowDatePicker(false);
-                    if (selectedDate) setDate(selectedDate);
+                    setShowDatePicker(false); // Always close picker
+                    if (event.type === 'set' && selectedDate) {
+                      setDate(selectedDate);
+                    }
                   }}
                 />
               )}
@@ -263,7 +276,7 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
               {isLoading ? (
                 <View className="flex-row items-center">
                   <View className="mr-2 animate-spin">
-                    <Loader2 size={16} color={theme.colors.text} />
+                    <Loader2 size={16} color={themeColors} />
                   </View>
                   <Text className="text-primary-foreground">
                     {isEditMode ? 'Updating...' : 'Saving...'}
@@ -283,4 +296,20 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
   );
 };
 
-export default TransactionForm;
+// Custom comparison function for React.memo
+const arePropsEqual = (prevProps: Props, nextProps: Props): boolean => {
+  // Only re-render if transaction prop actually changes
+  const transactionChanged =
+    prevProps.transaction?.id !== nextProps.transaction?.id ||
+    prevProps.transaction?.amount !== nextProps.transaction?.amount ||
+    prevProps.transaction?.title !== nextProps.transaction?.title ||
+    prevProps.transaction?.type !== nextProps.transaction?.type ||
+    prevProps.transaction?.category !== nextProps.transaction?.category ||
+    prevProps.transaction?.mode !== nextProps.transaction?.mode ||
+    prevProps.transaction?.date !== nextProps.transaction?.date;
+
+  // Only re-render if transaction changed (ignore function prop changes)
+  return !transactionChanged;
+};
+
+export default memo(TransactionForm, arePropsEqual);

@@ -7,7 +7,6 @@ import {
 } from '@/components/dashboard';
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/contexts/ToastProvider';
-import { useTransactionState } from '@/hooks/useTransactionState';
 import {
   getMonthlyKPI,
   getRecentTransactions,
@@ -18,6 +17,7 @@ import {
   getUnreadNotifications,
   insertAlertNotifications,
 } from '@/lib/database/notificationQueries';
+import { getPendingTransactionCount } from '@/lib/database/transactionQueries';
 import { INotificationRow } from '@/types/Common';
 import { KPIData, RecentTx, TrendRow } from '@/types/Insight';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -28,7 +28,6 @@ export default function DashboardScreen() {
   const db = useSQLiteContext();
   const { showToast } = useToast();
   const { state: appState, actions: appActions } = useApp();
-  const { pendingCount } = useTransactionState();
 
   const [monthlyKPIData, setMonthlyKPIData] = useState<KPIData>({
     totalIncome: 0,
@@ -38,12 +37,16 @@ export default function DashboardScreen() {
   const [recentTransactions, setRecentTransactions] = useState<RecentTx[]>([]);
   const [monthlyTrends, setMonthlyTrends] = useState<TrendRow[]>([]);
   const [notifications, setNotifications] = useState<INotificationRow[]>([]);
+  const [pendingCount, setPendingCount] = useState<number>(0);
 
-  // Fetch pending transaction count is now handled by useTransactionState
   const fetchPendingCount = useCallback(async () => {
-    // This function now triggers a refresh which will update pendingCount via useTransactionState
-    appActions.triggerTransactionRefresh();
-  }, [appActions]);
+    try {
+      const count = await getPendingTransactionCount(db);
+      setPendingCount(count);
+    } catch (error) {
+      console.error('Error fetching pending count:', error);
+    }
+  }, [db]);
 
   const fetchDashboardData = useCallback(
     async (showLoader = true) => {
@@ -76,38 +79,109 @@ export default function DashboardScreen() {
     try {
       const alertsData = await getAlertsWithProgress(db);
       await insertAlertNotifications(db, alertsData);
+      // Don't trigger notifications refresh here - it will be triggered by the useEffect
+      // when notifications are actually created in the database
     } catch (error) {
       console.error('Error inserting alert notifications:', error);
       // Silent error - this is a background operation
     }
   }, [db]);
 
-  // Load data on mount and when transaction triggers change
+  // Load data on mount and when triggers change
   useEffect(() => {
     fetchDashboardData(false); // Silent initial load
+  }, [fetchDashboardData, appState.dashboardUpdateTrigger]);
+
+  // Run alert checking only on initial load and then periodically (every 5 minutes)
+  useEffect(() => {
+    // Initial alert check
     insertAlerts();
-  }, [fetchDashboardData, insertAlerts, appState.dashboardUpdateTrigger]);
+
+    // Set up periodic alert checking (every 5 minutes)
+    const alertInterval = setInterval(
+      () => {
+        insertAlerts();
+      },
+      5 * 60 * 1000
+    ); // 5 minutes
+
+    // Cleanup interval on unmount
+    return () => clearInterval(alertInterval);
+  }, [insertAlerts]); // Only depend on insertAlerts, not dashboard triggers
+
+  // Load notifications when notifications trigger changes
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const unreadNotifications = await getUnreadNotifications(db, 3);
+        setNotifications(unreadNotifications);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    };
+    fetchNotifications();
+  }, [db, appState.notificationsUpdateTrigger]);
+
+  // Load KPI data when kpi trigger changes
+  useEffect(() => {
+    const fetchKPI = async () => {
+      try {
+        const kpiData = await getMonthlyKPI(db);
+        setMonthlyKPIData(kpiData);
+      } catch (error) {
+        console.error('Error fetching KPI data:', error);
+      }
+    };
+    fetchKPI();
+  }, [db, appState.kpiUpdateTrigger]);
+
+  // Load recent transactions when recent transactions trigger changes
+  useEffect(() => {
+    const fetchRecent = async () => {
+      try {
+        const recent = await getRecentTransactions(db, 5);
+        setRecentTransactions(recent);
+      } catch (error) {
+        console.error('Error fetching recent transactions:', error);
+      }
+    };
+    fetchRecent();
+  }, [db, appState.recentTransactionsTrigger]);
+
+  // Load pending count when pending transaction count trigger changes
+  useEffect(() => {
+    fetchPendingCount();
+  }, [fetchPendingCount, appState.pendingTransactionCountTrigger]);
 
   const onRefresh = useCallback(async () => {
     appActions.setRefreshing(true);
     try {
       await fetchDashboardData(false); // Don't double-set loading
-      await insertAlerts();
+      // Don't call insertAlerts here - it runs on its own schedule
       // Silent refresh - no toast needed for pull-to-refresh
     } finally {
       appActions.setRefreshing(false);
     }
-  }, [fetchDashboardData, insertAlerts, appActions]);
+  }, [fetchDashboardData, appActions]);
 
   const handleMarkedRead = useCallback(
     async (id: number) => {
       try {
+        // Optimistically update local state first
         setNotifications((prev) => prev.filter((n) => n.id !== String(id)));
+
+        // Then refresh from database to ensure consistency
         const unread = await getUnreadNotifications(db, 3);
         setNotifications(unread);
+
+        // Don't trigger notifications refresh here - it creates a loop
+        // The mark as read operation happens in the NotificationCard component
       } catch (error) {
         console.error('Error marking notification as read:', error);
         showToast('Unable to mark notification as read');
+        // Revert optimistic update on error
+        const unread = await getUnreadNotifications(db, 3);
+        setNotifications(unread);
       }
     },
     [db, showToast]
@@ -115,12 +189,19 @@ export default function DashboardScreen() {
 
   const handleClearAll = useCallback(async () => {
     try {
+      // Optimistically clear local state first
       setNotifications([]);
+
+      // Don't trigger notifications refresh here - it creates a loop
+      // The clear all operation happens in the NotificationSection component
     } catch (error) {
       console.error('Error clearing notifications:', error);
       showToast('Unable to clear notifications');
+      // Revert optimistic update on error
+      const unread = await getUnreadNotifications(db, 3);
+      setNotifications(unread);
     }
-  }, [showToast]);
+  }, [showToast, db]);
   return (
     <ScrollView
       className="p-2"
@@ -136,7 +217,7 @@ export default function DashboardScreen() {
 
       <DashboardRecentTransactionsSection recentTransactions={recentTransactions} />
 
-      <DashboardQuickActionsSection />
+      <DashboardQuickActionsSection pendingCount={pendingCount} />
 
       <DashboardNotificationsSection
         notifications={notifications}

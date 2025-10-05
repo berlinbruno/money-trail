@@ -20,37 +20,35 @@ export interface TransactionCardProps {
   category?: TransactionCategory;
 }
 
-const TransactionCard: React.FC<TransactionCardProps> = ({
-  title,
-  amount,
-  date,
-  type,
-  category,
-}) => {
-  const { selectedCurrency } = useSettings();
+const TransactionCard: React.FC<TransactionCardProps> = React.memo(
+  ({ title, amount, date, type, category }) => {
+    const { selectedCurrency } = useSettings();
 
-  return (
-    <Card className="m-1 h-20 flex-row items-center justify-between">
-      <CardHeader className="flex-1">
-        <CardTitle numberOfLines={1}>{title}</CardTitle>
-        {date && <CardDescription>{formatDate(date)}</CardDescription>}
-      </CardHeader>
-      <CardFooter className="flex-col items-end gap-2">
-        {category && (
-          <View
-            className="rounded-full px-2 py-1"
-            style={{ backgroundColor: CATEGORY_COLORS[category] }}>
-            <Text className="text-xs font-medium text-white">
-              {capitalizeFirstLetter(category)}
-            </Text>
-          </View>
-        )}
-        <Label className={type === 'credit' ? 'text-success' : 'text-destructive'}>
-          {formatAmountWithCurrency(amount, selectedCurrency)}
-        </Label>
-      </CardFooter>
-    </Card>
-  );
-};
+    return (
+      <Card className="m-1 h-20 flex-row items-center justify-between">
+        <CardHeader className="flex-1">
+          <CardTitle numberOfLines={1}>{title}</CardTitle>
+          {date && <CardDescription>{formatDate(date)}</CardDescription>}
+        </CardHeader>
+        <CardFooter className="flex-col items-end gap-2">
+          {category && (
+            <View
+              className="rounded-full px-2 py-1"
+              style={{ backgroundColor: CATEGORY_COLORS[category] }}>
+              <Text className="text-xs font-medium text-white">
+                {capitalizeFirstLetter(category)}
+              </Text>
+            </View>
+          )}
+          <Label className={type === 'credit' ? 'text-success' : 'text-destructive'}>
+            {formatAmountWithCurrency(amount, selectedCurrency)}
+          </Label>
+        </CardFooter>
+      </Card>
+    );
+  }
+);
+
+TransactionCard.displayName = 'TransactionCard';
 
 export default TransactionCard;

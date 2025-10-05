@@ -27,8 +27,12 @@ export function NotificationCard({ notification, onMarkedRead }: NotificationCar
 
   const markAsRead = useCallback(async () => {
     try {
+      console.log('Marking notification as read:', notification.id);
       await markNotificationAsRead(db, Number(notification.id));
+      console.log('Notification marked as read successfully');
       onMarkedRead?.(Number(notification.id));
+      // Don't trigger notifications refresh here - it creates a loop
+      // The parent component handles the optimistic update
     } catch (err) {
       console.error('Failed to mark notification as read:', err);
       Alert.alert('Error', 'Unable to mark notification as read. Please try again.');

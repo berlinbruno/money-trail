@@ -12,6 +12,17 @@ export async function insertAlertNotifications(
 
   const currencySymbol = await getCurrencySymbol();
 
+  // Get existing notifications for today to avoid duplicates
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  const existingNotifications = await db.getAllAsync(
+    `SELECT message FROM notifications 
+     WHERE type = 'alert' 
+     AND date(created_at) = date(?);`,
+    [today]
+  );
+
+  const existingMessages = new Set(existingNotifications.map((n: any) => n.message));
+
   // Process alerts without explicit transaction wrapper to avoid conflicts
   // Individual runAsync calls are atomic enough for this use case
   for (const alert of alerts) {
@@ -47,16 +58,31 @@ export async function insertAlertNotifications(
       }
     }
 
+    // Skip if this exact message was already created today
+    if (existingMessages.has(message)) {
+      continue;
+    }
+
     try {
       await db.runAsync(
         `INSERT INTO notifications (type, title, message, severity, is_read)
          VALUES (?, ?, ?, ?, 0);`,
         ['alert', alert.type === 'income' ? 'Income Alert' : 'Spending Alert', message, severity]
       );
+
+      // Add to our set to prevent duplicates within this batch
+      existingMessages.add(message);
     } catch (error) {
       // Log individual insert errors but continue processing other alerts
       console.warn('Failed to insert notification for alert:', alert.id, error);
     }
+  }
+
+  // Cleanup old notifications to prevent database bloat (keep last 50)
+  try {
+    await cleanupOldNotifications(db, 50);
+  } catch (error) {
+    console.warn('Failed to cleanup old notifications:', error);
   }
 }
 
@@ -76,8 +102,8 @@ export async function getAlertsWithProgress(db: SQLiteDatabase): Promise<IAlertR
       )
       AND (
         (a.frequency = 'weekly' 
-          AND strftime('%W', t.date) = strftime('%W', 'now') 
-          AND strftime('%Y', t.date) = strftime('%Y', 'now')
+          AND date >= date('now', '-' || ((strftime('%w', 'now') + 6) % 7) || ' days') 
+          AND date <= date('now', '+' || (6 - ((strftime('%w', 'now') + 6) % 7)) || ' days')
         )
         OR
         (a.frequency = 'monthly' 

@@ -2,7 +2,7 @@ import { TRANSACTION_CATEGORIES } from '@/constants/transactionConstants';
 import type { FilterState } from '@/types/FilterState';
 import { capitalizeFirstLetter } from '@/utils/formatterUtils';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { Platform, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -17,7 +17,7 @@ interface FilterFormProps {
   onClose?: () => void;
 }
 
-export default function FilterForm({
+function FilterForm({
   filterState,
   setFilterState,
   presets,
@@ -35,6 +35,9 @@ export default function FilterForm({
     showEndPicker,
   } = filterState;
 
+  // Memoize today's date to prevent new Date() on every render
+  const maxDate = useMemo(() => new Date(), []);
+
   const handleDateChange = (key: 'startDate' | 'endDate', date: Date | undefined) => {
     if (!date) return;
     setFilterState((prev) => ({
@@ -44,13 +47,13 @@ export default function FilterForm({
     }));
   };
 
-  const getAvailableCategories = () => {
+  const getAvailableCategories = useMemo(() => {
     if (type === 'credit' || type === 'debit') {
       return TRANSACTION_CATEGORIES[type];
     }
     // For 'all' type, combine both sets
     return [...new Set([...TRANSACTION_CATEGORIES.credit, ...TRANSACTION_CATEGORIES.debit])];
-  };
+  }, [type]);
 
   return (
     <View>
@@ -103,7 +106,7 @@ export default function FilterForm({
             </Text>
           </TouchableOpacity>
 
-          {[...new Set(getAvailableCategories())].map((tag) => (
+          {[...new Set(getAvailableCategories)].map((tag) => (
             <TouchableOpacity
               key={tag}
               className={`rounded-full px-3 py-2 ${category === tag ? 'bg-primary' : 'bg-secondary'}`}
@@ -164,17 +167,15 @@ export default function FilterForm({
           </TouchableOpacity>
           {showStartPicker && (
             <DateTimePicker
-              value={startDate || new Date()} // fallback to today
+              value={startDate || new Date()}
               mode="date"
-              display="default"
-              onChange={(_, date) => {
-                if (Platform.OS === 'android') {
-                  setFilterState((prev) => ({
-                    ...prev,
-                    showStartPicker: false,
-                  }));
+              display={Platform.OS === 'ios' ? 'default' : 'default'}
+              maximumDate={maxDate}
+              onChange={(event, date) => {
+                setFilterState((prev) => ({ ...prev, showStartPicker: false })); // Always close picker
+                if (event.type === 'set' && date) {
+                  handleDateChange('startDate', date);
                 }
-                handleDateChange('startDate', date);
               }}
             />
           )}
@@ -190,15 +191,13 @@ export default function FilterForm({
             <DateTimePicker
               value={endDate || new Date()}
               mode="date"
-              display="default"
-              onChange={(_, date) => {
-                if (Platform.OS === 'android') {
-                  setFilterState((prev) => ({
-                    ...prev,
-                    showEndPicker: false,
-                  }));
+              display={Platform.OS === 'ios' ? 'default' : 'default'}
+              maximumDate={maxDate}
+              onChange={(event, date) => {
+                setFilterState((prev) => ({ ...prev, showEndPicker: false })); // Always close picker
+                if (event.type === 'set' && date) {
+                  handleDateChange('endDate', date);
                 }
-                handleDateChange('endDate', date);
               }}
             />
           )}
@@ -216,8 +215,8 @@ export default function FilterForm({
               type: 'all',
               category: 'all',
               selectedPreset: 'Today',
-              startDate: new Date(),
-              endDate: new Date(),
+              startDate: maxDate,
+              endDate: maxDate,
               showStartPicker: false,
               showEndPicker: false,
             });
@@ -240,3 +239,26 @@ export default function FilterForm({
     </View>
   );
 }
+
+// Custom comparison function for React.memo
+const arePropsEqual = (prevProps: FilterFormProps, nextProps: FilterFormProps): boolean => {
+  // Only re-render if filterState, presets, or onClose actually change
+  const filterStateChanged =
+    prevProps.filterState.search !== nextProps.filterState.search ||
+    prevProps.filterState.type !== nextProps.filterState.type ||
+    prevProps.filterState.category !== nextProps.filterState.category ||
+    prevProps.filterState.selectedPreset !== nextProps.filterState.selectedPreset ||
+    prevProps.filterState.startDate?.getTime() !== nextProps.filterState.startDate?.getTime() ||
+    prevProps.filterState.endDate?.getTime() !== nextProps.filterState.endDate?.getTime() ||
+    prevProps.filterState.showStartPicker !== nextProps.filterState.showStartPicker ||
+    prevProps.filterState.showEndPicker !== nextProps.filterState.showEndPicker;
+
+  const presetsChanged =
+    prevProps.presets.length !== nextProps.presets.length ||
+    prevProps.presets.some((preset, index) => preset !== nextProps.presets[index]);
+
+  // Ignore setFilterState and applyPreset function reference changes
+  return !filterStateChanged && !presetsChanged;
+};
+
+export default memo(FilterForm, arePropsEqual);
