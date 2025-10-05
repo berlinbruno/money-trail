@@ -42,12 +42,12 @@ Stack (Root Layout)
 
 ### Hook System
 
-- **Removed**: `useTransactionState.ts` - Heavy hook with complex state management
-- **Current**: `useTransaction.ts` - Lightweight hook with:
+- **Lightweight Operations**: `useTransaction.ts` - Action-focused hook with:
   - Direct database operations only
-  - Uses specific trigger functions
-  - Focus on actions rather than state management
-  - Better error handling and performance
+  - Automatic cross-screen triggers via AppContext
+  - Optimistic updates with error recovery
+  - Built-in toast notifications and error handling
+- **App Initialization**: `useAppInitialization.ts` - Handles app startup and permissions
 
 ## Development Workflow
 
@@ -107,6 +107,7 @@ npm run lint:fix     # Auto-fix linting issues
 - **UI Components**: `components/ui/` - Reusable UI primitives
 - **Dialog Components**: `components/dialogs/` - Centralized dialog management
 - **Feature Components**: `components/{domain}/` - Domain-specific components
+  - **Dashboard**: `KPISection`, `QuickActionsSection`, `RecentTransactionsSection`, `TrendsSection`, `NotificationListSection`
 - **Styling**: TailwindCSS via NativeWind with theme support
 
 ### Type Definitions
@@ -192,22 +193,30 @@ const handleDeleteTransaction = useCallback(
 
 **Dashboard Data**: Add KPI calculations in `lib/database/dashboardQueries.ts`
 
+**Dashboard Components**: Use renamed components without "Dashboard" prefix:
+
+- `KPISection` (was `DashboardKPISection`)
+- `QuickActionsSection` (was `DashboardQuickActionsSection`)
+- `RecentTransactionsSection` (was `DashboardRecentTransactionsSection`)
+- `TrendsSection` (was `DashboardTrendsSection`)
+- `NotificationListSection` (was `DashboardNotificationsSection`)
+
 ### Performance Optimization Patterns
 
 **State Management Performance**:
 
-- Use lightweight, focused hooks instead of heavy `useTransactionState` for better performance
-- Implement immediate local state updates for better UX, then trigger app context for global refresh
-- Use `useTransaction` hook for transaction operations instead of complex state hooks
-- Avoid unnecessary re-renders by limiting context dependencies
+- Use lightweight `useTransaction` hook for operations with automatic triggers
+- Implement optimistic updates for immediate UI feedback, then trigger AppContext refresh
+- Use specific AppContext triggers for targeted updates (avoid triggering unnecessary re-renders)
+- Local component state + auto-refresh pattern instead of heavy state management hooks
 
 **App Context Integration**:
 
-- Use specific triggers like `appActions.triggerKpiUpdate()`, `appActions.triggerRecentTransactionsUpdate()`, `appActions.triggerPendingTransactionCountUpdate()` for targeted updates
-- Use combined triggers `appActions.triggerTransactionDataUpdate()` or `appActions.triggerDashboardDataUpdate()` for comprehensive updates
-- Implement optimistic updates: update local state immediately, then refresh global state
-- Use `appActions.markTransactionUpdated()` for timestamp tracking without triggering re-renders
-- Debounced triggers prevent excessive re-renders across components
+- Use specific triggers: `appActions.triggerKpiUpdate()`, `appActions.triggerRecentTransactionsUpdate()`, `appActions.triggerPendingTransactionCountUpdate()`
+- Use combined triggers: `appActions.triggerTransactionDataUpdate()`, `appActions.triggerDashboardDataUpdate()`
+- Debounced triggers (50ms) prevent excessive re-renders across components
+- Use `appActions.setRefreshing()` for global loading states
+- Pattern: Local state + `useEffect(() => { fetchData(); }, [appState.relevantTrigger])`
 
 **Database Operation Patterns**:
 
@@ -232,6 +241,24 @@ const handleDeleteTransaction = useCallback(
 **Configuration**: Update intervals via `updateTaskConfiguration()` with minimum 15-minute intervals
 
 **Debugging**: Check registration status with `getTaskStatus()` and monitor logs in `app_logs` table
+
+## Documentation References
+
+### Core Documentation
+
+- **State Management**: `docs/state-management.md` - Comprehensive guide to AppContext system, triggers, and patterns
+- **Dialog System**: `docs/dialog-system.md` - Centralized dialog management patterns
+- **Toast System**: `docs/toast-system.md` - Unified notification system
+- **Database Context**: `docs/database-context.md` - SQLite patterns and query organization
+- **Common Systems**: `docs/common-systems.md` - Theme, styling, and shared patterns
+
+### Key Patterns Summary
+
+- **Component Operations**: Use `useTransaction()` hook for database operations with automatic triggers
+- **Cross-Screen Updates**: Operations trigger AppContext updates across all relevant screens
+- **Local State Pattern**: Component manages local state + auto-refresh on AppContext triggers
+- **Dialog Integration**: Use `useDialog()` for confirmations with loading states and error handling
+- **Toast Feedback**: Use `useToast()` for immediate user feedback on operations
 
 ## File Organization Best Practices
 
