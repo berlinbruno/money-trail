@@ -22,6 +22,7 @@ import { Loader2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -51,6 +52,22 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // Handle keyboard visibility for better form behavior
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
 
   // Sync state on edit - only when transaction changes, not when user changes type
   useEffect(() => {
@@ -171,14 +188,20 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
   );
 
   return (
-    <ScrollView
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}>
-      <View className="flex-1 px-4 py-2">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: keyboardVisible ? 50 : 20,
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={true}
+        bounces={false}>
+        <View className="flex-1 px-4 py-2">
           <View className="mb-3">
             <Label>Amount *</Label>
             <Input
@@ -193,73 +216,73 @@ const TransactionForm: React.FC<Props> = ({ transaction, onSubmit, onCancel }) =
             <Label>Title *</Label>
             <Input placeholder="e.g. Grocery shopping" value={title} onChangeText={setTitle} />
           </View>
-        </KeyboardAvoidingView>
 
-        <View className="mb-3 flex-row flex-wrap gap-3">
-          <View className="flex-1">
-            <Label>Type *</Label>
-            {renderOptions<TransactionType>(TRANSACTION_TYPE, type, (val) => {
-              setType(val);
-              // When type changes, update category to first valid option for new type
-              const newCategory = val === 'credit' ? CREDIT_CATEGORIES[0] : DEBIT_CATEGORIES[0];
-              setCategory(newCategory);
-            })}
+          <View className="mb-3 flex-row flex-wrap gap-3">
+            <View className="flex-1">
+              <Label>Type *</Label>
+              {renderOptions<TransactionType>(TRANSACTION_TYPE, type, (val) => {
+                setType(val);
+                // When type changes, update category to first valid option for new type
+                const newCategory = val === 'credit' ? CREDIT_CATEGORIES[0] : DEBIT_CATEGORIES[0];
+                setCategory(newCategory);
+              })}
+            </View>
+
+            <View className="flex-1">
+              <Label>Date *</Label>
+              <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                <Text className="py-2 text-sm">{date.toDateString()}</Text>
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={date}
+                  mode="date"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    if (Platform.OS === 'android') setShowDatePicker(false);
+                    if (selectedDate) setDate(selectedDate);
+                  }}
+                />
+              )}
+            </View>
           </View>
 
-          <View className="flex-1">
-            <Label>Date *</Label>
-            <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-              <Text className="py-2 text-sm">{date.toDateString()}</Text>
-            </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={date}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  if (Platform.OS === 'android') setShowDatePicker(false);
-                  if (selectedDate) setDate(selectedDate);
-                }}
-              />
+          <View className="mb-3">
+            <Label>Category *</Label>
+            {renderOptions<TransactionCategory>(
+              type === 'credit' ? CREDIT_CATEGORIES : DEBIT_CATEGORIES,
+              category,
+              setCategory
             )}
           </View>
-        </View>
 
-        <View className="mb-3">
-          <Label>Category *</Label>
-          {renderOptions<TransactionCategory>(
-            type === 'credit' ? CREDIT_CATEGORIES : DEBIT_CATEGORIES,
-            category,
-            setCategory
-          )}
-        </View>
+          <View className="mb-3">
+            <Label>Mode *</Label>
+            {renderOptions<TransactionMode>(TRANSACTION_MODES, mode, setMode)}
+          </View>
 
-        <View className="mb-3">
-          <Label>Mode *</Label>
-          {renderOptions<TransactionMode>(TRANSACTION_MODES, mode, setMode)}
-        </View>
-
-        <View className="mt-6 flex-row justify-around gap-2">
-          <Button className="flex-[2]" onPress={handleSubmit} disabled={!isValid || isLoading}>
-            {isLoading ? (
-              <View className="flex-row items-center">
-                <View className="mr-2 animate-spin">
-                  <Loader2 size={16} color={theme.colors.text} />
+          <View className="mt-6 flex-row justify-around gap-2">
+            <Button className="flex-[2]" onPress={handleSubmit} disabled={!isValid || isLoading}>
+              {isLoading ? (
+                <View className="flex-row items-center">
+                  <View className="mr-2 animate-spin">
+                    <Loader2 size={16} color={theme.colors.text} />
+                  </View>
+                  <Text className="text-primary-foreground">
+                    {isEditMode ? 'Updating...' : 'Saving...'}
+                  </Text>
                 </View>
-                <Text className="text-primary-foreground">
-                  {isEditMode ? 'Updating...' : 'Saving...'}
-                </Text>
-              </View>
-            ) : (
-              <Text>{isEditMode ? 'Update' : 'Save'}</Text>
-            )}
-          </Button>
-          <Button variant="secondary" className="flex-1" onPress={onCancel} disabled={isLoading}>
-            <Text>Cancel</Text>
-          </Button>
+              ) : (
+                <Text>{isEditMode ? 'Update' : 'Save'}</Text>
+              )}
+            </Button>
+            <Button variant="secondary" className="flex-1" onPress={onCancel} disabled={isLoading}>
+              <Text>Cancel</Text>
+            </Button>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
