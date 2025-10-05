@@ -228,10 +228,10 @@ export default function TransactionApprovalScreen() {
             </View>
           </View>
         )}
-        leftOpenValue={80}
-        stopLeftSwipe={80}
-        rightOpenValue={-160}
-        stopRightSwipe={-160}
+        leftOpenValue={90}
+        stopLeftSwipe={90}
+        rightOpenValue={-180}
+        stopRightSwipe={-180}
         disableRightSwipe={false}
         refreshing={isRefreshing}
         onRefresh={() => fetchTransactions(true)}

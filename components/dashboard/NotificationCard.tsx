@@ -4,7 +4,7 @@ import { INotificationRow } from '@/types/Common';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback } from 'react';
 import { Alert, View } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
+import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 
@@ -42,9 +42,8 @@ export function NotificationCard({ notification, onMarkedRead }: NotificationCar
       containerStyle={{ flex: 1, width: '100%' }}
       renderRightActions={() => (
         <View
-          className="mr-1 flex-1 items-center justify-center rounded-r-lg"
+          className="mr-1 w-20 items-center justify-center rounded-r-lg bg-destructive"
           style={{
-            backgroundColor: '#EF4444',
             minHeight: 48,
           }}>
           <Button
@@ -56,20 +55,20 @@ export function NotificationCard({ notification, onMarkedRead }: NotificationCar
           </Button>
         </View>
       )}
-      dragOffsetFromRightEdge={16}
-      rightThreshold={20}
+      dragOffsetFromRightEdge={5}
+      rightThreshold={40}
+      overshootLeft={false}
       overshootRight={false}>
       <View
+        className="max-h-30 rounded-xl shadow-md"
         style={{
           borderLeftWidth: 4,
           borderLeftColor: severityColors[notification.severity],
-          borderRadius: 12,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.1,
           shadowRadius: 4,
           elevation: 3,
-          maxHeight: 120,
         }}>
         <Card className="py-2">
           <CardHeader className="px-2 py-0">
