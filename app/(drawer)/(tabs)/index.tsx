@@ -16,6 +16,7 @@ import {
   getUnreadNotifications,
   insertAlertNotifications,
 } from '@/lib/database/notificationQueries';
+import { getPendingTransactionCount } from '@/lib/database/transactionQueries';
 import { INotificationRow } from '@/types/Common';
 import { KPIData, RecentTx, TrendRow } from '@/types/Insight';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -34,6 +35,18 @@ export default function DashboardScreen() {
   const [monthlyTrends, setMonthlyTrends] = useState<TrendRow[]>([]);
   const [notifications, setNotifications] = useState<INotificationRow[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // Fetch pending transaction count
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const count = await getPendingTransactionCount(db);
+      setPendingCount(count);
+    } catch (error) {
+      console.error('Failed to fetch pending count:', error);
+      setPendingCount(0);
+    }
+  }, [db]);
 
   const fetchDashboardData = useCallback(
     async (showLoader = true) => {
@@ -49,6 +62,9 @@ export default function DashboardScreen() {
         setMonthlyKPIData(kpiData);
         setMonthlyTrends(trendsData);
         setNotifications(unreadNotifications);
+
+        // Also fetch pending count
+        await fetchPendingCount();
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         showToast('Unable to load dashboard data');
@@ -56,7 +72,7 @@ export default function DashboardScreen() {
         if (showLoader) setIsRefreshing(false);
       }
     },
-    [db, showToast]
+    [db, showToast, fetchPendingCount]
   );
 
   const insertAlerts = useCallback(async () => {
@@ -124,7 +140,10 @@ export default function DashboardScreen() {
 
       <DashboardRecentTransactionsSection recentTransactions={recentTransactions} />
 
-      <DashboardQuickActionsSection />
+      <DashboardQuickActionsSection
+        pendingCount={pendingCount}
+        onRefreshPendingCount={fetchPendingCount}
+      />
 
       <DashboardNotificationsSection
         notifications={notifications}

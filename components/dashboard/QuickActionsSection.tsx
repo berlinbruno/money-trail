@@ -1,4 +1,5 @@
 import TransactionForm from '@/components/transaction/TransactionForm';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
@@ -22,7 +23,15 @@ import {
 import React, { useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 
-export function DashboardQuickActionsSection() {
+interface DashboardQuickActionsSectionProps {
+  pendingCount: number;
+  onRefreshPendingCount: () => Promise<void>;
+}
+
+export function DashboardQuickActionsSection({
+  pendingCount,
+  onRefreshPendingCount,
+}: DashboardQuickActionsSectionProps) {
   const theme = useTheme();
   const db = useSQLiteContext();
   const { messageScanCount } = useSettings();
@@ -54,6 +63,8 @@ export function DashboardQuickActionsSection() {
           message: `SMS scan completed. Processed ${result.processed} messages, added ${result.inserted} transactions.`,
           duration: 'long',
         });
+        // Refresh pending count after successful scan
+        await onRefreshPendingCount();
       } else {
         showToast({
           message: `SMS scan failed: ${result.errorMessages.join(', ')}`,
@@ -104,9 +115,16 @@ export function DashboardQuickActionsSection() {
             </Text>
           </TouchableOpacity>
           <Link asChild href={'/(drawer)/approveTransaction'}>
-            <TouchableOpacity className="mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary">
+            <TouchableOpacity className="relative mx-1 flex h-24 flex-1 items-center justify-center rounded-lg bg-secondary">
               <CheckCheck color={theme.colors.text} />
               <Text>Approve</Text>
+              {pendingCount > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -right-1 -top-1 h-5 min-w-5 rounded-full px-1">
+                  <Text>{pendingCount > 999 ? '999+' : pendingCount}</Text>
+                </Badge>
+              )}
             </TouchableOpacity>
           </Link>
         </View>

@@ -111,3 +111,15 @@ export async function updateAllTransactionFlags(db: SQLiteDatabase, flag: 0 | 1)
 export async function deleteTransaction(db: SQLiteDatabase, id: string): Promise<void> {
   await db.runAsync('DELETE FROM transactions WHERE id = ?', [id]);
 }
+
+export async function getPendingTransactionCount(db: SQLiteDatabase): Promise<number> {
+  try {
+    const result = await db.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM transactions WHERE pending_approval = 1'
+    );
+    return result?.count || 0;
+  } catch (error) {
+    console.error('Failed to fetch pending transaction count:', error);
+    return 0;
+  }
+}
