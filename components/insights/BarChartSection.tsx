@@ -96,6 +96,7 @@ export default function BarChartSection({ timeSeriesData, rangeLabel }: BarChart
             isAnimated
             animationDuration={ANIMATION_DURATION}
             hideRules
+            overflowTop={50}
           />
         </CardFooter>
       ) : (
