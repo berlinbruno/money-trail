@@ -1,4 +1,11 @@
-import { Card } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import React from 'react';
@@ -18,38 +25,41 @@ export function AppBehaviorCard({
   onAutoApprovalToggle,
 }: AppBehaviorCardProps) {
   return (
-    <Card className="mx-4 mb-4 p-4">
-      <Text className="mb-4 text-lg font-semibold">App Behavior</Text>
+    <Card className="m-2">
+      <CardHeader>
+        <CardTitle>App Behavior</CardTitle>
+      </CardHeader>
 
       {/* Fetch Messages on Launch */}
-      <View className="mb-4 flex-row items-center justify-between">
-        <View className="flex-1">
-          <Text className="text-base font-medium">Fetch Messages on Launch</Text>
-          <Text className="mt-1 text-sm text-muted-foreground">
-            Automatically scan for new SMS messages when the app starts
-          </Text>
+      <CardContent>
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1">
+            <Text className="text-base font-medium">Fetch Messages on Launch</Text>
+            <CardDescription>
+              Automatically scan for new SMS messages when the app starts
+            </CardDescription>
+          </View>
+          <Switch checked={fetchOnLaunch} onCheckedChange={onFetchOnLaunchToggle} />
         </View>
-        <Switch checked={fetchOnLaunch} onCheckedChange={onFetchOnLaunchToggle} />
-      </View>
 
-      {/* Auto Approval */}
-      <View className="flex-row items-center justify-between">
-        <View className="flex-1">
-          <Text className="text-base font-medium">Auto Approval</Text>
-          <Text className="mt-1 text-sm text-muted-foreground">
-            Automatically approve all transactions without manual review
-          </Text>
+        {/* Auto Approval */}
+        <View className="my-4 flex-row items-center justify-between">
+          <View className="flex-1">
+            <Text className="text-base font-medium">Auto Approval</Text>
+            <CardDescription>
+              Automatically approve all transactions without manual review
+            </CardDescription>
+          </View>
+          <Switch checked={autoApproval} onCheckedChange={onAutoApprovalToggle} />
         </View>
-        <Switch checked={autoApproval} onCheckedChange={onAutoApprovalToggle} />
-      </View>
-
+      </CardContent>
       {autoApproval && (
-        <View className="mt-3 rounded-md bg-amber-50 p-3">
-          <Text className="text-xs text-amber-800">
+        <CardFooter>
+          <CardDescription className="text-xs text-destructive">
             ⚠️ Warning: Auto approval will immediately add all detected transactions without your
             review. Make sure your SMS parsing is accurate before enabling this feature.
-          </Text>
-        </View>
+          </CardDescription>
+        </CardFooter>
       )}
     </Card>
   );

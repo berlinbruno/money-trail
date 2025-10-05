@@ -16,31 +16,25 @@ export const AppearanceCard: React.FC<AppearanceCardProps> = ({ selectedTheme, o
         <CardTitle>Appearance</CardTitle>
         <CardDescription>Choose your preferred theme</CardDescription>
       </CardHeader>
-      <CardContent>
-        <View className="py-2">
-          <Text className="mb-2 font-medium">Theme</Text>
-          <Text className="mb-3 text-sm text-muted-foreground">
-            Select light, dark, or system theme
-          </Text>
-          <View className="flex-row flex-wrap gap-2">
-            {THEME_OPTIONS.map((theme) => (
-              <TouchableOpacity
-                key={theme}
-                className={`rounded-full px-3 py-2 ${
-                  selectedTheme === theme ? 'bg-primary' : 'bg-secondary'
-                }`}
-                onPress={() => onThemeChange(theme)}>
-                <Text
-                  className={
-                    selectedTheme === theme
-                      ? 'text-primary-foreground'
-                      : 'text-secondary-foreground'
-                  }>
-                  {theme.charAt(0).toUpperCase() + theme.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+      <CardContent className="py-2">
+        <Text className="mb-2 font-medium">Theme</Text>
+        <CardDescription>Select light, dark, or system theme</CardDescription>
+        <View className="mt-2 flex-row flex-wrap gap-2">
+          {THEME_OPTIONS.map((theme) => (
+            <TouchableOpacity
+              key={theme}
+              className={`rounded-full px-3 py-2 ${
+                selectedTheme === theme ? 'bg-primary' : 'bg-secondary'
+              }`}
+              onPress={() => onThemeChange(theme)}>
+              <Text
+                className={
+                  selectedTheme === theme ? 'text-primary-foreground' : 'text-secondary-foreground'
+                }>
+                {theme.charAt(0).toUpperCase() + theme.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </CardContent>
     </Card>
