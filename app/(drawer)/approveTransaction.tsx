@@ -220,9 +220,9 @@ export default function TransactionApprovalScreen() {
               </Button>
               <Button
                 size={null}
-                variant="secondary"
+                variant="success"
                 onPress={() => handleApproveTransaction(item.id)}
-                className="h-full w-24 rounded-none rounded-r-lg">
+                className="mr-1 h-full w-24 rounded-none rounded-r-lg">
                 <Text>Approve</Text>
               </Button>
             </View>

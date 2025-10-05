@@ -23,6 +23,12 @@ const buttonVariants = cva(
             web: 'hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
           })
         ),
+        success: cn(
+          'bg-success shadow-sm shadow-black/5 active:bg-success/90 dark:bg-success/60',
+          Platform.select({
+            web: 'hover:bg-success/90 focus-visible:ring-success/20 dark:focus-visible:ring-success/40',
+          })
+        ),
         outline: cn(
           'border border-border bg-background shadow-sm shadow-black/5 active:bg-accent dark:border-input dark:bg-input/30 dark:active:bg-input/50',
           Platform.select({
@@ -64,6 +70,7 @@ const buttonTextVariants = cva(
       variant: {
         default: 'text-primary-foreground',
         destructive: 'text-white',
+        success: 'text-success-foreground',
         outline: cn(
           'group-active:text-accent-foreground',
           Platform.select({ web: 'group-hover:text-accent-foreground' })
