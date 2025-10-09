@@ -90,7 +90,271 @@ export const useTransaction = () => {
 }
 ```
 
-### 3. Unified AppProvider (`contexts/AppProvider.tsx`)
+### 3. Hook System Architecture
+
+The Money Trail app uses a comprehensive hook system that provides specialized functionality for different aspects of the application:
+
+#### 3.1 useTransaction Hook (`hooks/useTransaction.ts`)
+
+**Purpose**: Core transaction operations with automatic cross-screen synchronization
+
+**Design Philosophy**:
+
+- **Action-focused**: Provides operations, not state management
+- **Automatic Triggers**: All operations trigger relevant app-wide updates
+- **Built-in Feedback**: Toast notifications and error handling included
+
+**Core Operations**:
+
+```typescript
+export const useTransaction = () => {
+  // CRUD operations
+  const createTransaction: (transaction: NewTransaction) => Promise<boolean>;
+  const updateTransaction: (transaction: EditTransaction) => Promise<boolean>;
+  const deleteTransaction: (transactionId: string) => Promise<boolean>;
+
+  // Approval operations
+  const approveTransaction: (transactionId: string) => Promise<boolean>;
+  const approveAllTransactions: () => Promise<boolean>;
+  const toggleTransactionApproval: (id: string, status: 0 | 1) => Promise<boolean>;
+
+  // Query operations
+  const fetchTransactions: (filters: FilterOptions) => Promise<Transaction[]>;
+  const getPendingCount: () => Promise<number>;
+  const searchTransactions: (searchText: string) => Promise<Transaction[]>;
+
+  // Bulk operations
+  const bulkApproveTransactions: (ids: string[]) => Promise<boolean>;
+  const bulkDeleteTransactions: (ids: string[]) => Promise<boolean>;
+
+  // Utility operations
+  const duplicateTransaction: (transactionId: string) => Promise<boolean>;
+  const updateTransactionState: (setState, operation, id?) => void; // Optimistic updates
+};
+```
+
+#### 3.2 useInsightManager Hook (`hooks/useInsightManager.ts`)
+
+**Purpose**: Comprehensive insights data management with optimized performance
+
+**Design Philosophy**:
+
+- **Centralized Management**: Single hook for all insights operations and state
+- **Performance Optimized**: Prevents dashboard re-renders through careful dependency management
+- **Selective Updates**: Minimizes unnecessary re-renders across screens
+- **Auto-refresh Support**: Responds to transaction data changes automatically
+
+**Core Features**:
+
+```typescript
+export const useInsightManager = ({
+  autoRefresh = true,
+  initialRangeIndex = 0,
+}: InsightManagerOptions = {}) => {
+  // State management
+  const selectedRangeIndex: number;
+  const currentRangeKey: keyof insightsDataset;
+  const insightsData: InsightsData;
+  const isLoading: boolean;
+
+  // Derived state
+  const hasInsightsData: boolean;
+  const hasTimeSeriesData: boolean;
+
+  // Operations
+  const fetchInsightsData: (showLoading?: boolean) => Promise<void>;
+  const handleRangeChange: (newIndex: number) => void;
+  const handleRefresh: () => Promise<void>;
+  const resetInsightsData: () => void;
+
+  // Minimal app state exposure
+  const appState: { isRefreshing: boolean };
+};
+```
+
+**Key Optimizations**:
+
+- **Dependency Cycle Prevention**: Carefully managed `useEffect` dependencies to prevent dashboard re-renders
+- **Stabilized Callbacks**: Functions are memoized to prevent unnecessary recreations
+- **Minimal App State**: Only exposes `isRefreshing` to prevent excessive subscriptions
+- **Silent Refreshes**: Background data fetching without loading indicators for automatic updates
+
+#### 3.3 useTransactionManager Hook (`hooks/useTransactionManager.ts`)
+
+**Purpose**: Complete transaction screen management with UI state and operations
+
+**Design Philosophy**:
+
+- **UI Integration**: Manages both data and UI state for transaction screens
+- **Filter Management**: Comprehensive filtering, sorting, and search capabilities
+- **Modal Coordination**: Handles all modal states and interactions
+- **Optimistic Updates**: Immediate UI feedback with error recovery
+
+**Core Features**:
+
+```typescript
+export const useTransactionManager = ({
+  flaggedOnly = false,
+  initialPreset = 'All',
+}: TransactionManagerOptions = {}) => {
+  // Main state
+  const transactions: Transaction[] | null;
+  const isRefreshing: boolean;
+  const sortOrder: 'asc' | 'desc';
+  const sortBy: 'date' | 'amount';
+  const filterState: FilterState;
+
+  // Modal states
+  const showFilterModal: boolean;
+  const showSortModal: boolean;
+  const showTransactionModal: boolean;
+  const selectedTransaction: Transaction | undefined;
+
+  // Operations
+  const applyDatePreset: (preset: string) => void;
+  const handleFetchTransactions: (showLoader?: boolean) => Promise<void>;
+  const handleEditTransaction: (id: string) => void;
+  const handleDeleteTransaction: (id: string) => void;
+  const handleApproveTransaction: (id: string) => void;
+  const handleApproveAllTransactions: () => void;
+  const handleAddTransaction: () => void;
+  const handleCloseTransactionModal: () => void;
+};
+```
+
+#### 3.4 useAlertManager Hook (`hooks/useAlertManager.ts`)
+
+**Purpose**: Complete alert system management with progress tracking
+
+**Design Philosophy**:
+
+- **Category Grouping**: Organizes alerts by type and frequency
+- **Progress Tracking**: Real-time progress calculation with current values
+- **CRUD Operations**: Full alert lifecycle management
+- **UI State Management**: Modal and expansion state coordination
+
+**Core Features**:
+
+```typescript
+export const useAlertManager = ({ autoRefresh = true }: AlertManagerOptions = {}) => {
+  // State
+  const alertsGroupedByCategory: Record<string, Alerts[]>;
+  const expandedCategoryKey: string | null;
+  const modalVisible: boolean;
+  const isFormSubmitting: boolean;
+
+  // Modal form state
+  const availableAlertCategories: TransactionCategory[] | undefined;
+  const currentAlertTypeFrequency: { type: AlertType; frequency: AlertFrequency } | undefined;
+  const selectedAlert: Alerts | undefined;
+
+  // Derived data
+  const spendingUsageRatio: number;
+  const incomeUsageRatio: number;
+
+  // Operations
+  const loadAlerts: (showLoader?: boolean) => Promise<void>;
+  const handleAddAlert: (categoryKey: string, categories: TransactionCategory[]) => void;
+  const handleEditAlert: (alert: Alerts, categories: TransactionCategory[]) => void;
+  const handleDeleteAlert: (alertId: string) => void;
+  const handleSubmitAlert: (alert: NewAlert | EditAlert) => Promise<void>;
+
+  // UI helpers
+  const toggleCategoryExpansion: (key: string) => void;
+  const closeModal: () => void;
+  const handleRefresh: () => Promise<void>;
+};
+```
+
+#### 3.5 useAppInitialization Hook (`hooks/useAppInitialization.ts`)
+
+**Purpose**: Application startup sequence with permissions and initialization
+
+**Design Philosophy**:
+
+- **Sequential Initialization**: Handles app startup in correct order
+- **Permission Management**: Manages SMS and background task permissions
+- **Error Recovery**: Graceful handling of initialization failures
+- **Conditional Features**: Disables features based on permission availability
+
+**Core Features**:
+
+```typescript
+export const useAppInitialization = () => {
+  const isInitialized: boolean;
+  const isLoading: boolean;
+  const error: string | null;
+  const retry: () => Promise<void>;
+};
+```
+
+**Initialization Sequence**:
+
+1. **Database Setup**: Initialize tables and WAL mode
+2. **Permission Requests**: SMS, background tasks, wake lock permissions
+3. **Feature Configuration**: Enable/disable based on permissions
+4. **Background Tasks**: Initialize SMS sync background processing
+5. **Conditional SMS Sync**: Start initial sync if permissions allow
+6. **Alert Notifications**: Initialize alert monitoring system
+
+### 4. Conditional Rendering Pattern (Insights Components)
+
+**Purpose**: Enhanced UX through dynamic component visibility based on data availability
+
+**Design Philosophy**:
+
+- **Data-Driven Visibility**: Components only render when meaningful data exists
+- **Clean Interface**: No empty states or skeleton loaders cluttering the UI
+- **Performance Benefits**: Reduced rendering overhead for empty visualizations
+- **Consistent Behavior**: Uniform pattern across all insights components
+
+**Implementation Pattern**:
+
+```typescript
+export default function InsightComponent({ data }: ComponentProps) {
+  // 1. All React hooks first
+  const processedData = useMemo(() => processData(data), [data]);
+  const theme = useTheme();
+  const { selectedCurrency } = useSettings();
+
+  // 2. Data validation
+  const hasData = useMemo(() => {
+    // Check if component has meaningful data to display
+    return Boolean(processedData && processedData.meaningfulValue > 0);
+  }, [processedData]);
+
+  // 3. Early return if no data (AFTER all hooks)
+  if (!hasData) return null;
+
+  // 4. Normal JSX rendering
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Component Title</CardTitle>
+      </CardHeader>
+      <CardFooter>
+        {/* Render meaningful content */}
+      </CardFooter>
+    </Card>
+  );
+}
+```
+
+**Components Using This Pattern**:
+
+- **SmartInsightsSection**: Returns `null` when no financial insights exist
+- **BarChartSection**: Hidden when `totalBarValue <= 0`
+- **LineChartSection**: Hidden when no time series data for current period
+- **PieChartSection**: Hidden when no category breakdown data exists
+
+**Benefits**:
+
+- **Cleaner UI**: Users only see sections with actual data
+- **Better Performance**: No rendering of empty chart components
+- **Improved UX**: No confusion from empty visualizations or skeleton states
+- **Consistent Feel**: All insights components behave uniformly
+
+### 4. Unified AppProvider (`contexts/AppProvider.tsx`)
 
 **Purpose**: Single provider combining all context providers
 
@@ -112,9 +376,68 @@ export function AppProvider({ children }: AppProviderProps) {
 }
 ```
 
-## Implementation Patterns
+```typescript
+export function AppProvider({ children }: AppProviderProps) {
+  return (
+    <AppThemeProvider>
+      <AppStateProvider>      {/* AppContext */}
+        <DialogProvider>
+          <ToastProvider>
+            <SettingsProvider>
+              {children}
+            </SettingsProvider>
+          </ToastProvider>
+        </DialogProvider>
+      </AppStateProvider>
+    </AppThemeProvider>
+  );
+}
+```
 
-### 1. Screen State Management Pattern
+### 5. Insights Hook Performance Pattern
+
+**useInsightManager Implementation**:
+
+The insights screen demonstrates advanced performance optimization techniques to prevent dashboard re-rendering cascades:
+
+```typescript
+function InsightsScreen() {
+  // ✅ Centralized hook with optimized dependencies
+  const {
+    selectedRangeIndex,
+    currentRangeKey,
+    insightsData,
+    handleRangeChange,
+    handleRefresh,
+    appState, // Only { isRefreshing } exposed
+  } = useInsightManager();
+
+  // ✅ Components handle their own conditional rendering
+  return (
+    <ScrollView refreshControl={<RefreshControl refreshing={appState.isRefreshing} onRefresh={handleRefresh} />}>
+      <BarChartSection timeSeriesData={insightsData.timeSeriesData} rangeLabel={currentRangeKey} />
+      <LineChartSection timeSeriesData={insightsData.timeSeriesData} rangeLabel={currentRangeKey} />
+      <PieChartSection categoryBreakdown={insightsData.categoryBreakdown} />
+      <SmartInsightsSection insightsSummary={insightsData.insightsSummary} />
+    </ScrollView>
+  );
+}
+```
+
+**Key Optimizations in useInsightManager**:
+
+1. **Broken Dependency Cycles**: `fetchInsightsData` removed from `useEffect` dependencies
+2. **Stabilized Callbacks**: Functions memoized to prevent unnecessary recreations
+3. **Minimal App State**: Only exposes `isRefreshing`, not full app state
+4. **Silent Refreshes**: Background updates without loading indicators
+5. **Optimized useEffect**: Dependencies limited to triggers only, not callback functions
+
+**Before vs After Performance**:
+
+- **Before**: 140+ lines with complex state management, caused dashboard re-renders
+- **After**: 53 lines (62% reduction), zero dashboard impact, cleaner separation of concerns
+
+## Implementation Patterns
 
 **Current Implementation** (Dashboard example):
 
@@ -228,19 +551,163 @@ function TransactionListScreen() {
 
 ### Transaction List Screen (`app/(drawer)/(tabs)/transactions.tsx`)
 
-- ✅ Uses `useTransaction()` for operations
-- ✅ Local state with filter management
-- ✅ Optimistic updates with fallback
+- ✅ Uses `useTransactionManager()` for comprehensive screen management
+- ✅ Complete filter, sort, and search capabilities
+- ✅ Modal state management for add/edit operations
+- ✅ Optimistic updates with fallback recovery
 - ✅ Responds to: `transactionListTrigger`
+
+**Implementation Example**:
+
+```typescript
+export default function TransactionsScreen() {
+  const {
+    transactions,
+    isRefreshing,
+    filterState,
+    showFilterModal,
+    showTransactionModal,
+    selectedTransaction,
+    handleFetchTransactions,
+    handleEditTransaction,
+    handleDeleteTransaction,
+    handleApproveTransaction,
+    handleAddTransaction,
+    handleCloseTransactionModal,
+  } = useTransactionManager();
+
+  return (
+    <TransactionListView
+      transactions={transactions}
+      onRefresh={handleFetchTransactions}
+      onEdit={handleEditTransaction}
+      onDelete={handleDeleteTransaction}
+      onApprove={handleApproveTransaction}
+    />
+  );
+}
+```
 
 ### Approve Transaction Screen (`app/(drawer)/approveTransaction.tsx`)
 
-- ✅ Uses `useTransaction()` for approve/delete operations
-- ✅ Filters pending transactions locally
+- ✅ Uses `useTransactionManager({ flaggedOnly: true })` for pending transactions
+- ✅ Filters only pending transactions (flaggedOnly: true)
 - ✅ Automatic cross-screen updates on operations
 - ✅ Responds to: `transactionListTrigger`
 
-### Settings, Insights, Alerts Screens
+### Insights Screen (`app/(drawer)/(tabs)/insights.tsx`)
+
+- ✅ Uses `useInsightManager()` for comprehensive insights management
+- ✅ Achieved 62% code reduction from 140+ lines to 53 lines
+- ✅ Automatic refresh on transaction data changes
+- ✅ Range selection with persistent state management
+- ✅ Conditional rendering - components only render when data exists
+- ✅ Responds to: `insightsUpdateTrigger`, `transactionListTrigger`
+
+**Implementation Example**:
+
+```typescript
+export default function InsightsScreen() {
+  const {
+    selectedRangeIndex,
+    currentRangeKey,
+    insightsData,
+    handleRangeChange,
+    handleRefresh,
+    appState,
+  } = useInsightManager();
+
+  return (
+    <ScrollView refreshControl={<RefreshControl refreshing={appState.isRefreshing} onRefresh={handleRefresh} />}>
+      {/* Components render conditionally based on data availability */}
+      <BarChartSection timeSeriesData={insightsData.timeSeriesData} rangeLabel={currentRangeKey} />
+      <LineChartSection timeSeriesData={insightsData.timeSeriesData} rangeLabel={currentRangeKey} />
+      <PieChartSection categoryBreakdown={insightsData.categoryBreakdown} />
+      <SmartInsightsSection insightsSummary={insightsData.insightsSummary} />
+    </ScrollView>
+  );
+}
+```
+
+### Alerts Screen (`app/(drawer)/alerts.tsx`)
+
+- ✅ Uses `useAlertManager()` for comprehensive alert management
+- ✅ Category-grouped alert display with progress tracking
+- ✅ Complete CRUD operations with confirmation dialogs
+- ✅ Real-time progress calculation and usage ratios
+- ✅ Modal form management for add/edit operations
+- ✅ Responds to: `alertsUpdateTrigger`, `transactionListTrigger`
+
+**Implementation Example**:
+
+```typescript
+export default function AlertsScreen() {
+  const {
+    alertsGroupedByCategory,
+    expandedCategoryKey,
+    modalVisible,
+    spendingUsageRatio,
+    incomeUsageRatio,
+    handleAddAlert,
+    handleEditAlert,
+    handleDeleteAlert,
+    handleSubmitAlert,
+    toggleCategoryExpansion,
+    closeModal,
+    handleRefresh,
+    appState,
+  } = useAlertManager();
+
+  return (
+    <ScrollView refreshControl={<RefreshControl refreshing={appState.isRefreshing} onRefresh={handleRefresh} />}>
+      <AlertProgressCard spendingUsage={spendingUsageRatio} incomeUsage={incomeUsageRatio} />
+      {Object.entries(alertsGroupedByCategory).map(([categoryKey, alerts]) => (
+        <AlertCategoryCard
+          key={categoryKey}
+          categoryKey={categoryKey}
+          alerts={alerts}
+          expanded={expandedCategoryKey === categoryKey}
+          onToggleExpansion={toggleCategoryExpansion}
+          onAddAlert={handleAddAlert}
+          onEditAlert={handleEditAlert}
+          onDeleteAlert={handleDeleteAlert}
+        />
+      ))}
+    </ScrollView>
+  );
+}
+```
+
+### App Root (`app/_layout.tsx`)
+
+- ✅ Uses `useAppInitialization()` for startup sequence
+- ✅ Permission management and error handling
+- ✅ Conditional feature enablement based on permissions
+- ✅ Database initialization and background task setup
+
+**Implementation Example**:
+
+```typescript
+export default function RootLayout() {
+  const { isInitialized, isLoading, error, retry } = useAppInitialization();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (error) {
+    return <ErrorScreen error={error} onRetry={retry} />;
+  }
+
+  if (!isInitialized) {
+    return <InitializationScreen />;
+  }
+
+  return <NavigationStack />;
+}
+```
+
+### Settings, Background Task Screens
 
 - ✅ Follow same pattern with specific triggers
 - ✅ Auto-refresh when relevant data changes
@@ -357,20 +824,203 @@ function BulkOperations() {
 
 ### Replacing Heavy State Hooks
 
-**Old Pattern** (Heavy `useTransactionState`):
+**Old Pattern** (Heavy individual state hooks):
 
 ```typescript
-// ❌ Heavy, complex state management
+// ❌ Heavy, complex state management per screen
 const { transactions, loading, actions } = useTransactionState();
+const { insights, loading: insightsLoading } = useInsightsState();
+const { alerts, loading: alertsLoading } = useAlertsState();
 ```
 
-**New Pattern** (Lightweight operations):
+**New Pattern** (Lightweight specialized hooks):
 
 ```typescript
-// ✅ Lightweight operations + local state
+// ✅ Lightweight operations + specialized management
 const { approveTransaction, removeTransaction } = useTransaction();
-const [transactions, setTransactions] = useState([]);
+const { insightsData, handleRangeChange, handleRefresh } = useInsightManager();
+const { alertsGroupedByCategory, handleAddAlert } = useAlertManager();
+const [localState, setLocalState] = useState([]);
 ```
+
+### Screen-Level Hook Integration
+
+**Old Pattern** (Manual state management):
+
+```typescript
+// ❌ Manual state, effects, and UI management per screen
+const [transactions, setTransactions] = useState([]);
+const [isLoading, setIsLoading] = useState(false);
+const [filterState, setFilterState] = useState({});
+const [showModal, setShowModal] = useState(false);
+const [selectedTransaction, setSelectedTransaction] = useState();
+
+useEffect(() => {
+  /* fetch data */
+}, [filters]);
+useEffect(() => {
+  /* handle updates */
+}, [triggers]);
+
+const handleEdit = (id) => {
+  /* manual modal management */
+};
+const handleDelete = (id) => {
+  /* manual confirmation */
+};
+```
+
+**New Pattern** (Comprehensive hook management):
+
+```typescript
+// ✅ Single hook managing all screen concerns
+const {
+  transactions,
+  isRefreshing,
+  filterState,
+  showTransactionModal,
+  selectedTransaction,
+  handleEditTransaction,
+  handleDeleteTransaction,
+  handleApproveTransaction,
+  handleFetchTransactions,
+} = useTransactionManager({
+  flaggedOnly: false,
+  initialPreset: 'All',
+});
+```
+
+### Insights Screen Modernization
+
+**Old Pattern** (140+ lines with complex state):
+
+```typescript
+// ❌ Complex local state management, multiple useEffects
+const [selectedRangeIndex, setSelectedRangeIndex] = useState(0);
+const [insightsSummary, setInsightsSummary] = useState(null);
+const [timeSeriesData, setTimeSeriesData] = useState(null);
+const [categoryBreakdown, setCategoryBreakdown] = useState({ income: [], expense: [] });
+const [isLoading, setIsLoading] = useState(false);
+
+// Multiple useEffects causing re-render cascades
+useEffect(() => {
+  /* fetch insights */
+}, [range]);
+useEffect(() => {
+  /* fetch categories */
+}, [range]);
+useEffect(() => {
+  /* fetch time series */
+}, [range]);
+```
+
+**New Pattern** (53 lines with centralized hook):
+
+```typescript
+// ✅ Single hook managing all insights state and operations
+const {
+  selectedRangeIndex,
+  currentRangeKey,
+  insightsData,
+  handleRangeChange,
+  handleRefresh,
+  appState,
+} = useInsightManager();
+```
+
+### Alert Management Modernization
+
+**Old Pattern** (Manual alert state and operations):
+
+```typescript
+// ❌ Manual alert management with complex state
+const [alerts, setAlerts] = useState([]);
+const [expandedCategories, setExpandedCategories] = useState({});
+const [modalVisible, setModalVisible] = useState(false);
+const [formData, setFormData] = useState({});
+
+const handleAddAlert = async (alert) => {
+  /* manual CRUD */
+};
+const handleEditAlert = async (id, alert) => {
+  /* manual update */
+};
+const handleDeleteAlert = async (id) => {
+  /* manual deletion */
+};
+```
+
+**New Pattern** (Comprehensive alert hook):
+
+```typescript
+// ✅ Centralized alert management with progress tracking
+const {
+  alertsGroupedByCategory,
+  expandedCategoryKey,
+  modalVisible,
+  spendingUsageRatio,
+  incomeUsageRatio,
+  handleAddAlert,
+  handleEditAlert,
+  handleDeleteAlert,
+  handleSubmitAlert,
+  toggleCategoryExpansion,
+} = useAlertManager();
+```
+
+### Component Conditional Rendering
+
+**Old Pattern** (Skeleton fallbacks):
+
+```typescript
+// ❌ Always shows component with skeleton when no data
+return (
+  <Card>
+    <CardHeader><CardTitle>Chart Title</CardTitle></CardHeader>
+    {hasData ? <ChartContent /> : <SkeletonLoader />}
+  </Card>
+);
+```
+
+**New Pattern** (Conditional rendering):
+
+```typescript
+// ✅ Component doesn't render when no meaningful data
+const hasData = useMemo(() => validateDataMeaning(data), [data]);
+
+if (!hasData) return null;
+
+return (
+  <Card>
+    <CardHeader><CardTitle>Chart Title</CardTitle></CardHeader>
+    <ChartContent />
+  </Card>
+);
+```
+
+### Hook Architecture Benefits
+
+**Performance Benefits**:
+
+- **62% Code Reduction**: From 140+ lines to 53 lines in insights screen
+- **Zero Dashboard Re-renders**: Optimized dependencies prevent cascading updates
+- **Debounced Triggers**: 50ms debouncing prevents excessive re-renders
+- **Minimal State Exposure**: Only necessary state exposed to prevent subscriptions
+
+**Developer Experience Benefits**:
+
+- **Specialized Hooks**: Each hook handles specific domain concerns
+- **Consistent Patterns**: Uniform API across all management hooks
+- **Built-in Operations**: CRUD, filtering, modal management included
+- **Error Handling**: Toast notifications and confirmation dialogs integrated
+- **TypeScript Support**: Full type safety across all hook interfaces
+
+**User Experience Benefits**:
+
+- **Optimistic Updates**: Immediate UI feedback with error recovery
+- **Cross-Screen Sync**: Real-time updates across all screens
+- **Conditional Rendering**: Clean UI without empty states
+- **Loading States**: Unified refresh indicators and pull-to-refresh
 
 ### Adding New Screens
 

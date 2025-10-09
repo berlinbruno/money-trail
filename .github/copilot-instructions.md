@@ -42,12 +42,43 @@ Stack (Root Layout)
 
 ### Hook System
 
-- **Lightweight Operations**: `useTransaction.ts` - Action-focused hook with:
-  - Direct database operations only
+- **Transaction Operations**: `useTransaction.ts` - Core transaction CRUD operations with:
+  - Complete transaction lifecycle management (create, update, delete, approve)
+  - Bulk operations (approve all, delete multiple)
+  - Query operations (fetch, search, get pending count)
   - Automatic cross-screen triggers via AppContext
-  - Optimistic updates with error recovery
   - Built-in toast notifications and error handling
-- **App Initialization**: `useAppInitialization.ts` - Handles app startup and permissions
+  - Optimistic update helpers for immediate UI feedback
+
+- **Transaction Management**: `useTransactionManager.ts` - Complete screen management with:
+  - Comprehensive filter, sort, and search capabilities
+  - Modal state management for add/edit operations
+  - Date preset handling and custom date ranges
+  - Integration with useTransaction for operations
+  - UI state coordination (modals, loading, selection)
+
+- **Insights Management**: `useInsightManager.ts` - Comprehensive insights hook with:
+  - Centralized state management for all insights data
+  - Performance optimizations preventing dashboard re-renders
+  - Auto-refresh capabilities with configurable options
+  - Minimal app state exposure for optimal performance
+  - 62% code reduction from previous implementation
+  - Range selection and time series data management
+
+- **Alert Management**: `useAlertManager.ts` - Complete alert system management with:
+  - Category-grouped alert organization (income/spending, weekly/monthly)
+  - Real-time progress tracking with current values
+  - Complete CRUD operations with confirmation dialogs
+  - Usage ratio calculations for spending and income
+  - Modal form state management for add/edit operations
+  - Expansion state management for category views
+
+- **App Initialization**: `useAppInitialization.ts` - Application startup sequence with:
+  - Sequential initialization (database, permissions, background tasks)
+  - Permission management (SMS, background tasks, wake lock)
+  - Error recovery and graceful degradation
+  - Conditional feature enablement based on permissions
+  - Database initialization and background task setup
 
 ## Development Workflow
 
@@ -108,7 +139,31 @@ npm run lint:fix     # Auto-fix linting issues
 - **Dialog Components**: `components/dialogs/` - Centralized dialog management
 - **Feature Components**: `components/{domain}/` - Domain-specific components
   - **Dashboard**: `KPISection`, `QuickActionsSection`, `RecentTransactionsSection`, `TrendsSection`, `NotificationListSection`
+  - **Insights**: `SmartInsightsSection`, `BarChartSection`, `LineChartSection`, `PieChartSection` with conditional rendering
 - **Styling**: TailwindCSS via NativeWind with theme support
+
+### Conditional Rendering Pattern (Insights)
+
+- **Data-Driven Visibility**: Components only render when meaningful data exists
+- **Performance Benefits**: No empty chart rendering or skeleton overhead
+- **Clean UX**: Users only see sections with actual data
+- **Implementation**: Early return `null` after all React hooks, before JSX
+
+```typescript
+export default function InsightComponent({ data }: ComponentProps) {
+  // 1. All React hooks first
+  const processedData = useMemo(() => processData(data), [data]);
+
+  // 2. Data validation
+  const hasData = useMemo(() => Boolean(processedData?.meaningfulValue > 0), [processedData]);
+
+  // 3. Early return if no data (AFTER all hooks)
+  if (!hasData) return null;
+
+  // 4. Normal JSX rendering
+  return <ComponentContent />;
+}
+```
 
 ### Type Definitions
 
@@ -145,6 +200,72 @@ npm run lint:fix     # Auto-fix linting issues
 - **Memory Management**: Efficient SMS batch processing
 
 ## Common Development Tasks
+
+### Hook Usage Best Practices
+
+#### Transaction Operations
+
+```typescript
+// Use useTransaction for core operations
+const { createTransaction, approveTransaction, deleteTransaction } = useTransaction();
+
+// Use useTransactionManager for screen-level management
+const {
+  transactions,
+  filterState,
+  showTransactionModal,
+  handleEditTransaction,
+  handleDeleteTransaction,
+  handleApproveTransaction,
+} = useTransactionManager({ flaggedOnly: false });
+```
+
+#### Insights Management
+
+```typescript
+// Use centralized insights hook for optimal performance
+const {
+  selectedRangeIndex,
+  currentRangeKey,
+  insightsData,
+  handleRangeChange,
+  handleRefresh,
+  appState, // Only { isRefreshing } exposed
+} = useInsightManager({
+  autoRefresh: true,
+  initialRangeIndex: 0,
+});
+
+// Components handle conditional rendering internally
+<BarChartSection timeSeriesData={insightsData.timeSeriesData} rangeLabel={currentRangeKey} />
+<LineChartSection timeSeriesData={insightsData.timeSeriesData} rangeLabel={currentRangeKey} />
+```
+
+#### Alert Management
+
+```typescript
+// Use useAlertManager for complete alert system
+const {
+  alertsGroupedByCategory,
+  expandedCategoryKey,
+  modalVisible,
+  spendingUsageRatio,
+  incomeUsageRatio,
+  handleAddAlert,
+  handleEditAlert,
+  handleDeleteAlert,
+  toggleCategoryExpansion,
+} = useAlertManager();
+```
+
+**Best Practices**:
+
+- Use specialized hooks for domain-specific functionality
+- Let hooks handle their own state management and UI coordination
+- Avoid exposing full app state to prevent re-render cascades
+- Use `handleRefresh` functions for pull-to-refresh functionality
+- Components will automatically hide when no meaningful data exists
+- Use optimistic updates for immediate UI feedback
 
 ### Dialog Usage Best Practices
 
@@ -201,14 +322,47 @@ const handleDeleteTransaction = useCallback(
 - `TrendsSection` (was `DashboardTrendsSection`)
 - `NotificationListSection` (was `DashboardNotificationsSection`)
 
+**Insights Components**: All implement conditional rendering pattern:
+
+- `SmartInsightsSection` - Returns `null` when no insights data
+- `BarChartSection` - Hidden when `totalBarValue <= 0`
+- `LineChartSection` - Hidden when no time series data
+- `PieChartSection` - Hidden when no category breakdown data
+
 ### Performance Optimization Patterns
 
 **State Management Performance**:
 
 - Use lightweight `useTransaction` hook for operations with automatic triggers
+- Use `useTransactionManager` for comprehensive screen management with 62% code reduction
+- Use `useInsightManager` for comprehensive insights management with 62% code reduction
+- Use `useAlertManager` for complete alert system with real-time progress tracking
 - Implement optimistic updates for immediate UI feedback, then trigger AppContext refresh
 - Use specific AppContext triggers for targeted updates (avoid triggering unnecessary re-renders)
 - Local component state + auto-refresh pattern instead of heavy state management hooks
+
+**Insights Hook Performance**:
+
+- Centralized data management preventing dashboard re-render cascades
+- Optimized `useEffect` dependencies avoiding dependency cycles
+- Minimal app state exposure (only `isRefreshing`) to prevent excessive subscriptions
+- Silent background refreshes for automatic data updates
+- Conditional rendering pattern eliminating empty chart overhead
+
+**Transaction Manager Performance**:
+
+- Complete filter, sort, and search state management in single hook
+- Modal state coordination preventing prop drilling
+- Date preset handling with optimized range calculations
+- Integration with useTransaction for seamless operations
+- UI state coordination reducing component complexity
+
+**Alert Manager Performance**:
+
+- Category-grouped organization reducing render complexity
+- Real-time progress calculations with memoized derived state
+- Expansion state management preventing unnecessary re-renders
+- Usage ratio calculations optimized for minimal recalculation
 
 **App Context Integration**:
 
@@ -255,10 +409,15 @@ const handleDeleteTransaction = useCallback(
 ### Key Patterns Summary
 
 - **Component Operations**: Use `useTransaction()` hook for database operations with automatic triggers
+- **Screen Management**: Use `useTransactionManager()` for complete screen state and UI coordination
 - **Cross-Screen Updates**: Operations trigger AppContext updates across all relevant screens
 - **Local State Pattern**: Component manages local state + auto-refresh on AppContext triggers
 - **Dialog Integration**: Use `useDialog()` for confirmations with loading states and error handling
 - **Toast Feedback**: Use `useToast()` for immediate user feedback on operations
+- **Insights Management**: Use `useInsightManager()` for comprehensive insights with performance optimization
+- **Alert Management**: Use `useAlertManager()` for complete alert system with progress tracking
+- **App Initialization**: Use `useAppInitialization()` for startup sequence and permissions
+- **Conditional Rendering**: Components return `null` when no meaningful data exists (no skeleton states)
 
 ## File Organization Best Practices
 
