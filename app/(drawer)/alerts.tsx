@@ -1,6 +1,5 @@
 import { useTheme } from '@react-navigation/native';
-import { useSQLiteContext } from 'expo-sqlite';
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import { Dimensions, FlatList, RefreshControl, View } from 'react-native';
 import { PieChart } from 'react-native-gifted-charts';
 
@@ -8,243 +7,35 @@ import { AlertCategoryCard, AlertForm } from '@/components/alert';
 import { Label } from '@/components/ui/label';
 import BaseModal from '@/components/ui/modal';
 import { Text } from '@/components/ui/text';
-import { ALERT_LABELS, ALERT_TYPE_FREQUENCY_MAP } from '@/constants/alertsConstants';
-import { useApp } from '@/contexts/AppContext';
-import { useDialog } from '@/contexts/DialogProvider';
-import { useToast } from '@/contexts/ToastProvider';
-import {
-  createAlert,
-  deleteAlert,
-  fetchAlertsByTypeAndFrequency,
-  fetchTransactionAmountByCategory,
-  updateAlert,
-} from '@/lib/database/alertQueries';
-import { AlertFrequency, Alert as Alerts, AlertType, EditAlert, NewAlert } from '@/types/Alert';
-import { TransactionCategory } from '@/types/Transaction';
-import { calculateUsageRatio, formatPercentage } from '@/utils/finance/alertUtils';
+import { ALERT_LABELS } from '@/constants/alertsConstants';
+import { useAlertManager } from '@/hooks/useAlertManager';
+import { formatPercentage } from '@/utils/finance/alertUtils';
 
 export default function AlertDashboardScreen() {
-  const [alertsGroupedByCategory, setAlertsGroupedByCategory] = useState<Record<string, Alerts[]>>({
-    'income-weekly': [],
-    'income-monthly': [],
-    'spending-weekly': [],
-    'spending-monthly': [],
-  });
-  const [availableAlertCategories, setAvailableAlertCategories] = useState<TransactionCategory[]>();
-  const [expandedCategoryKey, setExpandedCategoryKey] = useState<string | null>(null);
-  const [currentAlertTypeFrequency, setCurrentAlertTypeFrequency] = useState<{
-    type: AlertType;
-    frequency: AlertFrequency;
-  }>();
-  const [selectedAlert, setSelectedAlert] = useState<Alerts>();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [isFormSubmitting, setIsFormSubmitting] = useState(false);
-
   const theme = useTheme();
-  const db = useSQLiteContext();
-  const { state: appState, actions: appActions } = useApp();
-  const { showToast } = useToast();
-  const { showConfirmationDialog } = useDialog();
   const screenWidth = Dimensions.get('window').width;
   const pieChartRadius = screenWidth / 5;
 
-  // Calculates usage ratio for a list of alerts
-
-  // Fetch alerts grouped by type and frequency, and attach current values
-  const loadAlerts = useCallback(
-    async (showLoader = true) => {
-      if (!db) return;
-
-      if (showLoader) appActions.setRefreshing(true);
-
-      try {
-        const incomeWeeklyAlerts = await fetchAlertsByTypeAndFrequency(db, 'income', 'weekly');
-        const incomeMonthlyAlerts = await fetchAlertsByTypeAndFrequency(db, 'income', 'monthly');
-        const spendingWeeklyAlerts = await fetchAlertsByTypeAndFrequency(db, 'spending', 'weekly');
-        const spendingMonthlyAlerts = await fetchAlertsByTypeAndFrequency(
-          db,
-          'spending',
-          'monthly'
-        );
-
-        // Fetch category-specific current values for each alert
-        for (const alert of incomeWeeklyAlerts) {
-          alert.current_value = await fetchTransactionAmountByCategory(
-            db,
-            'credit',
-            alert.category,
-            'weekly'
-          );
-        }
-
-        for (const alert of incomeMonthlyAlerts) {
-          alert.current_value = await fetchTransactionAmountByCategory(
-            db,
-            'credit',
-            alert.category,
-            'monthly'
-          );
-        }
-
-        for (const alert of spendingWeeklyAlerts) {
-          alert.current_value = await fetchTransactionAmountByCategory(
-            db,
-            'debit',
-            alert.category,
-            'weekly'
-          );
-        }
-
-        for (const alert of spendingMonthlyAlerts) {
-          alert.current_value = await fetchTransactionAmountByCategory(
-            db,
-            'debit',
-            alert.category,
-            'monthly'
-          );
-        }
-
-        setAlertsGroupedByCategory({
-          'income-weekly': incomeWeeklyAlerts,
-          'income-monthly': incomeMonthlyAlerts,
-          'spending-weekly': spendingWeeklyAlerts,
-          'spending-monthly': spendingMonthlyAlerts,
-        });
-      } catch (error) {
-        console.error('Error loading alerts:', error);
-        showToast('Failed to load alerts data');
-      } finally {
-        if (showLoader) appActions.setRefreshing(false);
-      }
-    },
-    [db, showToast, appActions]
-  );
-
-  // Load alerts on mount
-  useEffect(() => {
-    loadAlerts(false); // Silent initial load
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Safe to disable - we only want this to run once on mount
-
-  // Refresh alerts when transaction data or alerts trigger changes
-  useEffect(() => {
-    loadAlerts(false); // Silent refresh when data changes
-  }, [appState.transactionListTrigger, appState.alertsUpdateTrigger, loadAlerts]);
-
-  // Handlers for add, edit, delete alerts
-  const handleAddAlert = (categoryKey: string, categories: TransactionCategory[]) => {
-    setAvailableAlertCategories(categories);
-    setCurrentAlertTypeFrequency(ALERT_TYPE_FREQUENCY_MAP[categoryKey]);
-    setSelectedAlert(undefined);
-    setModalVisible(true);
-  };
-
-  const handleEditAlert = (alert: Alerts, categories: TransactionCategory[]) => {
-    setAvailableAlertCategories(categories);
-    setSelectedAlert(alert);
-    setModalVisible(true);
-  };
-
-  const handleDeleteAlert = useCallback(
-    (alertId: string) => {
-      if (!alertId) return;
-
-      showConfirmationDialog({
-        title: 'Delete Alert',
-        description: 'Are you sure you want to delete this alert? This action cannot be undone.',
-        confirmText: 'Delete',
-        confirmVariant: 'destructive',
-        loadingText: 'Deleting...',
-        onConfirm: async () => {
-          try {
-            await deleteAlert(db, alertId);
-            await loadAlerts(false); // Silent refresh
-            appActions.triggerAlertsRefresh(); // Trigger alerts update for other components
-            showToast('Alert deleted successfully');
-          } catch (error) {
-            console.error('Failed to delete alert:', error);
-            showToast('Failed to delete alert');
-            throw error; // Let the dialog handle the error state
-          }
-        },
-      });
-    },
-    [db, loadAlerts, showToast, showConfirmationDialog, appActions]
-  );
-
-  const handleSubmitAlert = async (alert: NewAlert | EditAlert) => {
-    setIsFormSubmitting(true);
-    try {
-      if ('id' in alert) {
-        await updateAlert(db, {
-          id: alert.id,
-          category: alert.category,
-          threshold: alert.threshold,
-          updated_at: alert.updated_at,
-        });
-        showToast('Alert updated');
-      } else {
-        await createAlert(db, {
-          type: alert.type,
-          frequency: alert.frequency,
-          category: alert.category,
-          threshold: alert.threshold,
-          created_at: alert.created_at,
-        });
-        showToast('Alert created');
-      }
-      await loadAlerts(false); // Silent refresh
-      appActions.triggerAlertsRefresh(); // Trigger alerts update for other components
-      setModalVisible(false);
-    } catch (error) {
-      console.error('Failed to save alert:', error);
-      showToast('Failed to save alert');
-    } finally {
-      setIsFormSubmitting(false);
-    }
-  };
-
-  // Pull-to-refresh handler
-  const handleRefresh = async () => {
-    await loadAlerts(true); // Show loading for manual refresh
-    // Silent refresh - no toast needed for pull-to-refresh
-  };
-
-  // Derived data: calculate usage for spending and income alerts
-  const spendingUsageRatio = calculateUsageRatio(
-    [
-      ...alertsGroupedByCategory['spending-weekly'],
-      ...alertsGroupedByCategory['spending-monthly'],
-    ].map((alert) => ({
-      id: alert.id,
-      type: alert.type,
-      category: alert.category,
-      threshold: alert.threshold,
-      progress:
-        typeof alert.current_value === 'number' &&
-        typeof alert.threshold === 'number' &&
-        alert.threshold > 0
-          ? Math.min(alert.current_value / alert.threshold, 1)
-          : 0,
-    }))
-  );
-
-  const incomeUsageRatio = calculateUsageRatio(
-    [...alertsGroupedByCategory['income-weekly'], ...alertsGroupedByCategory['income-monthly']].map(
-      (alert) => ({
-        id: alert.id,
-        type: alert.type,
-        category: alert.category,
-        threshold: alert.threshold,
-        progress:
-          typeof alert.current_value === 'number' &&
-          typeof alert.threshold === 'number' &&
-          alert.threshold > 0
-            ? Math.min(alert.current_value / alert.threshold, 1)
-            : 0,
-      })
-    )
-  );
+  // Use the comprehensive alert manager hook
+  const {
+    alertsGroupedByCategory,
+    expandedCategoryKey,
+    modalVisible,
+    isFormSubmitting,
+    availableAlertCategories,
+    currentAlertTypeFrequency,
+    selectedAlert,
+    spendingUsageRatio,
+    incomeUsageRatio,
+    handleAddAlert,
+    handleEditAlert,
+    handleDeleteAlert,
+    handleSubmitAlert,
+    toggleCategoryExpansion,
+    closeModal,
+    handleRefresh,
+    appState,
+  } = useAlertManager();
 
   return (
     <View className="flex-1">
@@ -304,9 +95,7 @@ export default function AlertDashboardScreen() {
             label={ALERT_LABELS[categoryKey]}
             alerts={alertsGroupedByCategory[categoryKey] || []}
             expanded={expandedCategoryKey === categoryKey}
-            onToggleExpand={(key) =>
-              setExpandedCategoryKey(expandedCategoryKey === key ? null : key)
-            }
+            onToggleExpand={toggleCategoryExpansion}
             onAddAlert={handleAddAlert}
             onEditAlert={handleEditAlert}
             onDeleteAlert={handleDeleteAlert}
@@ -316,14 +105,14 @@ export default function AlertDashboardScreen() {
       <BaseModal
         title={selectedAlert ? 'Edit Alert' : 'Add Alert'}
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}>
+        onClose={closeModal}>
         {currentAlertTypeFrequency && availableAlertCategories && (
           <AlertForm
             alert={selectedAlert}
             availableCategories={availableAlertCategories}
             currentAlertTypeFrequency={currentAlertTypeFrequency}
             onSubmit={handleSubmitAlert}
-            onClose={() => setModalVisible(false)}
+            onClose={closeModal}
             isLoading={isFormSubmitting}
           />
         )}

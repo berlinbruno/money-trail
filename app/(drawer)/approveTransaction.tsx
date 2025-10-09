@@ -1,362 +1,97 @@
-import { useTheme } from '@react-navigation/native';
+import {
+  TransactionListView,
+  TransactionModals,
+  TransactionToolbar,
+} from '@/components/transaction';
+import { useTransactionManager } from '@/hooks/useTransactionManager';
 import { ArrowUpDown, CheckCheck, Filter } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, View } from 'react-native';
-import { SwipeListView } from 'react-native-swipe-list-view';
-
-import FilterForm from '@/components/transaction/FilterForm';
-import SortForm from '@/components/transaction/SortForm';
-import TransactionCard from '@/components/transaction/TransactionCard';
-import TransactionForm from '@/components/transaction/TransactionForm';
-import { Button } from '@/components/ui/button';
-import BaseModal from '@/components/ui/modal';
-import { Text } from '@/components/ui/text';
-import { useApp } from '@/contexts/AppContext';
-import { useDialog } from '@/contexts/DialogProvider';
-import { useToast } from '@/contexts/ToastProvider';
-import { useTransaction } from '@/hooks/useTransaction';
-
-import { FilterState } from '@/types/FilterState';
-import { EditTransaction, NewTransaction, Transaction } from '@/types/Transaction';
-import { getDateRangeForPreset } from '@/utils/transactions/filterUtils';
+import React from 'react';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Type Guard
-const isEditTransaction = (
-  tx: Transaction | NewTransaction | EditTransaction
-): tx is EditTransaction => {
-  return (tx as EditTransaction).id !== undefined;
-};
-
 export default function TransactionApprovalScreen() {
-  const theme = useTheme();
-  const { showToast } = useToast();
-  const { showConfirmationDialog } = useDialog();
   const insets = useSafeAreaInsets();
-  const { state: appState } = useApp();
+
   const {
-    approveTransaction,
-    approveAllTransactions,
-    deleteTransaction,
-    updateTransaction,
-    createTransaction,
-    updateTransactionState,
-    fetchTransactions,
-  } = useTransaction();
+    // State
+    transactions,
+    isRefreshing,
+    sortOrder,
+    setSortOrder,
+    sortBy,
+    setSortBy,
+    filterState,
+    setFilterState,
 
-  const [transactions, setTransactions] = useState<Transaction[] | null>(null);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
-  const [showFilterModal, setShowFilterModal] = useState(false);
-  const [showSortModal, setShowSortModal] = useState(false);
-  const [showTransactionModal, setShowTransactionModal] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction>();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [filterState, setFilterState] = useState<FilterState>({
-    search: '',
-    type: 'all',
-    category: 'all',
-    selectedPreset: 'All',
-    startDate: new Date(),
-    endDate: new Date(),
-    showStartPicker: false,
-    showEndPicker: false,
-  });
+    // Modal states
+    showFilterModal,
+    setShowFilterModal,
+    showSortModal,
+    setShowSortModal,
+    showTransactionModal,
+    setShowTransactionModal,
+    selectedTransaction,
 
-  const applyDatePreset = useCallback((preset: string) => {
-    const { start, end } = getDateRangeForPreset(preset);
+    // Actions
+    applyDatePreset,
+    handleFetchTransactions,
+    handleEditTransaction,
+    handleDeleteTransaction,
+    handleApproveTransaction,
+    handleApproveAllTransactions,
+    appState,
+  } = useTransactionManager({ flaggedOnly: true, initialPreset: 'All' });
 
-    setFilterState((prev) => ({
-      ...prev,
-      startDate: start,
-      endDate: end,
-      selectedPreset: preset,
-    }));
-  }, []);
+  // Configure list actions
+  const listActions = [
+    { label: 'Edit', variant: 'default' as const, onPress: handleEditTransaction },
+    { label: 'Approve', variant: 'success' as const, onPress: handleApproveTransaction },
+  ];
 
-  const handleTransactionsFetch = useCallback(
-    async (showLoader = true) => {
-      if (showLoader) setIsRefreshing(true);
-      try {
-        const rows = await fetchTransactions({
-          type: filterState.type === 'all' ? undefined : filterState.type,
-          category: filterState.category === 'all' ? undefined : filterState.category,
-          search: filterState.search,
-          startDate: filterState.startDate,
-          endDate: filterState.endDate,
-          sortBy: sortBy as 'date' | 'amount',
-          sortOrder: sortOrder,
-          flaggedOnly: true, // Only pending transactions for approval screen
-        });
-        setTransactions(rows);
-      } catch (error) {
-        console.error('Error fetching transactions:', error);
-        showToast('Failed to load transactions');
-      } finally {
-        if (showLoader) setIsRefreshing(false);
-      }
-    },
-    [fetchTransactions, filterState, sortBy, sortOrder, showToast]
-  );
-
-  const handleEditTransaction = (id: string) => {
-    const tx = transactions?.find((t) => t.id === id);
-    if (tx) {
-      setSelectedTransaction(tx);
-      setShowTransactionModal(true);
-    }
+  const leftAction = {
+    label: 'Delete',
+    variant: 'destructive' as const,
+    onPress: handleDeleteTransaction,
   };
 
-  const handleDeleteTransaction = useCallback(
-    (id: string) => {
-      if (!id) return;
+  // Configure toolbar actions
+  const toolbarActions = [
+    { label: 'Filter', icon: Filter, onPress: () => setShowFilterModal(true) },
+    { label: 'Approve All', icon: CheckCheck, onPress: handleApproveAllTransactions },
+    { label: 'Sort', icon: ArrowUpDown, onPress: () => setShowSortModal(true) },
+  ];
 
-      showConfirmationDialog({
-        title: 'Delete Transaction',
-        description:
-          'Are you sure you want to delete this transaction? This action cannot be undone.',
-        confirmText: 'Delete',
-        confirmVariant: 'destructive',
-        loadingText: 'Deleting...',
-        onConfirm: async () => {
-          try {
-            // Update local state immediately for better UX
-            updateTransactionState(setTransactions, 'delete', id);
-            // Perform database operation and trigger global updates
-            await deleteTransaction(id);
-          } catch (err) {
-            console.error('Failed to delete transaction:', err);
-            // Refresh data to revert optimistic update on error
-            await handleTransactionsFetch(false);
-            throw err; // Let the dialog handle the error state
-          }
-        },
-      });
-    },
-    [deleteTransaction, updateTransactionState, handleTransactionsFetch, showConfirmationDialog]
-  );
-
-  const handleApproveTransaction = useCallback(
-    (id: string) => {
-      if (!id) return;
-
-      showConfirmationDialog({
-        title: 'Approve Transaction',
-        description: 'Are you sure you want to approve this transaction?',
-        confirmText: 'Approve',
-        confirmVariant: 'default',
-        loadingText: 'Approving...',
-        onConfirm: async () => {
-          try {
-            // Update local state immediately for better UX
-            updateTransactionState(setTransactions, 'approve', id);
-            // Perform database operation and trigger global updates
-            await approveTransaction(id);
-          } catch (err) {
-            console.error('Failed to approve transaction:', err);
-            // Refresh data to revert optimistic update on error
-            await handleTransactionsFetch(false);
-            throw err; // Let the dialog handle the error state
-          }
-        },
-      });
-    },
-    [approveTransaction, updateTransactionState, handleTransactionsFetch, showConfirmationDialog]
-  );
-
-  const handleApproveAllTransactions = useCallback(() => {
-    showConfirmationDialog({
-      title: 'Approve All Transactions',
-      description: 'Are you sure you want to approve all pending transactions?',
-      confirmText: 'Approve All',
-      confirmVariant: 'default',
-      loadingText: 'Approving all...',
-      onConfirm: async () => {
-        try {
-          // Update local state immediately for better UX
-          updateTransactionState(setTransactions, 'approve_all');
-          // Perform database operation and trigger global updates
-          await approveAllTransactions();
-        } catch (err) {
-          console.error('Failed to approve all transactions:', err);
-          // Refresh data to revert optimistic update on error
-          await handleTransactionsFetch(false);
-          throw err; // Let the dialog handle the error state
-        }
-      },
-    });
-  }, [
-    approveAllTransactions,
-    updateTransactionState,
-    handleTransactionsFetch,
-    showConfirmationDialog,
-  ]);
-
-  // Initialize date preset once
-  useEffect(() => {
-    applyDatePreset('All');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Safe to disable - we only want this to run once
-
-  // Fetch transactions when filter dependencies change
-  useEffect(() => {
-    if (filterState.selectedPreset) {
-      // Only fetch if preset is set
-      handleTransactionsFetch(false); // Silent initial load
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterState, sortBy, sortOrder]); // Safe to disable - fetchTransactions is stable
-
-  // Refresh transactions when transaction list trigger changes
-  useEffect(() => {
-    if (filterState.selectedPreset) {
-      handleTransactionsFetch(false); // Silent refresh when triggered
-    }
-  }, [appState.transactionListTrigger, handleTransactionsFetch, filterState.selectedPreset]);
-
-  /** --- Render --- **/
   return (
     <View className="flex-1">
-      <SwipeListView
-        data={transactions}
-        keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing || appState.isRefreshing}
-            onRefresh={() => handleTransactionsFetch(true)}
-            colors={[theme.colors.background]}
-            tintColor={theme.colors.primary}
-          />
-        }
-        renderItem={({ item }) => (
-          <TransactionCard
-            title={item.title}
-            amount={item.amount}
-            date={item.date}
-            type={item.type}
-            category={item.category}
-          />
-        )}
-        renderHiddenItem={({ item }) => (
-          <View className="m-1 h-20 flex-row items-start justify-between">
-            <Button
-              size={null}
-              variant="destructive"
-              onPress={() => handleDeleteTransaction(item.id)}
-              className="ml-1 h-full w-24 rounded-none rounded-l-lg">
-              <Text>Delete</Text>
-            </Button>
-            <View className="h-20 flex-1 flex-row justify-end">
-              <Button
-                variant="default"
-                size={null}
-                onPress={() => handleEditTransaction(item.id)}
-                className="h-full w-24 rounded-none">
-                <Text>Edit</Text>
-              </Button>
-              <Button
-                size={null}
-                variant="success"
-                onPress={() => handleApproveTransaction(item.id)}
-                className="mr-1 h-full w-24 rounded-none rounded-r-lg">
-                <Text>Approve</Text>
-              </Button>
-            </View>
-          </View>
-        )}
-        leftOpenValue={90}
-        stopLeftSwipe={90}
-        rightOpenValue={-180}
-        stopRightSwipe={-180}
-        refreshing={isRefreshing}
-        onRefresh={() => handleTransactionsFetch(true)}
+      <TransactionListView
+        transactions={transactions}
+        isRefreshing={isRefreshing || appState.isRefreshing}
+        onRefresh={() => handleFetchTransactions(true)}
+        actions={listActions}
+        leftAction={leftAction}
       />
 
-      {/* Transaction Form Modal */}
-      <BaseModal
-        title={selectedTransaction ? 'Edit Transaction' : 'Add Transaction'}
-        visible={showTransactionModal}
-        onClose={() => setShowTransactionModal(false)}>
-        <TransactionForm
-          transaction={selectedTransaction}
-          onSubmit={async (transaction) => {
-            try {
-              if (isEditTransaction(transaction)) {
-                await updateTransaction(transaction);
-                // Hook already shows success toast and triggers updates
-              } else {
-                await createTransaction(transaction);
-                // Hook already shows success toast and triggers updates
-              }
-              await handleTransactionsFetch(false); // Silent refresh
-              setShowTransactionModal(false);
-              setSelectedTransaction(undefined);
-            } catch (err) {
-              console.error('Failed to save transaction:', err);
-              showToast('Failed to save transaction');
-            }
-          }}
-          onCancel={() => {
-            setShowTransactionModal(false);
-            setSelectedTransaction(undefined);
-          }}
-        />
-      </BaseModal>
+      <TransactionModals
+        showTransactionModal={showTransactionModal}
+        setShowTransactionModal={setShowTransactionModal}
+        selectedTransaction={selectedTransaction}
+        setSelectedTransaction={() => {}}
+        onTransactionSave={() => handleFetchTransactions(false)}
+        showFilterModal={showFilterModal}
+        setShowFilterModal={setShowFilterModal}
+        filterState={filterState}
+        setFilterState={setFilterState}
+        filterPresets={['All', 'Today', 'Last 7 Days', 'Last 30 Days']}
+        applyDatePreset={applyDatePreset}
+        showSortModal={showSortModal}
+        setShowSortModal={setShowSortModal}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+      />
 
-      {/* Filter Modal */}
-      <BaseModal title="Filter" visible={showFilterModal} onClose={() => setShowFilterModal(false)}>
-        <FilterForm
-          filterState={filterState}
-          setFilterState={setFilterState}
-          presets={['All', 'Today', 'Last 7 Days', 'Last 30 Days']}
-          applyPreset={applyDatePreset}
-          onClose={() => setShowFilterModal(false)}
-        />
-      </BaseModal>
-
-      {/* Sort Modal */}
-      <BaseModal title="Sort" visible={showSortModal} onClose={() => setShowSortModal(false)}>
-        <SortForm
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          onClose={() => setShowSortModal(false)}
-        />
-      </BaseModal>
-
-      {/* Footer Tab-Style Buttons */}
-      <View
-        className="flex-row border-t border-border bg-card"
-        style={{ paddingBottom: insets.bottom }}>
-        <Button
-          variant="ghost"
-          onPress={() => setShowFilterModal(true)}
-          className="flex-1 flex-row gap-2 rounded-none">
-          <Filter color={theme.colors.text} size={18} />
-          <Text className="text-sm font-medium">Filter</Text>
-        </Button>
-
-        <View className="w-px bg-border" />
-
-        <Button
-          variant="ghost"
-          onPress={() => handleApproveAllTransactions()}
-          className="flex-1 flex-row gap-2 rounded-none">
-          <CheckCheck color={theme.colors.text} size={18} />
-          <Text className="text-sm font-medium">Approve All</Text>
-        </Button>
-
-        <View className="w-px bg-border" />
-
-        <Button
-          variant="ghost"
-          onPress={() => setShowSortModal(true)}
-          className="flex-1 flex-row gap-2 rounded-none">
-          <ArrowUpDown color={theme.colors.text} size={18} />
-          <Text className="text-sm font-medium">Sort</Text>
-        </Button>
-      </View>
+      <TransactionToolbar actions={toolbarActions} style={{ paddingBottom: insets.bottom }} />
     </View>
   );
 }
