@@ -51,3 +51,23 @@ export async function fetchTotalTransactionAmount(
   const result = (await db.getAllAsync(query, params)) as { total_amount: number | null }[];
   return result[0]?.total_amount ?? 0;
 }
+
+export async function fetchTransactionAmountByCategory(
+  db: SQLiteDatabase,
+  type: TransactionType,
+  category: string,
+  frequency?: AlertFrequency
+): Promise<number> {
+  let query = `SELECT SUM(amount) AS total_amount 
+               FROM transactions
+               WHERE type = ? AND category = ? AND pending_approval = 0`;
+  const params: any[] = [type, category];
+
+  if (frequency) {
+    const dateFormat = getDateFormat(frequency);
+    query += ` AND strftime('${dateFormat}', date) = strftime('${dateFormat}', 'now')`;
+  }
+
+  const result = (await db.getAllAsync(query, params)) as { total_amount: number | null }[];
+  return result[0]?.total_amount ?? 0;
+}

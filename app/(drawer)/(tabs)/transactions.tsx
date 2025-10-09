@@ -149,7 +149,7 @@ export default function TransactionListScreen() {
 
   // Initialize date preset once
   useEffect(() => {
-    applyDatePreset('all');
+    applyDatePreset('All');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Safe to disable - we only want this to run once
 
@@ -251,7 +251,7 @@ export default function TransactionListScreen() {
         <FilterForm
           filterState={filterState}
           setFilterState={handleFilterStateChange}
-          presets={['all', 'Today', 'Last 7 Days', 'Last 30 Days']}
+          presets={['All', 'Today', 'Last 7 Days', 'Last 30 Days']}
           applyPreset={applyDatePreset}
           onClose={() => setShowFilterModal(false)}
         />

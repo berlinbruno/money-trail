@@ -56,7 +56,7 @@ export default function TransactionApprovalScreen() {
     search: '',
     type: 'all',
     category: 'all',
-    selectedPreset: 'all',
+    selectedPreset: 'All',
     startDate: new Date(),
     endDate: new Date(),
     showStartPicker: false,
@@ -194,7 +194,7 @@ export default function TransactionApprovalScreen() {
 
   // Initialize date preset once
   useEffect(() => {
-    applyDatePreset('all');
+    applyDatePreset('All');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Safe to disable - we only want this to run once
 
@@ -308,7 +308,7 @@ export default function TransactionApprovalScreen() {
         <FilterForm
           filterState={filterState}
           setFilterState={setFilterState}
-          presets={['all', 'Today', 'Last 7 Days', 'Last 30 Days']}
+          presets={['All', 'Today', 'Last 7 Days', 'Last 30 Days']}
           applyPreset={applyDatePreset}
           onClose={() => setShowFilterModal(false)}
         />

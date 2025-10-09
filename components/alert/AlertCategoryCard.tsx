@@ -106,21 +106,21 @@ export default function AlertCategoryCard({
                 <Button
                   variant={'default'}
                   size={null}
-                  className="h-full w-20 rounded-none"
+                  className="h-full w-24 rounded-none"
                   onPress={() => onEditAlert(item as any, getAvailableCategories())}>
                   <Text>Edit</Text>
                 </Button>
                 <Button
                   size={null}
                   variant="destructive"
-                  className="h-full w-20 rounded-none rounded-r-xl"
+                  className="h-full w-24 rounded-none rounded-r-xl"
                   onPress={() => onDeleteAlert(item.id)}>
                   <Text>Delete</Text>
                 </Button>
               </View>
             )}
-            rightOpenValue={-160}
-            stopRightSwipe={-160}
+            rightOpenValue={-180}
+            stopRightSwipe={-180}
             disableRightSwipe
           />
         )}

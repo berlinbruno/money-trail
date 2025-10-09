@@ -210,7 +210,7 @@ function FilterForm({
               search: '',
               type: 'all',
               category: 'all',
-              selectedPreset: '',
+              selectedPreset: 'All',
               startDate: null,
               endDate: null,
               showStartPicker: false,

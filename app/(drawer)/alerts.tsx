@@ -16,7 +16,7 @@ import {
   createAlert,
   deleteAlert,
   fetchAlertsByTypeAndFrequency,
-  fetchTotalTransactionAmount,
+  fetchTransactionAmountByCategory,
   updateAlert,
 } from '@/lib/database/alertQueries';
 import { AlertFrequency, Alert as Alerts, AlertType, EditAlert, NewAlert } from '@/types/Alert';
@@ -67,15 +67,42 @@ export default function AlertDashboardScreen() {
           'monthly'
         );
 
-        const incomeWeeklyCurrent = await fetchTotalTransactionAmount(db, 'credit', 'weekly');
-        const incomeMonthlyCurrent = await fetchTotalTransactionAmount(db, 'credit', 'monthly');
-        const spendingWeeklyCurrent = await fetchTotalTransactionAmount(db, 'debit', 'weekly');
-        const spendingMonthlyCurrent = await fetchTotalTransactionAmount(db, 'debit', 'monthly');
+        // Fetch category-specific current values for each alert
+        for (const alert of incomeWeeklyAlerts) {
+          alert.current_value = await fetchTransactionAmountByCategory(
+            db,
+            'credit',
+            alert.category,
+            'weekly'
+          );
+        }
 
-        incomeWeeklyAlerts.forEach((alert) => (alert.current_value = incomeWeeklyCurrent));
-        incomeMonthlyAlerts.forEach((alert) => (alert.current_value = incomeMonthlyCurrent));
-        spendingWeeklyAlerts.forEach((alert) => (alert.current_value = spendingWeeklyCurrent));
-        spendingMonthlyAlerts.forEach((alert) => (alert.current_value = spendingMonthlyCurrent));
+        for (const alert of incomeMonthlyAlerts) {
+          alert.current_value = await fetchTransactionAmountByCategory(
+            db,
+            'credit',
+            alert.category,
+            'monthly'
+          );
+        }
+
+        for (const alert of spendingWeeklyAlerts) {
+          alert.current_value = await fetchTransactionAmountByCategory(
+            db,
+            'debit',
+            alert.category,
+            'weekly'
+          );
+        }
+
+        for (const alert of spendingMonthlyAlerts) {
+          alert.current_value = await fetchTransactionAmountByCategory(
+            db,
+            'debit',
+            alert.category,
+            'monthly'
+          );
+        }
 
         setAlertsGroupedByCategory({
           'income-weekly': incomeWeeklyAlerts,
