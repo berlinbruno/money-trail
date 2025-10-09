@@ -35,7 +35,6 @@ interface AppActions {
   triggerRecentTransactionsUpdate: () => void;
   triggerPendingTransactionCountUpdate: () => void;
   triggerTransactionListUpdate: () => void;
-  triggerDashboardRefresh: () => void;
   triggerSettingsRefresh: () => void;
   triggerInsightsRefresh: () => void;
   triggerAlertsRefresh: () => void;
@@ -54,7 +53,6 @@ interface AppActions {
   markRecentTransactionsUpdated: () => void;
   markPendingCountUpdated: () => void;
   markTransactionListUpdated: () => void;
-  markDashboardUpdated: () => void;
   markSettingsUpdated: () => void;
   markInsightsUpdated: () => void;
   markAlertsUpdated: () => void;
@@ -158,17 +156,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     });
   }, [debouncedTrigger]);
 
-  // Dashboard refresh trigger (debounced)
-  const triggerDashboardRefresh = useCallback(() => {
-    debouncedTrigger('dashboard', () => {
-      setState((prev) => ({
-        ...prev,
-        dashboardUpdateTrigger: prev.dashboardUpdateTrigger + 1,
-        lastDashboardUpdate: new Date().toISOString(),
-      }));
-    });
-  }, [debouncedTrigger]);
-
   // Settings refresh trigger (debounced)
   const triggerSettingsRefresh = useCallback(() => {
     debouncedTrigger('settings', () => {
@@ -214,6 +201,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, [debouncedTrigger]);
 
   // Combined trigger for all transaction-related data (debounced)
+  // Updates: KPI, Recent Transactions, Pending Count, Transaction List, Alerts
   const triggerTransactionDataUpdate = useCallback(() => {
     debouncedTrigger('transactionData', () => {
       const timestamp = new Date().toISOString();
@@ -234,6 +222,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, [debouncedTrigger]);
 
   // Combined trigger for dashboard data (debounced)
+  // Updates: Dashboard, KPI, Recent Transactions, Notifications
   const triggerDashboardDataUpdate = useCallback(() => {
     debouncedTrigger('dashboardData', () => {
       const timestamp = new Date().toISOString();
@@ -251,7 +240,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     });
   }, [debouncedTrigger]);
 
-  // Global refresh trigger (immediate, but still debounced per category)
+  // Global refresh trigger - Updates all triggers immediately
+  // Use sparingly - prefer specific or combined triggers for better performance
   const triggerGlobalRefresh = useCallback(() => {
     const timestamp = new Date().toISOString();
     setState((prev) => ({
@@ -311,13 +301,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }));
   }, []);
 
-  const markDashboardUpdated = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      lastDashboardUpdate: new Date().toISOString(),
-    }));
-  }, []);
-
   const markSettingsUpdated = useCallback(() => {
     setState((prev) => ({
       ...prev,
@@ -352,7 +335,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     triggerRecentTransactionsUpdate,
     triggerPendingTransactionCountUpdate,
     triggerTransactionListUpdate,
-    triggerDashboardRefresh,
     triggerSettingsRefresh,
     triggerInsightsRefresh,
     triggerAlertsRefresh,
@@ -365,7 +347,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     markRecentTransactionsUpdated,
     markPendingCountUpdated,
     markTransactionListUpdated,
-    markDashboardUpdated,
     markSettingsUpdated,
     markInsightsUpdated,
     markAlertsUpdated,
