@@ -7,6 +7,7 @@ import {
 } from '@/components/dashboard';
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/contexts/ToastProvider';
+import { useTransaction } from '@/hooks/useTransaction';
 import {
   getMonthlyKPI,
   getRecentTransactions,
@@ -17,7 +18,6 @@ import {
   getUnreadNotifications,
   insertAlertNotifications,
 } from '@/lib/database/notificationQueries';
-import { getPendingTransactionCount } from '@/lib/database/transactionQueries';
 import { INotificationRow } from '@/types/Common';
 import { KPIData, RecentTx, TrendRow } from '@/types/Insight';
 import { useTheme } from '@react-navigation/native';
@@ -30,6 +30,7 @@ export default function DashboardScreen() {
   const db = useSQLiteContext();
   const { showToast } = useToast();
   const { state: appState, actions: appActions } = useApp();
+  const { getPendingCount } = useTransaction();
 
   const [monthlyKPIData, setMonthlyKPIData] = useState<KPIData>({
     totalIncome: 0,
@@ -43,12 +44,12 @@ export default function DashboardScreen() {
 
   const fetchPendingCount = useCallback(async () => {
     try {
-      const count = await getPendingTransactionCount(db);
+      const count = await getPendingCount();
       setPendingCount(count);
     } catch (error) {
       console.error('Error fetching pending count:', error);
     }
-  }, [db]);
+  }, [getPendingCount]);
 
   const fetchDashboardData = useCallback(
     async (showLoader = true) => {
@@ -65,8 +66,9 @@ export default function DashboardScreen() {
         setMonthlyTrends(trendsData);
         setNotifications(unreadNotifications);
 
-        // Mark dashboard as updated
-        appActions.markDashboardUpdated();
+        // REMOVED: markDashboardUpdated() call to prevent infinite loop
+        // This was causing circular dependency: fetchDashboardData → markDashboardUpdated →
+        // AppContext state change → actions recreation → fetchDashboardData recreation → infinite loop
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         showToast('Unable to load dashboard data');

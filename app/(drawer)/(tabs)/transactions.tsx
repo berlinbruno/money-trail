@@ -11,17 +11,14 @@ import { useDialog } from '@/contexts/DialogProvider';
 import { useToast } from '@/contexts/ToastProvider';
 import { useTransaction } from '@/hooks/useTransaction';
 import { useTheme } from '@react-navigation/native';
-import { useSQLiteContext } from 'expo-sqlite';
 import { ArrowUpDown, Filter, PlusCircle } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, View } from 'react-native';
 import { SwipeListView } from 'react-native-swipe-list-view';
 
-import { insertTransaction, updateTransaction } from '@/lib/database/transactionQueries';
-
 import { FilterState } from '@/types/FilterState';
 import { EditTransaction, NewTransaction, Transaction } from '@/types/Transaction';
-import { fetchTransactionsFromDB, getDateRangeForPreset } from '@/utils/transactions/filterUtils';
+import { getDateRangeForPreset } from '@/utils/transactions/filterUtils';
 
 // Type Guard
 const isEditTransaction = (
@@ -31,12 +28,18 @@ const isEditTransaction = (
 };
 
 export default function TransactionListScreen() {
-  const db = useSQLiteContext();
   const theme = useTheme();
   const { showToast } = useToast();
   const { showConfirmationDialog } = useDialog();
-  const { state: appState, actions: appActions } = useApp();
-  const { removeTransaction, updateTransactionState } = useTransaction();
+  const { state: appState } = useApp();
+  const {
+    deleteTransaction,
+    updateTransaction,
+    createTransaction,
+    updateTransactionState,
+    fetchTransactions,
+    duplicateTransaction,
+  } = useTransaction();
 
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -82,11 +85,20 @@ export default function TransactionListScreen() {
     setSortBy(sortField);
   }, []);
 
-  const fetchTransactions = useCallback(
+  const handleTransactionsFetch = useCallback(
     async (showLoader = true) => {
       if (showLoader) setIsRefreshing(true);
       try {
-        const rows = await fetchTransactionsFromDB(db, filterState, sortBy, sortOrder, false);
+        const rows = await fetchTransactions({
+          type: filterState.type === 'all' ? undefined : filterState.type,
+          category: filterState.category === 'all' ? undefined : filterState.category,
+          search: filterState.search,
+          startDate: filterState.startDate,
+          endDate: filterState.endDate,
+          sortBy: sortBy as 'date' | 'amount',
+          sortOrder: sortOrder,
+          flaggedOnly: false, // Show approved transactions for main list
+        });
         setTransactions(rows);
       } catch (error) {
         console.error('Error fetching transactions:', error);
@@ -95,7 +107,7 @@ export default function TransactionListScreen() {
         if (showLoader) setIsRefreshing(false);
       }
     },
-    [db, filterState, sortBy, sortOrder, showToast]
+    [fetchTransactions, filterState, sortBy, sortOrder, showToast]
   );
 
   const handleEditTransaction = (id: string) => {
@@ -122,17 +134,17 @@ export default function TransactionListScreen() {
             // Update local state immediately for better UX
             updateTransactionState(setTransactions, 'delete', id);
             // Perform database operation and trigger global updates
-            await removeTransaction(id);
+            await deleteTransaction(id);
           } catch (err) {
             console.error('Failed to delete transaction:', err);
             // Refresh data to revert optimistic update on error
-            await fetchTransactions(false);
+            await handleTransactionsFetch(false);
             throw err; // Let the dialog handle the error state
           }
         },
       });
     },
-    [removeTransaction, updateTransactionState, fetchTransactions, showConfirmationDialog]
+    [deleteTransaction, updateTransactionState, handleTransactionsFetch, showConfirmationDialog]
   );
 
   // Initialize date preset once
@@ -145,7 +157,7 @@ export default function TransactionListScreen() {
   useEffect(() => {
     if (filterState.selectedPreset) {
       // Only fetch if preset is set
-      fetchTransactions(false); // Silent initial load
+      handleTransactionsFetch(false); // Silent initial load
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterState, sortBy, sortOrder]); // Safe to disable - fetchTransactions is stable
@@ -153,9 +165,9 @@ export default function TransactionListScreen() {
   // Refresh transactions when transaction list trigger changes
   useEffect(() => {
     if (filterState.selectedPreset) {
-      fetchTransactions(false); // Silent refresh when triggered
+      handleTransactionsFetch(false); // Silent refresh when triggered
     }
-  }, [appState.transactionListTrigger, fetchTransactions, filterState.selectedPreset]);
+  }, [appState.transactionListTrigger, handleTransactionsFetch, filterState.selectedPreset]);
   return (
     <View className="flex-1">
       <SwipeListView
@@ -164,7 +176,7 @@ export default function TransactionListScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing || appState.isRefreshing}
-            onRefresh={() => fetchTransactions(true)}
+            onRefresh={() => handleTransactionsFetch(true)}
             colors={[theme.colors.background]}
             tintColor={theme.colors.primary}
           />
@@ -198,15 +210,9 @@ export default function TransactionListScreen() {
         )}
         rightOpenValue={-180}
         stopRightSwipe={-180}
-        disableRightSwipe={false}
+        disableRightSwipe={true}
         refreshing={isRefreshing}
-        onRefresh={() => fetchTransactions(true)}
-        // Performance optimizations
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        updateCellsBatchingPeriod={100}
-        initialNumToRender={15}
-        windowSize={10}
+        onRefresh={() => handleTransactionsFetch(true)}
       />
 
       {/* Transaction Modal */}
@@ -219,17 +225,13 @@ export default function TransactionListScreen() {
           onSubmit={async (transaction) => {
             try {
               if (isEditTransaction(transaction)) {
-                await updateTransaction(db, transaction);
-                showToast('Transaction has been modified');
-                // Trigger transaction list refresh for edit
-                appActions.triggerTransactionListUpdate();
+                await updateTransaction(transaction);
+                // Hook already shows success toast and triggers updates
               } else {
-                await insertTransaction(db, transaction);
-                showToast('New transaction has been created');
-                // Trigger comprehensive data update for new transaction
-                appActions.triggerTransactionDataUpdate();
+                await createTransaction(transaction);
+                // Hook already shows success toast and triggers updates
               }
-              await fetchTransactions(false); // Silent refresh
+              await handleTransactionsFetch(false); // Silent refresh
               setShowTransactionModal(false);
               setSelectedTransaction(undefined);
             } catch (err) {

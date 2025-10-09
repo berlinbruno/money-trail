@@ -7,7 +7,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/DialogProvider';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastProvider';
-import { insertTransaction } from '@/lib/database/transactionQueries';
+import { useTransaction } from '@/hooks/useTransaction';
 import { syncTransactions } from '@/lib/sms/sync';
 import { EditTransaction, NewTransaction } from '@/types/Transaction';
 import { refreshSettingsGlobally } from '@/utils/settingsUtils';
@@ -36,6 +36,7 @@ export function QuickActionsSection({ pendingCount }: QuickActionsSectionProps) 
   const { checkSMSPermissionWithDialog } = useDialog();
   const { showToast } = useToast();
   const { actions: appActions } = useApp();
+  const { createTransaction } = useTransaction();
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
 
@@ -161,10 +162,8 @@ export function QuickActionsSection({ pendingCount }: QuickActionsSectionProps) 
         <TransactionForm
           onSubmit={async (transaction: NewTransaction | EditTransaction) => {
             try {
-              await insertTransaction(db, transaction as NewTransaction);
-              showToast('New transaction has been created');
-              // Trigger transaction refresh to update all screens
-              appActions.triggerTransactionDataUpdate();
+              await createTransaction(transaction as NewTransaction);
+              // Hook already shows success toast and triggers updates
               setShowTransactionModal(false);
             } catch (err) {
               console.error('Failed to save transaction:', err);
