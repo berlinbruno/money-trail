@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - release
-      - 'feat/**'
+      - 'feat-**'
       - 'feature/**'
   pull_request:
     types: [opened, reopened, synchronize] # ✅ only when PR is created, updated, or reopened
