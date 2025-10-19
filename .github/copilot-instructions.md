@@ -140,7 +140,8 @@ npm run lint:fix     # Auto-fix linting issues
 - **Feature Components**: `components/{domain}/` - Domain-specific components
   - **Dashboard**: `KPISection`, `QuickActionsSection`, `RecentTransactionsSection`, `TrendsSection`, `NotificationListSection`
   - **Insights**: `SmartInsightsSection`, `BarChartSection`, `LineChartSection`, `PieChartSection` with conditional rendering
-- **Styling**: TailwindCSS via NativeWind with theme support
+- **Styling**: TailwindCSS via NativeWind with native theme support via `expo-theme-changer`
+- **Theme System**: Native theme management with `expo-theme-changer` module for high-performance theme switching and automatic system theme detection
 
 ### Conditional Rendering Pattern (Insights)
 
@@ -405,6 +406,7 @@ const handleDeleteTransaction = useCallback(
 - **Toast System**: `docs/toast-system.md` - Unified notification system
 - **Database Context**: `docs/database-context.md` - SQLite patterns and query organization
 - **Common Systems**: `docs/common-systems.md` - Theme, styling, and shared patterns
+- **Theme System**: `docs/expo-theme-changer-integration.md` - Native theme management with expo-theme-changer
 
 ### Key Patterns Summary
 

@@ -46,3 +46,6 @@ expo-env.d.ts
 
 /android
 /ios
+
+.vscode/
+.idea/
